@@ -2,7 +2,7 @@
  * Axios instance + interceptors 
  */
 
-import axios from 'axios';
+import axios from "axios";
 
 // Create an Axios instance with default configuration
 const api = axios.create({
@@ -16,7 +16,7 @@ const api = axios.create({
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token');
-        if (token) {
+        if (token && config.headers) {
             config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
