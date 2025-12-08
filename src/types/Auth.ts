@@ -13,13 +13,20 @@ export interface LoginResponse {
 }
 
 export interface RegisterUserInfo {
+    name: string;
     email: string;
+    phone_number: string;
     password: string;
-    full_name?: string;
 }
 
 export interface RegisterResponse {
     id: number;
+    name: string;
     email: string;
-    full_name?: string;
+    phone_number: string;
+    role: string;
+    is_verified: boolean;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
 }

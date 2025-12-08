@@ -13,7 +13,7 @@ export const loginUser = async (credentials: LoginCredentials): Promise<LoginRes
     formData.append('username', credentials.email); // maps email to username
     formData.append('password', credentials.password);
 
-    const response = await api.post<LoginResponse>('/login/', formData, {
+    const response = await api.post<LoginResponse>('/login', formData, {
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
         },
@@ -24,6 +24,11 @@ export const loginUser = async (credentials: LoginCredentials): Promise<LoginRes
 
 // Registration function
 export const registerUser = async (userInfo: RegisterUserInfo): Promise<RegisterResponse> => {
-    const response = await api.post<RegisterResponse>('/register/', userInfo);
+    const response = await api.post<RegisterResponse>('/register', userInfo);
     return response.data;
+};
+
+// Logout function
+export const logoutUser = async (): Promise<void> => {
+    await api.post('/logout');
 };
