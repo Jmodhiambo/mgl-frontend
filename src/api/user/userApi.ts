@@ -3,7 +3,7 @@
  */
 
 import api from '../axiosConfig';
-import type { User, UserPasswordChange, UserPasswordUpdate, UserUpdate, UserCreate } from "../../types/User";
+import type { User, UserPasswordChange, UserPasswordUpdate, UserUpdate, UserCreate } from '../../types/User';
 
 // Register a new user
 export const registerUser = async (userData: UserCreate): Promise<User> => {
