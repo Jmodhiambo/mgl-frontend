@@ -1,5 +1,5 @@
 /**
- * Ticket Types API Module
+ * User Ticket Types API Module
  */
 
 import api from '../axiosConfig';

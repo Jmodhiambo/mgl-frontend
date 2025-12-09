@@ -1,5 +1,5 @@
 /**
- * API module for handling event-related operations.
+ * User Events API Module
  */
 
 import api from '../axiosConfig';

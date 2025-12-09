@@ -32,3 +32,12 @@ export interface EventUpdate {
     start_time?: string;
     end_time?: string;
 }
+
+export interface OrganizerEventsResponse extends Event {
+    approved: boolean;
+    rejected: boolean;
+}
+
+export interface EventStatus {
+    status: "upcoming" | "ongoing" | "completed" | "cancelled" | "deleted";
+}

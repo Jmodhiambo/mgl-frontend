@@ -1,5 +1,5 @@
 /**
- * API module for handling user-related operations.
+ * User API Module
  */
 
 import api from '../axiosConfig';

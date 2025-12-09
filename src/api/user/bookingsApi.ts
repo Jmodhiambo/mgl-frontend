@@ -1,5 +1,5 @@
 /**
- * Bookings API Module
+ * User Bookings API Module
  */
 
 import api from '../axiosConfig';

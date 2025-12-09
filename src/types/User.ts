@@ -37,29 +37,35 @@ export interface UserPasswordUpdate {
   new_password: string;
 }
 
-export interface Organizer extends User {
-  bio: string;
-  organization_name?: string;
-  website_url?: string;
-  social_media_links?: string[];
-  profile_picture_url?: string;
-  area_of_expertise?: string[];
-}
-
 export interface OrganizerCreate {
   bio: string;
   organization_name?: string;
   website_url?: string;
   social_media_links?: string[];
-  profile_picture_url: string;
   area_of_expertise: string[];
 }
 
-export interface OrganizerUpdate {
+export interface OrganizerInfo extends OrganizerCreate {
+  profile_picture_url?: string;
+}
+export interface Organizer {
+    id: number;
+    name: string;
+    email: string;
+    phone_number: string;
+    role: string;
+    is_verified: boolean;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+    organizer_info: OrganizerInfo;
+
+}
+
+export interface OrganizerUpdate extends UserUpdate {
   bio?: string;
   organization_name?: string;
   website_url?: string;
   social_media_links?: string[];
-  profile_picture_url?: string;
   area_of_expertise?: string[];
 }

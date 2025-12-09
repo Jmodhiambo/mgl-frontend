@@ -1,5 +1,5 @@
 /**
- * Payments API Module
+ * User Payments API Module
  */
 
 import api from '../axiosConfig';
