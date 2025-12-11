@@ -7,25 +7,25 @@ import type { Payment, PaymentCreate, PaymentUpdate } from '../../types/Payment'
 
 
 // Create a new payment
-export const createPayment = async (userId: number, paymentData: PaymentCreate): Promise<Payment> => {
-    const response = await api.post(`/users/${userId}/payments`, paymentData);
+export const createPayment = async (paymentData: PaymentCreate): Promise<Payment> => {
+    const response = await api.post(`/users/me/payments`, paymentData);
     return response.data;
 }
 
 // Retrieve a payment by ID
-export const getPayment = async (userId: number, paymentId: number): Promise<Payment> => {
-    const response = await api.get(`/users/${userId}/payments/${paymentId}`);
-    return response.data;
-}
-
-// Get payments by booking ID
-export const getPaymentsByBooking = async (userId: number, bookingId: number): Promise<Payment[]> => {
-    const response = await api.get(`/users/${userId}/bookings/${bookingId}/payments`);
+export const getPayment = async (paymentId: number): Promise<Payment> => {
+    const response = await api.get(`/users/me/payments/${paymentId}`);
     return response.data;
 }
 
 // Update a payment by ID
-export const updatePayment = async (userId: number, paymentId: number, paymentData: PaymentUpdate): Promise<Payment> => {
-    const response = await api.put(`/users/${userId}/payments/${paymentId}`, paymentData);
+export const updatePayment = async (paymentId: number, paymentData: PaymentUpdate): Promise<Payment> => {
+    const response = await api.put(`/users/me/payments/${paymentId}`, paymentData);
+    return response.data;
+}
+
+// Get payments by booking ID
+export const getPaymentsByBooking = async (bookingId: number): Promise<Payment[]> => {
+    const response = await api.get(`/users/me/bookings/${bookingId}/payments`);
     return response.data;
 }

@@ -3,13 +3,7 @@
  */
 
 import api from '../axiosConfig';
-import type { User, UserPasswordChange, UserPasswordUpdate, UserUpdate, UserCreate } from '../../types/User';
-
-// Register a new user
-export const registerUser = async (userData: UserCreate): Promise<User> => {
-    const response = await api.post('/users', userData);
-    return response.data;
-}
+import type { User, UserPasswordChange, UserPasswordUpdate, UserUpdate } from '../../types/User';
 
 // Get user by ID
 export const getUserById = async (userId: number): Promise<User> => {
@@ -18,32 +12,32 @@ export const getUserById = async (userId: number): Promise<User> => {
 }
 
 // Update user details
-export const updateUserContact = async (userId: number, userData: UserUpdate): Promise<User> => {
-    const response = await api.patch(`/users/${userId}/contact`, userData);
+export const updateUserContact = async (userData: UserUpdate): Promise<User> => {
+    const response = await api.patch(`/users/me/contact`, userData);
     return response.data;
 }
 
 // Update user password
-export const updateUserPassword = async (userId: number, passwordData: UserPasswordUpdate): Promise<void> => {
-    await api.patch(`/users/${userId}/password`, passwordData);
+export const updateUserPassword = async (passwordData: UserPasswordUpdate): Promise<void> => {
+    await api.patch(`/users/me/password`, passwordData);
 }
 
 // Change user password
-export const changeUserPassword = async (userId: number, passwordData: UserPasswordChange): Promise<void> => {
-    await api.post(`/users/${userId}/change-password`, passwordData);
+export const changeUserPassword = async (passwordData: UserPasswordChange): Promise<void> => {
+    await api.post(`/users/me/change-password`, passwordData);
 }
 
 // Deactivate user account
-export const deactivateUserAccount = async (userId: number): Promise<void> => {
-    await api.delete(`/users/${userId}/deactivate`);
+export const deactivateUserAccount = async (): Promise<void> => {
+    await api.delete(`/users/me/deactivate`);
 }
 
 // Reactivate user account
-export const reactivateUserAccount = async (userId: number): Promise<void> => {
-    await api.post(`/users/${userId}/reactivate`);
+export const reactivateUserAccount = async (): Promise<void> => {
+    await api.post(`/users/me/reactivate`);
 }
 
 // Verify user email
-export const verifyUserEmail = async (userId: number, token: string): Promise<void> => {
-    await api.post(`/users/${userId}/verify-email`, { token });
+export const verifyUserEmail = async (token: string): Promise<void> => {
+    await api.post(`/users/me/verify-email`, { token });
 }
