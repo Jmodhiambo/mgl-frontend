@@ -30,3 +30,10 @@ export interface RegisterResponse {
     created_at: string;
     updated_at: string;
 }
+
+export interface AuthContextType {
+    isAuthenticated: boolean;
+    loading: boolean;
+    login: (accessToken: string) => void;
+    logout: () => Promise<void>;
+}
