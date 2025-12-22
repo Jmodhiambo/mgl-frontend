@@ -4,10 +4,19 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+  "dev:user": "vite --root apps/user",
+  "build:user": "tsc -b && vite build --root apps/user",
+  "preview:user": "vite preview --root apps/user",
+
+  "dev:organizer": "vite --root apps/organizer",
+  "build:organizer": "tsc -b && vite build --root apps/organizer",
+  "preview:organizer": "vite preview --root apps/organizer",
+
+  "dev:admin": "vite --root apps/admin",
+  "build:admin": "tsc -b && vite build --root apps/admin",
+  "preview:admin": "vite preview --root apps/admin",
+
+  "lint": "eslint ."
   },
   "dependencies": {
     "axios": "^1.13.2",
