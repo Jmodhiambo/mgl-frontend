@@ -41,35 +41,41 @@ mgl-frontend/
 ├── package.json
 └── vite.config.js
 
-mgltickets-frontend/
-  apps/
-    user/
-      main.tsx
-      App.tsx
-      index.html
-      routes.tsx
-      pages/
-        Login.tsx
-        Dashboard.tsx
-        Events.tsx
-    organizer/
-      main.tsx
-      App.tsx
-      index.html
-      routes.tsx
-      pages/
-    admin/
-      main.tsx
-      App.tsx
-      index.html
-      routes.tsx
-      pages/
-  shared/
-    api/
-    components/
-    layouts/
-    hooks/
-    auth/
-  vite.config.ts
-  package.json
-  tsconfig.json
+mgl-frontend/
+  src/
+    apps/
+      user/
+        pages/
+          Dashboard.tsx
+          MyTickets.tsx
+          EventDetails.tsx
+        routes.tsx
+        App.tsx
+        main.tsx
+
+      organizer/
+        pages/
+          Dashboard.tsx
+          Events.tsx
+          Sales.tsx
+          Attendees.tsx
+        routes.tsx
+        App.tsx
+        main.tsx
+
+      admin/
+        pages/
+          Dashboard.tsx
+          Users.tsx
+          Events.tsx
+          Reports.tsx
+        routes.tsx
+        App.tsx
+        main.tsx
+
+    shared/
+      components/
+      layouts/
+      hooks/
+      auth/
+      api/
