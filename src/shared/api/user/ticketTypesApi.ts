@@ -2,7 +2,7 @@
  * User Ticket Types API Module
  */
 
-import api from '../axiosConfig';
+import api from '../../auth/axiosConfig';
 import type { TicketType } from "@shared/types/TicketType";
 
 // Get all Ticket Types for an Event

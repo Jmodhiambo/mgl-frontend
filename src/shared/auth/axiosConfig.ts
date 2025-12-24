@@ -43,7 +43,7 @@ const onRefreshed = (token: string): void => {
 // Create an Axios instance with default configuration
 const api: AxiosInstance = axios.create({
     baseURL: BASE_URL,
-    withCredentials: true,  // Sends HttpOnly cookies (refresh token)
+    withCredentials: true,  // Sends HttpOnly cookies (refresh token). Important for cross-domain cookies
     headers: {
         'Content-Type': 'application/json',
     },
@@ -115,7 +115,16 @@ api.interceptors.response.use(
                 // Refresh failed -> user must login again
                 console.error('Error refreshing access token:', refreshError);
                 setAccessToken(null);
-                window.location.href = '/login';
+
+                // Redirect to login on the appropriate domain
+                const currentDomain = window.location.hostname;
+                if (currentDomain.includes('organizer')) {
+                window.location.href = 'https://organizer.mgltickets.com/login';
+                } else if (currentDomain.includes('admin')) {
+                window.location.href = 'https://admin.mgltickets.com/login';
+                } else {
+                window.location.href = 'https://mgltickets.com/login';
+                }
                 return Promise.reject(refreshError);
             } finally {
                 isRefreshing = false;

@@ -1,13 +1,14 @@
 /**
  * Authentication Context Module
  * Creates a global authentication state for a React application using Context
- * It lets any component know whether a user is logged in, what the current token is, and provides functions to log in or log out
+ * It lets any component know whether a user is logged in, what the current token is, 
+ * and provides functions to log in or log out
  */
 
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import api, { setAccessToken } from "../../api/axiosConfig";
-import type { AuthContextType } from "../types/Auth";
+import api, { setAccessToken } from "@shared/auth/axiosConfig";
+import type { AuthContextType } from "@shared/types/Auth";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -52,6 +53,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     try {
       await api.post("/auth/logout");
+    } catch (error) {
+      console.error("Logout error:", error);
     } finally {
       setAccessToken(null);
       setIsAuthenticated(false);

@@ -2,7 +2,7 @@
  * User Ticket Instance API Module
  */
 
-import api from '../axiosConfig';
+import api from '../../auth/axiosConfig';
 import type { TicketInstance } from '@shared/types/TicketInstance';
 
 // Get all Ticket Instances for a User

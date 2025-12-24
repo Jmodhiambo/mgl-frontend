@@ -2,7 +2,7 @@
  * User Payments API Module
  */
 
-import api from '../axiosConfig';
+import api from '../../auth/axiosConfig';
 import type { Payment, PaymentCreate, PaymentUpdate } from '@shared/types/Payment';
 
 // Create a new payment

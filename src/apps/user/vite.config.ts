@@ -1,0 +1,34 @@
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
+
+export default defineConfig({
+  cacheDir: "../../../node_modules/.vite",
+  plugins: [
+    react({
+      babel: {
+        plugins: [["babel-plugin-react-compiler"]],
+      },
+    }),
+  ],
+  resolve: {
+    alias: {
+      "@shared": path.resolve(__dirname, "../../shared"),
+      "@user": path.resolve(__dirname, "."),
+    },
+  },
+  server: {
+    port: 3000,
+    host: true, // Allow external access for testing subdomains locally
+    proxy: {
+      "/api": {
+        target: process.env.VITE_API_URL || "http://localhost:8000",
+        changeOrigin: true,
+      },
+    },
+  },
+  build: {
+    outDir: "../../../dist/user",
+    emptyOutDir: true,
+  },
+});

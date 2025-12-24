@@ -8,21 +8,29 @@
  * Renders children only when authenticated
  */
 
-import { Navigate, Outlet } from "react-router-dom";
-import { useAuth } from "../../shared/context/AuthContext";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "@shared/contexts/AuthContext";
 
-const ProtectedRoute = () => {
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+}
+
+const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
   }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  return <Outlet />;
+  return <>{children}</>;
 };
 
 export default ProtectedRoute;

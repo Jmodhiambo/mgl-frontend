@@ -2,7 +2,7 @@
  * User Events API Module
  */
 
-import api from '../axiosConfig';
+import api from '../../auth/axiosConfig';
 import type { Event } from '@shared/types/Event';
 
 // Get all events
