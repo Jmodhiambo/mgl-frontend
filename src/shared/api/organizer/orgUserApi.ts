@@ -3,7 +3,7 @@
  */
 
 import api from '../axiosConfig'
-import type { Organizer, OrganizerCreate, OrganizerUpdate } from '../../types/User'
+import type { Organizer, OrganizerCreate, OrganizerUpdate } from '@shared/types/User'
 
 // Create a new organizer
 export const upgradeUserToOrganizer = async (data: OrganizerCreate): Promise<Organizer> => {

@@ -3,7 +3,7 @@
  */
 
 import api from '../axiosConfig'
-import type { OrganizerEventsResponse as Organizer, EventCreate, EventUpdate, EventStatus } from '../../types/Event'
+import type { OrganizerEventsResponse as Organizer, EventCreate, EventUpdate, EventStatus } from '@shared/types/Event'
 
 // Create a new event
 export const createEvent = async (data: EventCreate): Promise<Organizer> => {

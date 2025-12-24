@@ -3,7 +3,7 @@
  */
 
 import api from '../axiosConfig';
-import type { Booking } from '../../types/Booking';
+import type { Booking } from '@shared/types/Booking';
 
 // Create booking
 export const createBooking = async (eventId: number, bookingData: any): Promise<Booking> => {

@@ -3,10 +3,10 @@
  */
 
 import { useEffect, useState } from "react";
-import Navbar from "../components/Navbar";
-import { getAllEvents } from "../api/user/eventsApi";
-import { listBookings } from "../api/user/bookingsApi";
-import { getUserById } from "../api/user/usersApi";
+import Navbar from "../../shared/components/Navbar";
+import { getAllEvents } from "../../api/user/eventsApi";
+import { listBookings } from "../../api/user/bookingsApi";
+import { getUserById } from "../../api/user/usersApi";
 
 const Dashboard = () => {
   const [user, setUser] = useState<any>(null);

@@ -3,7 +3,7 @@
  */
 
 import api from './axiosConfig';
-import type { LoginCredentials, LoginResponse, RegisterUserInfo, RegisterResponse } from '../types/Auth';
+import type { LoginCredentials, LoginResponse, RegisterUserInfo, RegisterResponse } from '../shared/types/Auth';
 
 // Login function
 export const loginUser = async (credentials: LoginCredentials): Promise<LoginResponse> => {

@@ -3,7 +3,7 @@
  */
 
 import api from '../axiosConfig';
-import type { TicketInstance } from '../../types/TicketInstance';
+import type { TicketInstance } from '@shared/types/TicketInstance';
 
 // Get all Ticket Instances for a User
 export const getTicketInstances = async (): Promise<TicketInstance[]> => {

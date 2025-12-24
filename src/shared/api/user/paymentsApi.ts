@@ -3,8 +3,7 @@
  */
 
 import api from '../axiosConfig';
-import type { Payment, PaymentCreate, PaymentUpdate } from '../../types/Payment';
-
+import type { Payment, PaymentCreate, PaymentUpdate } from '@shared/types/Payment';
 
 // Create a new payment
 export const createPayment = async (paymentData: PaymentCreate): Promise<Payment> => {

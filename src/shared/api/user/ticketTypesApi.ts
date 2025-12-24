@@ -3,7 +3,7 @@
  */
 
 import api from '../axiosConfig';
-import type { TicketType } from "../../types/TicketType";
+import type { TicketType } from "@shared/types/TicketType";
 
 // Get all Ticket Types for an Event
 export const getTicketTypes = async (eventId: number): Promise<TicketType[]> => {

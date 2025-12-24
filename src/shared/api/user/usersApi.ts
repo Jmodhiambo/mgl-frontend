@@ -3,7 +3,7 @@
  */
 
 import api from '../axiosConfig';
-import type { User, UserPasswordChange, UserPasswordUpdate, UserUpdate } from '../../types/User';
+import type { User, UserPasswordChange, UserPasswordUpdate, UserUpdate } from '@shared/types/User';
 
 // Get user by ID
 export const getUserById = async (userId: number): Promise<User> => {

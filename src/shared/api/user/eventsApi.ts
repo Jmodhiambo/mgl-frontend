@@ -3,7 +3,7 @@
  */
 
 import api from '../axiosConfig';
-import type { Event } from '../../types/Event';
+import type { Event } from '@shared/types/Event';
 
 // Get all events
 export const getAllEvents = async (): Promise<Event[]> => {

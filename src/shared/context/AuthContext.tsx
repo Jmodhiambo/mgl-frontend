@@ -6,7 +6,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import api, { setAccessToken } from "../api/axiosConfig";
+import api, { setAccessToken } from "../../api/axiosConfig";
 import type { AuthContextType } from "../types/Auth";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
