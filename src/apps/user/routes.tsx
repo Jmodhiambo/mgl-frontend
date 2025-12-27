@@ -3,7 +3,7 @@ import ProtectedRoute from '@shared/routing/ProtectedRoute';
 import UserLayout from '@shared/components/layouts/UserLayout';
 import Dashboard from './pages/Dashboard';
 // import MyTickets from './pages/MyTickets';
-// import EventDetails from './pages/EventDetails';
+import EventDetails from './pages/EventDetails';
 import Login from './pages/Login';
 import Register from './pages/Register';
 
@@ -36,10 +36,10 @@ export const router = createBrowserRouter([
     //     path: 'my-tickets',
     //     element: <MyTickets />,
     //   },
-    //   {
-    //     path: 'events/:eventId',
-    //     element: <EventDetails />,
-    //   },
+      {
+        path: 'events/:eventId',
+        element: <EventDetails />,
+      },
     ],
   },
   {

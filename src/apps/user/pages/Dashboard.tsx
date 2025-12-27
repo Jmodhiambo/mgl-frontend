@@ -1,3 +1,40 @@
+import { useAuth } from '@shared/contexts/AuthContext';
+
+export default function Dashboard() {
+  const { isAuthenticated } = useAuth();
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Welcome to MGLTickets</h1>
+        <p className="mt-2 text-gray-600">Manage your tickets and discover events</p>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-sm font-medium text-gray-500">My Tickets</h3>
+          <p className="mt-2 text-3xl font-semibold text-gray-900">0</p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-sm font-medium text-gray-500">Upcoming Events</h3>
+          <p className="mt-2 text-3xl font-semibold text-gray-900">0</p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-sm font-medium text-gray-500">Past Events</h3>
+          <p className="mt-2 text-3xl font-semibold text-gray-900">0</p>
+        </div>
+      </div>
+
+      {/* Placeholder sections */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Upcoming Events</h2>
+        <p className="text-gray-600">No upcoming events. Browse events to get started!</p>
+      </div>
+    </div>
+  );
+}
+
 // /**
 //  * Dashboard page
 //  */

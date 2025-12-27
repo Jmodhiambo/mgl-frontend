@@ -1,11 +1,8 @@
 /**
  * Authentication Context Module
- * Creates a global authentication state for a React application using Context
- * It lets any component know whether a user is logged in, what the current token is, 
- * and provides functions to log in or log out
  */
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import type { ReactNode } from "react";
 import api, { setAccessToken } from "@shared/auth/axiosConfig";
 import type { AuthContextType } from "@shared/types/Auth";
@@ -15,12 +12,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  const isRestoringSession = useRef(false);
+  const hasAttemptedRestore = useRef(false);
 
-  /**
-   * Attempt session restore on app load.
-   * Browser sends refresh token cookie automatically.
-   */
   useEffect(() => {
+    if (hasAttemptedRestore.current || isRestoringSession.current) {
+      return;
+    }
+
+    isRestoringSession.current = true;
+    hasAttemptedRestore.current = true;
+
     const restoreSession = async () => {
       try {
         const response = await api.post("/auth/refresh");
@@ -28,28 +31,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         setAccessToken(accessToken);
         setIsAuthenticated(true);
-      } catch {
+      } catch (error) {
         setAccessToken(null);
         setIsAuthenticated(false);
       } finally {
         setLoading(false);
+        isRestoringSession.current = false;
       }
     };
 
     restoreSession();
   }, []);
 
-  /**
-   * Called after successful login
-   */
   const login = (accessToken: string) => {
     setAccessToken(accessToken);
     setIsAuthenticated(true);
   };
 
-  /**
-   * Logout clears server session and in memory token
-   */
   const logout = async () => {
     try {
       await api.post("/auth/logout");
@@ -58,6 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setAccessToken(null);
       setIsAuthenticated(false);
+      hasAttemptedRestore.current = false;
     }
   };
 
@@ -75,9 +74,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-/**
- * Safe hook for consuming auth context
- */
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

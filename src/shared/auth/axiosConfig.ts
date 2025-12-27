@@ -9,7 +9,7 @@ import type {
     AxiosResponse
 } from "axios";
 
-// Base URL
+// Base API URL from environment variables or default to localhost
 const BASE_URL: string = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1";
 
 // In-memory storage for access token
@@ -20,120 +20,129 @@ export const setAccessToken = (token: string | null) => {
     accessToken = token;
 };
 
-// Axios types
+// Function to get current access token (useful for debugging)
+export const getAccessToken = () => accessToken;
+
+// Extend Axios request config to include retry flag
 interface RetryAxiosRequestConfig extends InternalAxiosRequestConfig {
     _retry?: boolean
 }
 
-/* Refresh control (prevent race conditions). Avoid multiple refresh calls for 401 error incase of token issue. 
- Only one refresh is handled per request and the others are queued and retried with the retrieved token */
+// Refresh control flags to prevent race conditions
 let isRefreshing = false;
-let refreshSubscribers: Array<(token: string) => void> = [];  // Stores callbacks for request waiting on new token
-
-// Subscribes token refresh by adding callback to queue to be called once new token is available
-const subscribeTokenRefresh = (callback: (token: string) => void) => {
-    refreshSubscribers.push(callback);
-};
-
-const onRefreshed = (token: string): void => {
-    refreshSubscribers.forEach(callback => callback(token));
-    refreshSubscribers = [];    
-}
+let refreshPromise: Promise<string> | null = null;
 
 // Create an Axios instance with default configuration
 const api: AxiosInstance = axios.create({
     baseURL: BASE_URL,
-    withCredentials: true,  // Sends HttpOnly cookies (refresh token). Important for cross-domain cookies
+    withCredentials: true,  // Sends HttpOnly cookies (refresh token) with requests
     headers: {
         'Content-Type': 'application/json',
     },
 });
 
-// Request interceptor to add auth token if available
+// Request interceptor: adds Authorization header with access token to outgoing requests
 api.interceptors.request.use(
     (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
+        // Skip adding token for public auth endpoints
+        if (config.url?.includes('/auth/login') || config.url?.includes('/auth/register')) {
+            return config;
+        }
+
+        // Add Bearer token to Authorization header if available
         if (accessToken && config.headers) {
             config.headers.Authorization = `Bearer ${accessToken}`;
         }
         return config;
     },
     (error: AxiosError) => Promise.reject(error)
-    
 );
 
-// Response interceptor: handles 401 errors (expired access token)
+// Helper function to refresh the access token using refresh token cookie
+const refreshAccessToken = async (): Promise<string> => {
+    try {
+        // Call refresh endpoint with HttpOnly cookie
+        // Using base axios instance to avoid interceptor loops
+        const response = await axios.post(
+            `${BASE_URL}/auth/refresh`,
+            {},
+            { withCredentials: true }
+        );
+
+        // Extract and store new access token
+        const newAccessToken = response.data.access_token;
+        setAccessToken(newAccessToken);
+        return newAccessToken;
+    } catch (error) {
+        // Refresh failed - clear token and redirect to login
+        setAccessToken(null);
+
+        // Redirect based on subdomain
+        const currentDomain = window.location.hostname;
+        if (currentDomain.includes('organizer')) {
+            window.location.href = 'https://organizer.mgltickets.com/login';
+        } else if (currentDomain.includes('admin')) {
+            window.location.href = 'https://admin.mgltickets.com/login';
+        } else {
+            window.location.href = 'https://mgltickets.com/login';
+        }
+        throw error;
+    }
+};
+
+// Response interceptor: handles 401 errors by refreshing token and retrying request
 api.interceptors.response.use(
     (response: AxiosResponse) => response,
-    async(error: AxiosError) => {
+    async (error: AxiosError) => {
         const originalRequest = error.config as RetryAxiosRequestConfig;
 
-        // If 401 and request hasn't been retried, retry with refresh token
+        // Check if this is a 401 error that should trigger token refresh
         if (
             error.response?.status === 401 &&
-            !originalRequest._retry &&
-            !originalRequest.url?.includes('auth/refresh')
+            !originalRequest._retry &&  // Haven't already retried this request
+            !originalRequest.url?.includes('/auth/')  // Not an auth endpoint itself
         ) {
-            originalRequest._retry = true;
+            originalRequest._retry = true;  // Mark request as retried
 
-            // Prevent multiple refreshes
-            if (isRefreshing) {
-                return new Promise((resolve) => {
-                    subscribeTokenRefresh((token: string) => {
-                        if (originalRequest.headers) {
-                            originalRequest.headers.Authorization = `Bearer ${token}`;
-                        }
-                        resolve(api(originalRequest));  // Retry with new token
-
-                    });
-                });
+            // If a refresh is already in progress, wait for it to complete
+            if (refreshPromise) {
+                try {
+                    const newAccessToken = await refreshPromise;
+                    // Update original request with new token
+                    if (originalRequest.headers) {
+                        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+                    }
+                    // Retry the original request with new token
+                    return api(originalRequest);
+                } catch (refreshError) {
+                    return Promise.reject(refreshError);
+                }
             }
 
+            // Start a new refresh process
             isRefreshing = true;
+            refreshPromise = refreshAccessToken();
 
             try {
-                // Call refresh endpoint to get a new access token
-                const response = await axios.post(
-                    `${BASE_URL}/auth/refresh`,
-                    {},
-                    { withCredentials: true }  // Sends HttpOnly cookies (refresh token)
-                );
-
-                // Update access token in memory
-                const newAccessToken = response.data.access_token;
-                setAccessToken(newAccessToken);
-
-                // Notify subscribers
-                onRefreshed(newAccessToken);
-
-                // Retry the original request with the new access token
+                const newAccessToken = await refreshPromise;
+                // Update original request with new token
                 if (originalRequest.headers) {
                     originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
                 }
-
+                // Retry the original request with new token
                 return api(originalRequest);
             } catch (refreshError) {
-                // Refresh failed -> user must login again
-                console.error('Error refreshing access token:', refreshError);
-                setAccessToken(null);
-
-                // Redirect to login on the appropriate domain
-                const currentDomain = window.location.hostname;
-                if (currentDomain.includes('organizer')) {
-                window.location.href = 'https://organizer.mgltickets.com/login';
-                } else if (currentDomain.includes('admin')) {
-                window.location.href = 'https://admin.mgltickets.com/login';
-                } else {
-                window.location.href = 'https://mgltickets.com/login';
-                }
                 return Promise.reject(refreshError);
             } finally {
+                // Reset refresh flags
                 isRefreshing = false;
+                refreshPromise = null;
             }
         }
 
+        // For all other errors, reject as normal
         return Promise.reject(error);
     }
-
 );
 
 export default api;

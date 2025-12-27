@@ -8,6 +8,7 @@ export interface Event {
   organizer_id: number;
   description?: string;
   venue: string;
+  price?: number;
   start_time: string;
   end_time: string;
   original_filename: string;
