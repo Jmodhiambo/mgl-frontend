@@ -81,7 +81,7 @@ export default function Login() {
             <button 
               type="submit"
               disabled={isLoading}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50 disabled:cursor-not-allowed w-full"
+              className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50 disabled:cursor-not-allowed w-full"
             >
               {isLoading ? 'Logging in...' : 'Login'}
             </button>
@@ -90,7 +90,7 @@ export default function Login() {
           <div className="text-center">
             <p className="text-sm text-gray-600">
               Don't have an account?{' '}
-              <Link to="/register" className="text-blue-600 hover:text-blue-800 font-semibold">
+              <Link to="/register" className="text-orange-600 hover:text-orange-800 font-semibold">
                 Register here
               </Link>
             </p>

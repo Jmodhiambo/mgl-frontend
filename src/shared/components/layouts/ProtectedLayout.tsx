@@ -2,7 +2,7 @@ import { Outlet } from 'react-router-dom';
 import Navbar from '@shared/components/navigation/Navbar';
 import Footer from '@shared/components/navigation/Footer';
 
-export default function UserLayout() {
+export default function ProtectedLayout() {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Navigation */}

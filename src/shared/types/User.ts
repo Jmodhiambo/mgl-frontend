@@ -11,7 +11,7 @@ export interface User {
   is_verified: boolean;
   is_active: boolean;    
   created_at: string;
-  updated_at: string;
+  // updated_at: string;
 }
 
 export interface UserUpdate {

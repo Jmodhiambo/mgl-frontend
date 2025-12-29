@@ -170,7 +170,7 @@ export default function Register() {
             <button 
               type="submit"
               disabled={isLoading}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50 disabled:cursor-not-allowed w-full"
+              className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50 disabled:cursor-not-allowed w-full"
             >
               {isLoading ? 'Creating account...' : 'Register'}
             </button>
@@ -179,7 +179,7 @@ export default function Register() {
           <div className="text-center">
             <p className="text-sm text-gray-600">
               Already have an account?{' '}
-              <Link to="/login" className="text-blue-600 hover:text-blue-800 font-semibold">
+              <Link to="/login" className="text-orange-600 hover:text-orange-800 font-semibold">
                 Login here
               </Link>
             </p>
