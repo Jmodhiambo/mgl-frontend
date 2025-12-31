@@ -5,6 +5,12 @@
 import api from '../../auth/axiosConfig';
 import type { User, UserPasswordChange, UserPasswordUpdate, UserUpdate } from '@shared/types/User';
 
+// Get current user details
+export const getCurrentUser = async (): Promise<User> => {
+    const response = await api.get('/users/me');
+    return response.data;
+}
+
 // Get user by ID
 export const getUserById = async (userId: number): Promise<User> => {
     const response = await api.get(`/users/${userId}`);

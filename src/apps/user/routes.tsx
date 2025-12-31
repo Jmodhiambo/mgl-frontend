@@ -5,15 +5,25 @@ import ProtectedLayout from '@shared/components/layouts/ProtectedLayout';
 import PublicLayout from '@shared/components/layouts/PublicLayout';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
-// import Events from './pages/Events';
+import Events from './pages/Events';
+import BrowseEvents from './pages/BrowseEvents';
 import CheckoutBooking from './pages/CheckoutBooking';
 import MyTickets from './pages/MyTickets';
 import Profile from './pages/Profile';
 import EventDetails from './pages/EventDetails';
+import BrowseEventDetails from './pages/BrowseEventDetails';
 import Login from './pages/Login';
 import Register from './pages/Register';
 
+/**
+ * Router configuration for MGLTickets
+ * 
+ * Route Structure:
+ * - Public routes: Base paths (/, /events, /events/:id) - No navbar
+ * - Protected routes: Enhanced experience with navbar (/browse-events, /dashboard, etc.)
+ */
 export const router = createBrowserRouter([
+  // Standalone auth routes (no layout)
   {
     path: '/login',
     element: <Login />,
@@ -22,6 +32,8 @@ export const router = createBrowserRouter([
     path: '/register',
     element: <Register />,
   },
+  
+  // Public routes (accessible without authentication - No navbar)
   {
     path: '/',
     element: (
@@ -34,16 +46,18 @@ export const router = createBrowserRouter([
         index: true,
         element: <Home />,
       },
-      // {
-      //   path: 'events',
-      //   element: <Events />,
-      // },
-      // {
-      //   path: 'events/:eventId',
-      //   element: <EventDetails />,
-      // },
+      {
+        path: 'events',
+        element: <Events />,
+      },
+      {
+        path: 'events/:eventId',
+        element: <EventDetails />,
+      },
     ],
   },
+  
+  // Protected routes (require authentication - Has navbar)
   {
     path: '/',
     element: (
@@ -53,24 +67,20 @@ export const router = createBrowserRouter([
     ),
     children: [
       {
-        index: true,
-        element: <Navigate to="/" replace />,
-      },
-      {
         path: 'dashboard',
         element: <Dashboard />,
       },
       {
+        path: 'browse-events',
+        element: <BrowseEvents />,
+      },
+      {
+        path: 'browse-events/:eventId',
+        element: <BrowseEventDetails />,
+      },
+      {
         path: 'my-tickets',
         element: <MyTickets />,
-      },
-      // {
-      //   path: 'events',
-      //   element: <Events />,
-      // },
-      {
-        path: 'events/:eventId',
-        element: <EventDetails />,
       },
       {
         path: 'checkout',
@@ -82,6 +92,8 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  
+  // Fallback - redirect to home
   {
     path: '*',
     element: <Navigate to="/" replace />,

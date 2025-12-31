@@ -28,13 +28,13 @@ export default function Navbar() {
   };
 
   const navLinks = [
+    { path: '/browse-events', label: 'Browse Events' },
     { path: '/dashboard', label: 'Dashboard' },
-    { path: '/events', label: 'Events' },
     { path: '/my-tickets', label: 'My Tickets' },
   ];
 
   return (
-    <nav className="bg-white shadow-sm border-b border-orange-100">
+    <nav className="bg-white shadow-sm border-b border-orange-100 sticky top-0">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo */}

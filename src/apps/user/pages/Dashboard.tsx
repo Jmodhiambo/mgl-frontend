@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Ticket, CreditCard, User, TrendingUp, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { getCurrentUser } from '@shared/api/user/usersApi';
 
 interface User {
   id: number;
@@ -51,15 +52,8 @@ const UserDashboard: React.FC = () => {
         // const ticketsRes = await fetch('/api/users/me/ticket-instances');
         
         // Mock data
-        const mockUser: User = {
-          id: 1,
-          name: "John Doe",
-          email: "john.doe@example.com",
-          phone_number: "+254712345678",
-          role: "user",
-          is_verified: true
-        };
-
+        const userRes: User = await getCurrentUser();        
+        
         const mockStats: DashboardStats = {
           totalBookings: 12,
           activeTickets: 8,
@@ -114,7 +108,7 @@ const UserDashboard: React.FC = () => {
           }
         ];
 
-        setUser(mockUser);
+        setUser(userRes);
         setStats(mockStats);
         setRecentBookings(mockRecentBookings);
         setUpcomingEvents(mockUpcomingEvents);
@@ -178,7 +172,7 @@ const UserDashboard: React.FC = () => {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-800 mb-2">
-            Welcome back, {user?.name}! 👋
+            Welcome back, {user?.name.split(' ')[0]}! 👋
           </h2>
           <p className="text-gray-600">Here's what's happening with your events</p>
         </div>

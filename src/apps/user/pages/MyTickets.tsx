@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calendar, Ticket, Download, QrCode, MapPin, Clock, Search, CheckCircle, XCircle } from 'lucide-react';
 
 interface TicketInstance {
@@ -23,6 +24,7 @@ interface TicketCounts {
 }
 
 const MyTicketsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState<TicketInstance[]>([]);
   const [filteredTickets, setFilteredTickets] = useState<TicketInstance[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -183,14 +185,14 @@ const MyTicketsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-16 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-16">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
         <div className="mb-8">
@@ -357,7 +359,10 @@ const MyTicketsPage: React.FC = () => {
                 ? 'Try adjusting your filters or search term'
                 : "You haven't purchased any tickets yet"}
             </p>
-            <button className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all">
+            <button 
+              onClick={() => navigate('/browse-events')}
+              className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all"
+            >
               Browse Events
             </button>
           </div>

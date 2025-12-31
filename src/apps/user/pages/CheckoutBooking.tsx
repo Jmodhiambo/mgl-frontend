@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, MapPin, Clock, CreditCard, ShieldCheck, Ticket, Phone, CheckCircle, AlertCircle } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Calendar, MapPin, Clock, CreditCard, ShieldCheck, Ticket, Phone, CheckCircle, AlertCircle, ChevronLeft } from 'lucide-react';
 
 interface Event {
   id: number;
@@ -10,7 +11,7 @@ interface Event {
 }
 
 interface TicketItem {
-  id: number;
+  ticket_type_id: number;
   name: string;
   quantity: number;
   price: number;
@@ -23,9 +24,9 @@ interface UserInfo {
 }
 
 interface BookingData {
-  event: Event;
+  eventId: number;
   tickets: TicketItem[];
-  user: UserInfo;
+  total: number;
 }
 
 interface FormErrors {
@@ -37,7 +38,11 @@ interface FormErrors {
 type PaymentMethod = 'mpesa' | 'card';
 
 const CheckoutBookingPage: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [event, setEvent] = useState<Event | null>(null);
   const [bookingData, setBookingData] = useState<BookingData | null>(null);
+  const [userInfo, setUserInfo] = useState<UserInfo>({ name: '', email: '', phone: '' });
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('mpesa');
   const [phoneNumber, setPhoneNumber] = useState<string>('');
   const [agreedToTerms, setAgreedToTerms] = useState<boolean>(false);
@@ -46,28 +51,37 @@ const CheckoutBookingPage: React.FC = () => {
   const [errors, setErrors] = useState<FormErrors>({});
 
   useEffect(() => {
-    // Replace with actual booking data from state/props/route params
-    const mockBookingData: BookingData = {
-      event: {
-        id: 1,
-        title: "Summer Music Festival 2025",
-        venue: "Kasarani Stadium, Nairobi",
-        start_time: "2025-07-15T14:00:00Z",
-        flyer_url: "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400"
-      },
-      tickets: [
-        { id: 1, name: "VIP Pass", quantity: 2, price: 5000 },
-        { id: 2, name: "Regular Admission", quantity: 3, price: 1500 }
-      ],
-      user: {
-        name: "John Doe",
-        email: "john.doe@example.com",
-        phone: "+254712345678"
-      }
+    // Get booking data from navigation state
+    const state = location.state as { bookingData?: BookingData; event?: Event };
+    
+    if (!state?.bookingData || !state?.event) {
+      navigate('/events');
+      return;
+    }
+
+    setBookingData(state.bookingData);
+    setEvent(state.event);
+
+    // TODO: Fetch user info from API
+    // const fetchUserInfo = async () => {
+    //   const response = await fetch('/api/users/me', {
+    //     headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
+    //   });
+    //   const data = await response.json();
+    //   setUserInfo(data);
+    //   setPhoneNumber(data.phone);
+    // };
+    // fetchUserInfo();
+
+    // Mock user data
+    const mockUser: UserInfo = {
+      name: "John Doe",
+      email: "john.doe@example.com",
+      phone: "+254712345678"
     };
-    setBookingData(mockBookingData);
-    setPhoneNumber(mockBookingData.user.phone);
-  }, []);
+    setUserInfo(mockUser);
+    setPhoneNumber(mockUser.phone);
+  }, [location, navigate]);
 
   const calculateSubtotal = (): number => {
     if (!bookingData) return 0;
@@ -77,7 +91,7 @@ const CheckoutBookingPage: React.FC = () => {
   };
 
   const calculateFees = (): number => {
-    return Math.round(calculateSubtotal() * 0.03); // 3% processing fee
+    return Math.round(calculateSubtotal() * 0.03);
   };
 
   const calculateTotal = (): number => {
@@ -127,15 +141,18 @@ const CheckoutBookingPage: React.FC = () => {
     setIsProcessing(true);
 
     try {
-      // Replace with actual API calls:
+      // TODO: Replace with actual API calls
       // 1. Create booking
       // const bookingResponse = await fetch('/api/users/me/bookings', {
       //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //     'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+      //   },
       //   body: JSON.stringify({
       //     user_id: userId,
-      //     ticket_type_id: ticketTypeId,
-      //     quantity: totalQuantity,
+      //     ticket_type_id: bookingData.tickets[0].ticket_type_id,
+      //     quantity: bookingData.tickets.reduce((sum, t) => sum + t.quantity, 0),
       //     total_price: calculateTotal()
       //   })
       // });
@@ -144,7 +161,10 @@ const CheckoutBookingPage: React.FC = () => {
       // 2. Create payment
       // const paymentResponse = await fetch('/api/users/me/payments', {
       //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //     'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+      //   },
       //   body: JSON.stringify({
       //     booking_id: booking.id,
       //     amount: calculateTotal(),
@@ -154,9 +174,7 @@ const CheckoutBookingPage: React.FC = () => {
       //   })
       // });
 
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 2000));
-
       setBookingComplete(true);
     } catch (error) {
       console.error('Checkout error:', error);
@@ -166,7 +184,7 @@ const CheckoutBookingPage: React.FC = () => {
     }
   };
 
-  if (!bookingData) {
+  if (!bookingData || !event) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent"></div>
@@ -183,14 +201,14 @@ const CheckoutBookingPage: React.FC = () => {
           </div>
           <h2 className="text-3xl font-bold text-gray-800 mb-3">Booking Confirmed!</h2>
           <p className="text-gray-600 mb-6">
-            Your tickets have been sent to {bookingData.user.email}
+            Your tickets have been sent to {userInfo.email}
           </p>
           <div className="bg-orange-50 rounded-xl p-6 mb-6 text-left">
             <h3 className="font-semibold text-gray-800 mb-3">Booking Details</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600">Event:</span>
-                <span className="font-medium text-gray-800">{bookingData.event.title}</span>
+                <span className="font-medium text-gray-800">{event.title}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Total Tickets:</span>
@@ -205,10 +223,16 @@ const CheckoutBookingPage: React.FC = () => {
             </div>
           </div>
           <div className="space-y-3">
-            <button className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all">
+            <button 
+              onClick={() => navigate('/my-tickets')}
+              className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all"
+            >
               View My Tickets
             </button>
-            <button className="w-full border-2 border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-all">
+            <button 
+              onClick={() => navigate('/events')}
+              className="w-full border-2 border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-all"
+            >
               Back to Events
             </button>
           </div>
@@ -219,6 +243,19 @@ const CheckoutBookingPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b border-orange-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <button 
+            onClick={() => navigate(`/events/${event.id}`)}
+            className="flex items-center text-gray-600 hover:text-orange-600 transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5 mr-1" />
+            Back to Event Details
+          </button>
+        </div>
+      </header>
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
           <h2 className="text-3xl font-bold text-gray-800 mb-2">Checkout</h2>
@@ -236,7 +273,7 @@ const CheckoutBookingPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
                   <input
                     type="text"
-                    value={bookingData.user.name}
+                    value={userInfo.name}
                     disabled
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
                   />
@@ -245,7 +282,7 @@ const CheckoutBookingPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
                   <input
                     type="email"
-                    value={bookingData.user.email}
+                    value={userInfo.email}
                     disabled
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
                   />
@@ -396,23 +433,23 @@ const CheckoutBookingPage: React.FC = () => {
               {/* Event Info */}
               <div className="mb-6">
                 <img
-                  src={bookingData.event.flyer_url}
-                  alt={bookingData.event.title}
+                  src={event.flyer_url}
+                  alt={event.title}
                   className="w-full h-32 object-cover rounded-lg mb-3"
                 />
-                <h4 className="font-semibold text-gray-800 mb-2">{bookingData.event.title}</h4>
+                <h4 className="font-semibold text-gray-800 mb-2">{event.title}</h4>
                 <div className="space-y-1 text-sm text-gray-600">
                   <div className="flex items-center">
                     <Calendar className="w-4 h-4 mr-2" />
-                    {formatDate(bookingData.event.start_time)}
+                    {formatDate(event.start_time)}
                   </div>
                   <div className="flex items-center">
                     <Clock className="w-4 h-4 mr-2" />
-                    {formatTime(bookingData.event.start_time)}
+                    {formatTime(event.start_time)}
                   </div>
                   <div className="flex items-center">
                     <MapPin className="w-4 h-4 mr-2" />
-                    {bookingData.event.venue}
+                    {event.venue}
                   </div>
                 </div>
               </div>
@@ -421,8 +458,8 @@ const CheckoutBookingPage: React.FC = () => {
               <div className="border-t border-gray-200 pt-4 mb-4">
                 <h4 className="font-semibold text-gray-800 mb-3">Tickets</h4>
                 <div className="space-y-3">
-                  {bookingData.tickets.map((ticket: TicketItem) => (
-                    <div key={ticket.id} className="flex justify-between text-sm">
+                  {bookingData.tickets.map((ticket: TicketItem, index: number) => (
+                    <div key={index} className="flex justify-between text-sm">
                       <div>
                         <div className="font-medium text-gray-800">{ticket.name}</div>
                         <div className="text-gray-600">
