@@ -189,7 +189,16 @@ const EventDetailsPage: React.FC = () => {
   };
 
   const handleAuthSuccess = (): void => {
-    // Auth state will be updated by AuthContext, component will re-render
+    // After successful auth, immediately navigate before PublicRoute can redirect
+    const currentEventId = eventId;
+    
+    // Use setTimeout to ensure auth state is updated first
+    setTimeout(() => {
+      navigate(`/browse-events/${currentEventId}`, { 
+        replace: true,
+        state: { selectedTickets, event }
+      });
+    }, 150);
   };
 
   const handleShare = (): void => {

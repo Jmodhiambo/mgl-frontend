@@ -253,7 +253,7 @@ const ProfileSettingsPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-8">
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
@@ -310,7 +310,7 @@ const ProfileSettingsPage: React.FC = () => {
                 }`}
               >
                 <Lock className="w-5 h-5 mr-3" />
-                Security
+                Password
               </button>
             </div>
 

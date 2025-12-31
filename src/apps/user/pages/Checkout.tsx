@@ -194,7 +194,7 @@ const CheckoutBookingPage: React.FC = () => {
 
   if (bookingComplete) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center p-4 pt-8">
         <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 text-center">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle className="w-12 h-12 text-green-600" />
@@ -242,19 +242,7 @@ const CheckoutBookingPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-orange-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <button 
-            onClick={() => navigate(`/events/${event.id}`)}
-            className="flex items-center text-gray-600 hover:text-orange-600 transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5 mr-1" />
-            Back to Event Details
-          </button>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-8">
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">

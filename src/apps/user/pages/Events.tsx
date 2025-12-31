@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Calendar, MapPin, Clock, Search, Filter, Ticket, ChevronRight, Heart, TrendingUp } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
 import AuthModal from '@shared/components/modals/AuthModal';

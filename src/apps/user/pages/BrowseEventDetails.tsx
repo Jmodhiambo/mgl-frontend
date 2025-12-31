@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Calendar, MapPin, Clock, Users, Share2, Heart, ChevronLeft, Ticket, AlertCircle } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
 
@@ -31,6 +31,7 @@ interface SelectedTickets {
 
 const BrowseEventDetailsPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { eventId } = useParams<{ eventId: string }>();
   const { isAuthenticated } = useAuth();
   const [event, setEvent] = useState<Event | null>(null);
@@ -41,7 +42,17 @@ const BrowseEventDetailsPage: React.FC = () => {
 
   useEffect(() => {
     fetchEventDetails();
-  }, [eventId]);
+    
+    // Restore selected tickets from navigation state if coming from login
+    const state = location.state as { selectedTickets?: SelectedTickets; event?: Event };
+    if (state?.selectedTickets) {
+      setSelectedTickets(state.selectedTickets);
+    }
+    if (state?.event) {
+      setEvent(state.event);
+      setLoading(false);
+    }
+  }, [eventId, location.state]);
 
   const fetchEventDetails = async (): Promise<void> => {
     try {
@@ -213,42 +224,18 @@ const BrowseEventDetailsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-16">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-orange-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <button 
-              onClick={() => navigate('/browse-events')}
-              className="flex items-center text-gray-600 hover:text-orange-600 transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5 mr-1" />
-              Back to Events
-            </button>
-            <div className="flex items-center space-x-3">
-              <button 
-                onClick={handleFavoriteToggle}
-                className={`p-2 rounded-lg transition-colors ${
-                  isFavorite 
-                    ? 'bg-orange-100 text-orange-600' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-orange-50'
-                }`}
-              >
-                <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
-              </button>
-              <button 
-                onClick={handleShare}
-                className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors"
-              >
-                <Share2 className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Back Button */}
+        <button 
+          onClick={() => navigate('/browse-events')}
+          className="flex items-center text-gray-600 hover:text-orange-600 transition-colors mb-6"
+        >
+          <ChevronLeft className="w-5 h-5 mr-1" />
+          Back to Events
+        </button>
+
         {/* Event Hero */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Event Image */}
           <div className="lg:col-span-2">
             <div className="rounded-2xl overflow-hidden shadow-xl">
@@ -260,9 +247,10 @@ const BrowseEventDetailsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Event Details Card (Swapped position) */}
+          {/* Single Sidebar Card - Event Details on top, Booking Summary below */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-2xl shadow-md p-6 space-y-6 sticky top-20">
+              {/* Event Details Section */}
               <div>
                 <h3 className="text-lg font-bold text-gray-800 mb-3">Event Details</h3>
                 <div className="space-y-3">
@@ -284,6 +272,7 @@ const BrowseEventDetailsPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Status, Duration, Event ID */}
               <div className="border-t border-gray-200 pt-4">
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
@@ -301,7 +290,34 @@ const BrowseEventDetailsPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="border-t border-gray-200 pt-6">
+              {/* Booking Summary Section */}
+              <div className="border-t border-gray-200 pt-4">
+                <h3 className="text-xl font-bold text-gray-800 mb-4">Booking Summary</h3>
+                {hasSelectedTickets ? (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center mb-4">
+                      <span className="text-gray-600">Total ({getTotalTickets()} tickets)</span>
+                      <span className="text-2xl font-bold text-orange-600">
+                        KES {calculateTotal().toLocaleString()}
+                      </span>
+                    </div>
+                    <button 
+                      onClick={handleCheckout}
+                      className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-4 rounded-xl font-semibold hover:from-green-600 hover:to-green-700 transition-all shadow-lg"
+                    >
+                      Proceed to Checkout
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-gray-500">
+                    <Ticket className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Select tickets to continue</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Need Help Section */}
+              <div className="border-t border-gray-200 pt-4">
                 <h3 className="text-lg font-bold text-gray-800 mb-3">Need Help?</h3>
                 <p className="text-sm text-gray-600 mb-4">
                   Have questions about this event? Contact our support team.
@@ -314,12 +330,34 @@ const BrowseEventDetailsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Event Description and Tickets */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            {/* About Section */}
+        {/* About and Tickets Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+          <div className="lg:col-span-3 space-y-8">
+            {/* About Section with Favorite and Share buttons */}
             <div className="bg-white rounded-2xl shadow-md p-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">About This Event</h2>
+              <div className="flex items-start justify-between mb-4">
+                <h2 className="text-2xl font-bold text-gray-800">About This Event</h2>
+                <div className="flex items-center space-x-2">
+                  <button 
+                    onClick={handleFavoriteToggle}
+                    className={`p-2 rounded-lg transition-colors ${
+                      isFavorite 
+                        ? 'bg-orange-100 text-orange-600' 
+                        : 'bg-gray-100 text-gray-600 hover:bg-orange-50'
+                    }`}
+                    title="Add to favorites"
+                  >
+                    <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
+                  </button>
+                  <button 
+                    onClick={handleShare}
+                    className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                    title="Share event"
+                  >
+                    <Share2 className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
               <p className="text-gray-600 leading-relaxed whitespace-pre-line">
                 {event.description}
               </p>
@@ -402,37 +440,6 @@ const BrowseEventDetailsPage: React.FC = () => {
                   );
                 })}
               </div>
-            </div>
-          </div>
-
-          {/* Checkout Card (Swapped position) */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-20">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">Booking Summary</h3>
-
-              {hasSelectedTickets ? (
-                <div className="space-y-4">
-                  <div className="border-t border-gray-200 pt-4">
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="text-gray-600">Total ({getTotalTickets()} tickets)</span>
-                      <span className="text-2xl font-bold text-orange-600">
-                        KES {calculateTotal().toLocaleString()}
-                      </span>
-                    </div>
-                    <button 
-                      onClick={handleCheckout}
-                      className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-4 rounded-xl font-semibold hover:from-green-600 hover:to-green-700 transition-all shadow-lg"
-                    >
-                      Proceed to Checkout
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Ticket className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">Select tickets to continue</p>
-                </div>
-              )}
             </div>
           </div>
         </div>

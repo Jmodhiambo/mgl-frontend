@@ -7,7 +7,7 @@ import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Events from './pages/Events';
 import BrowseEvents from './pages/BrowseEvents';
-import CheckoutBooking from './pages/CheckoutBooking';
+import CheckoutBooking from './pages/Checkout';
 import MyTickets from './pages/MyTickets';
 import Profile from './pages/Profile';
 import EventDetails from './pages/EventDetails';
@@ -34,17 +34,19 @@ export const router = createBrowserRouter([
   },
   
   // Public routes (accessible without authentication - No navbar)
+  // Note: We don't use PublicRoute wrapper for events because we want authenticated
+  // users to be able to view them too (they just get redirected to browse-events version)
   {
     path: '/',
-    element: (
-      <PublicRoute>
-        <PublicLayout />
-      </PublicRoute>
-    ),
+    element: <PublicLayout />,
     children: [
       {
         index: true,
-        element: <Home />,
+        element: (
+          <PublicRoute>
+            <Home />
+          </PublicRoute>
+        ),
       },
       {
         path: 'events',
@@ -96,6 +98,6 @@ export const router = createBrowserRouter([
   // Fallback - redirect to home
   {
     path: '*',
-    element: <Navigate to="/" replace />,
+    element: <Navigate to="/browse-events" replace />,
   }
 ]);
