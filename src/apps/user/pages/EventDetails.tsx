@@ -276,7 +276,7 @@ const EventDetailsPage: React.FC = () => {
           </div>
         </header>
 
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Event Hero */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
             {/* Event Image */}

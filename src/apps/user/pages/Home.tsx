@@ -112,6 +112,36 @@ const HomePage: React.FC = () => {
     });
   };
 
+const formatEventDateRange = (startTime: string, endTime: string): string => {
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+  
+  const startDate = start.toDateString();
+  const endDate = end.toDateString();
+  
+  // Same day event
+  if (startDate === endDate) {
+    return start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  
+  // Multi-day event
+  const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  
+  return `${startStr} - ${endStr}`;
+};
+
+const formatTimeRange = (startTime: string, endTime: string): string => {
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+  
+  const startTimeStr = start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const endTimeStr = end.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  
+  return `${startTimeStr} - ${endTimeStr}`;
+};
+  
+
   const filteredEvents: Event[] = events.filter((event: Event) => {
     const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          event.venue.toLowerCase().includes(searchTerm.toLowerCase());
@@ -138,7 +168,7 @@ const HomePage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
       {/* Header/Navbar */}
       <header className="bg-white shadow-sm border-b border-orange-100 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
@@ -172,7 +202,7 @@ const HomePage: React.FC = () => {
       </header>
 
       {/* Events Section */}
-      <div id="events" className="py-20 pt-8">
+      <div id="events" className="py-20 pt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h3 className="text-3xl font-bold text-gray-800 mb-4">Featured Events</h3>
@@ -229,15 +259,21 @@ const HomePage: React.FC = () => {
                     <p className="text-gray-600 text-sm mb-3 line-clamp-2">
                       {event.description}
                     </p>
-                    
+
                     <div className="space-y-2">
+                      <div className="flex items-center text-gray-600 text-sm">
+                        <Calendar className="w-4 h-4 mr-2 text-orange-500" />
+                        <span className="font-medium">{formatEventDateRange(event.start_time, event.end_time)}</span>
+                      </div>
+                      
+                      <div className="flex items-center text-gray-600 text-sm">
+                        <Clock className="w-4 h-4 mr-2 text-orange-500" />
+                        <span>{formatTimeRange(event.start_time, event.end_time)}</span>
+                      </div>
+                      
                       <div className="flex items-center text-gray-600 text-sm">
                         <MapPin className="w-4 h-4 mr-2 text-orange-500" />
                         <span className="line-clamp-1">{event.venue}</span>
-                      </div>
-                      <div className="flex items-center text-gray-600 text-sm">
-                        <Clock className="w-4 h-4 mr-2 text-orange-500" />
-                        <span>{formatTime(event.start_time)}</span>
                       </div>
                     </div>
                   </div>

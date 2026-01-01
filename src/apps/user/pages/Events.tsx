@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, Clock, Search, Filter, Ticket, ChevronRight, Heart, TrendingUp } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Calendar, MapPin, Clock, Search, Filter, Ticket, ChevronRight, Heart, TrendingUp, Home as HomeIcon } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
 import AuthModal from '@shared/components/modals/AuthModal';
 
@@ -248,6 +248,59 @@ const EventsPage: React.FC = () => {
     });
   };
 
+  const formatEventDuration = (startTime: string, endTime: string): string => {
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    
+    const startDate = start.toDateString();
+    const endDate = end.toDateString();
+    
+    const startTimeStr = start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const endTimeStr = end.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    
+    // Same day event
+    if (startDate === endDate) {
+      return `${startTimeStr} - ${endTimeStr}`;
+    }
+    
+    // Multi-day event
+    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysDiff === 1) {
+      return `${startTimeStr} - Next day ${endTimeStr}`;
+    }
+    
+    return `${daysDiff} days`;
+  };
+
+  const formatEventDateRange = (startTime: string, endTime: string): string => {
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    
+    const startDate = start.toDateString();
+    const endDate = end.toDateString();
+    
+    // Same day event
+    if (startDate === endDate) {
+      return start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    
+    // Multi-day event
+    const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    
+    return `${startStr} - ${endStr}`;
+  };
+
+  const formatTimeRange = (startTime: string, endTime: string): string => {
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    
+    const startTimeStr = start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const endTimeStr = end.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    
+    return `${startTimeStr} - ${endTimeStr}`;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center">
@@ -259,14 +312,23 @@ const EventsPage: React.FC = () => {
   return (
     <>
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Page Header */}
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="w-6 h-6 text-orange-600" />
-              <h2 className="text-3xl font-bold text-gray-800">Discover Events</h2>
+          <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <TrendingUp className="w-6 h-6 text-orange-600" />
+                <h2 className="text-3xl font-bold text-gray-800">Discover Events</h2>
+              </div>
+              <p className="text-gray-600">Find and book tickets for amazing events happening near you</p>
             </div>
-            <p className="text-gray-600">Find and book tickets for amazing events happening near you</p>
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-orange-500 text-orange-600 rounded-lg font-semibold hover:bg-orange-50 transition-all shadow-sm whitespace-nowrap"
+            >
+              <HomeIcon className="w-5 h-5" />
+              <span>Back to Home</span>
+            </button>
           </div>
 
           {/* Search and Filter Bar */}
@@ -310,7 +372,7 @@ const EventsPage: React.FC = () => {
               <p className="text-gray-500">Try adjusting your search or filters</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {filteredEvents.map((event) => (
                 <div
                   key={event.id}
@@ -359,8 +421,13 @@ const EventsPage: React.FC = () => {
 
                     <div className="space-y-2 mb-4">
                       <div className="flex items-center text-gray-600 text-sm">
+                        <Calendar size={16} className="mr-2 text-orange-500 flex-shrink-0" />
+                        <span className="font-medium">{formatEventDateRange(event.start_time, event.end_time)}</span>
+                      </div>
+                      
+                      <div className="flex items-center text-gray-600 text-sm">
                         <Clock size={16} className="mr-2 text-orange-500 flex-shrink-0" />
-                        <span>{formatTime(event.start_time)}</span>
+                        <span>{formatTimeRange(event.start_time, event.end_time)}</span>
                       </div>
                       
                       <div className="flex items-center text-gray-600 text-sm">

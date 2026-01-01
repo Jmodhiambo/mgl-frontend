@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { Calendar, Ticket, CreditCard, User, TrendingUp, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { getCurrentUser } from '@shared/api/user/usersApi';
 
@@ -37,6 +38,7 @@ interface UpcomingEvent {
 }
 
 const UserDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
@@ -236,9 +238,9 @@ const UserDashboard: React.FC = () => {
             <div className="bg-white rounded-xl shadow-md p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold text-gray-800">Recent Bookings</h3>
-                <a href="#" className="text-orange-600 hover:text-orange-700 font-medium text-sm">
+                <Link to="/my-tickets" className="text-orange-600 hover:text-orange-700 font-medium text-sm">
                   View All
-                </a>
+                </Link>
               </div>
 
               <div className="space-y-4">
@@ -332,30 +334,21 @@ const UserDashboard: React.FC = () => {
             <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-md p-6 text-white">
               <h3 className="text-lg font-bold mb-4">Quick Actions</h3>
               <div className="space-y-3">
-                <button className="w-full bg-white text-orange-600 py-2 rounded-lg font-medium hover:bg-orange-50 transition-colors text-sm">
+                <button 
+                  onClick={() => navigate('/browse-events')}
+                  className="w-full bg-white text-orange-600 py-2 rounded-lg font-medium hover:bg-orange-50 transition-colors text-sm">
                   Browse Events
                 </button>
-                <button className="w-full bg-orange-700 text-white py-2 rounded-lg font-medium hover:bg-orange-800 transition-colors text-sm">
+                <button 
+                  onClick={() => navigate('/my-tickets')}
+                  className="w-full bg-orange-700 text-white py-2 rounded-lg font-medium hover:bg-orange-800 transition-colors text-sm">
                   View My Tickets
                 </button>
-                <button className="w-full bg-orange-700 text-white py-2 rounded-lg font-medium hover:bg-orange-800 transition-colors text-sm">
-                  Edit Profile
+                <button
+                  onClick={() => window.open('https://organizer.mgltickets.com', '_blank')}
+                  className="w-full bg-orange-700 text-white py-2 rounded-lg font-medium hover:bg-orange-800 transition-colors text-sm">
+                  View My Events
                 </button>
-              </div>
-            </div>
-
-            {/* Account Info */}
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <h3 className="text-lg font-bold text-gray-800 mb-4">Account Info</h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center">
-                  <User className="w-4 h-4 text-gray-400 mr-2" />
-                  <span className="text-gray-600">{user?.email}</span>
-                </div>
-                <div className="flex items-center">
-                  <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
-                  <span className="text-gray-600">Verified Account</span>
-                </div>
               </div>
             </div>
           </div>

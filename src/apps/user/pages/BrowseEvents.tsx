@@ -231,6 +231,35 @@ const BrowseEventsPage: React.FC = () => {
     });
   };
 
+  const formatEventDateRange = (startTime: string, endTime: string): string => {
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    
+    const startDate = start.toDateString();
+    const endDate = end.toDateString();
+    
+    // Same day event
+    if (startDate === endDate) {
+      return start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    
+    // Multi-day event
+    const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    
+    return `${startStr} - ${endStr}`;
+  };
+
+  const formatTimeRange = (startTime: string, endTime: string): string => {
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    
+    const startTimeStr = start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const endTimeStr = end.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    
+    return `${startTimeStr} - ${endTimeStr}`;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-16 flex items-center justify-center">
@@ -240,8 +269,8 @@ const BrowseEventsPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-8">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-16">
+      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-3">
@@ -292,7 +321,7 @@ const BrowseEventsPage: React.FC = () => {
             <p className="text-gray-500">Try adjusting your search or filters</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {filteredEvents.map((event) => (
               <div
                 key={event.id}
@@ -341,8 +370,13 @@ const BrowseEventsPage: React.FC = () => {
 
                   <div className="space-y-2 mb-4">
                     <div className="flex items-center text-gray-600 text-sm">
+                      <Calendar size={16} className="mr-2 text-orange-500 flex-shrink-0" />
+                      <span className="font-medium">{formatEventDateRange(event.start_time, event.end_time)}</span>
+                    </div>
+                    
+                    <div className="flex items-center text-gray-600 text-sm">
                       <Clock size={16} className="mr-2 text-orange-500 flex-shrink-0" />
-                      <span>{formatTime(event.start_time)}</span>
+                      <span>{formatTimeRange(event.start_time, event.end_time)}</span>
                     </div>
                     
                     <div className="flex items-center text-gray-600 text-sm">
