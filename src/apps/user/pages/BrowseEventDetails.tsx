@@ -41,6 +41,8 @@ const BrowseEventDetailsPage: React.FC = () => {
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
 
   useEffect(() => {
+    document.title = event ? `${event.title} - Event Details` : 'Event Details';
+    
     fetchEventDetails();
     
     // Restore selected tickets from navigation state if coming from login

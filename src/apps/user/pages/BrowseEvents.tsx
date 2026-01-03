@@ -36,6 +36,7 @@ const BrowseEventsPage: React.FC = () => {
   const [hoveredEventId, setHoveredEventId] = useState<number | null>(null);
 
   useEffect(() => {
+    document.title = 'Browse Events - MGLTickets';
     loadEvents();
     loadFavorites();
   }, []);

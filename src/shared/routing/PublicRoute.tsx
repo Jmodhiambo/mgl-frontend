@@ -18,7 +18,7 @@ const PublicRoute: React.FC<PublicRouteProps> = ({ children }) => {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/browse-events" replace />;
   }
 
   return <>{children}</>;

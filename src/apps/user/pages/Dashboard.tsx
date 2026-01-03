@@ -46,6 +46,8 @@ const UserDashboard: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    document.title = 'Dashboard - MGLTickets';
+    
     const fetchDashboardData = async (): Promise<void> => {
       try {
         // Replace with actual API calls:

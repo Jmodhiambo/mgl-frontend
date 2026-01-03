@@ -51,6 +51,8 @@ const CheckoutBookingPage: React.FC = () => {
   const [errors, setErrors] = useState<FormErrors>({});
 
   useEffect(() => {
+    document.title = 'Checkout - MGLTickets';
+    
     // Get booking data from navigation state
     const state = location.state as { bookingData?: BookingData; event?: Event };
     

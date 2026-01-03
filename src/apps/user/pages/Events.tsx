@@ -38,6 +38,8 @@ const EventsPage: React.FC = () => {
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
 
   useEffect(() => {
+    document.title = 'Events - MGLTickets';
+    
     loadEvents();
     if (isAuthenticated) {
       loadFavorites();

@@ -71,6 +71,8 @@ const ProfileSettingsPage: React.FC = () => {
   });
 
   useEffect(() => {
+    document.title = 'Profile Settings - MGLTickets';
+    
     const fetchUserData = async (): Promise<void> => {
       try {
         // Replace with actual API call:

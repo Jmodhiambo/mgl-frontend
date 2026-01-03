@@ -3,17 +3,22 @@ import ProtectedRoute from '@shared/routing/ProtectedRoute';
 import PublicRoute from '@shared/routing/PublicRoute';
 import ProtectedLayout from '@shared/components/layouts/ProtectedLayout';
 import PublicLayout from '@shared/components/layouts/PublicLayout';
+import LegalLayout from '@shared/components/layouts/LegalLayout';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Events from './pages/Events';
 import BrowseEvents from './pages/BrowseEvents';
-import CheckoutBooking from './pages/Checkout';
+import Checkout from './pages/Checkout';
 import MyTickets from './pages/MyTickets';
 import Profile from './pages/Profile';
 import EventDetails from './pages/EventDetails';
 import BrowseEventDetails from './pages/BrowseEventDetails';
+import MyEvents from './pages/MyEvents';
+import OrganizerProfileSetup from './pages/OrganizerProfileSetup';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import { TermsOfService, PrivacyPolicy, RefundPolicy, AboutUs, ContactPage, FAQPage, HelpCenterPage } from '@shared/pages';
+import { PressAndMedia, CareersPage } from '@shared/pages';
 
 /**
  * Router configuration for MGLTickets
@@ -58,6 +63,50 @@ export const router = createBrowserRouter([
       },
     ],
   },
+
+  // Legal routes (accessible without authentication)
+  {
+    path: '/',
+    element: <LegalLayout />,
+    children: [
+      {
+        path: 'terms',
+        element: <TermsOfService />,
+      },
+      {
+        path: 'privacy',
+        element: <PrivacyPolicy />,
+      },
+      {
+        path: 'refund',
+        element: <RefundPolicy />,
+      },
+      {
+        path: 'about',
+        element: <AboutUs />,
+      },
+      {
+        path: 'contact',
+        element: <ContactPage />,
+      },
+      {
+        path: 'faq',
+        element: <FAQPage />,
+      },
+      {
+        path: 'help',
+        element: <HelpCenterPage />,
+      },
+      {
+        path: 'press',
+        element: <PressAndMedia />,
+      },
+      {
+        path: 'careers',
+        element: <CareersPage />,
+      },
+    ],
+  },
   
   // Protected routes (require authentication - Has navbar)
   {
@@ -86,11 +135,19 @@ export const router = createBrowserRouter([
       },
       {
         path: 'checkout',
-        element: <CheckoutBooking />,
+        element: <Checkout />,
       },
       {
         path: 'profile',
         element: <Profile />,
+      },
+      {
+        path: 'my-events',
+        element: <MyEvents />,
+      },
+      {
+        path: 'setup-organizer-profile',
+        element: <OrganizerProfileSetup />,
       },
     ],
   },

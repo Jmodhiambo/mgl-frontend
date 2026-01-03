@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, MapPin, Search, Filter, Clock, TrendingUp, ArrowRight, Ticket, Users, Star } from 'lucide-react';
+import Footer from '@shared/components/navigation/Footer';
 
 interface Event {
   id: number;
@@ -23,6 +24,7 @@ const HomePage: React.FC = () => {
   const [showFilters, setShowFilters] = useState<boolean>(false);
 
   useEffect(() => {
+    document.title = 'Home - MGLTickets';
     const fetchEvents = async (): Promise<void> => {
       try {
         // Replace with: const response = await fetch('/api/events');
@@ -434,52 +436,7 @@ const formatTimeRange = (startTime: string, endTime: string): string => {
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-300 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
-                  <Calendar className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-xl font-bold text-white">MGLTickets</span>
-              </div>
-              <p className="text-sm">Your trusted partner for event ticketing in Kenya.</p>
-            </div>
-
-            <div>
-              <h4 className="text-white font-semibold mb-4">Company</h4>
-              <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:text-orange-500 transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-orange-500 transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-orange-500 transition-colors">Press</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-white font-semibold mb-4">Support</h4>
-              <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:text-orange-500 transition-colors">Help Center</a></li>
-                <li><a href="#" className="hover:text-orange-500 transition-colors">Contact Us</a></li>
-                <li><a href="#" className="hover:text-orange-500 transition-colors">Terms of Service</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-white font-semibold mb-4">Connect</h4>
-              <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:text-orange-500 transition-colors">Twitter</a></li>
-                <li><a href="#" className="hover:text-orange-500 transition-colors">Facebook</a></li>
-                <li><a href="#" className="hover:text-orange-500 transition-colors">Instagram</a></li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-800 pt-8 text-center text-sm">
-            <p>© {new Date().getFullYear()} MGLTickets. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };

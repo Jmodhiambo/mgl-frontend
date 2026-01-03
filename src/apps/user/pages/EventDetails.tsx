@@ -42,6 +42,8 @@ const EventDetailsPage: React.FC = () => {
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
 
   useEffect(() => {
+    document.title = event ? `${event.title} - Event Details` : 'Event Details';
+    
     fetchEventDetails();
   }, [eventId]);
 

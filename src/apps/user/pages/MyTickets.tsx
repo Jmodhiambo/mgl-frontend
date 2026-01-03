@@ -33,6 +33,8 @@ const MyTicketsPage: React.FC = () => {
   const [selectedTicket, setSelectedTicket] = useState<TicketInstance | null>(null);
 
   useEffect(() => {
+    document.title = 'My Tickets - MGLTickets';
+    
     const fetchTickets = async (): Promise<void> => {
       try {
         // Replace with actual API call:

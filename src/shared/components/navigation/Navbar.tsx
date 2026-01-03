@@ -31,6 +31,7 @@ export default function Navbar() {
     { path: '/browse-events', label: 'Browse Events' },
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/my-tickets', label: 'My Tickets' },
+    { path: '/my-events', label: 'My Events' },
   ];
 
   return (
