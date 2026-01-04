@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { HelpCircle, ChevronDown, ChevronUp, Search, Ticket, CreditCard, Calendar, User, Shield, RefreshCw } from 'lucide-react';
+import { FAQSEO } from '@shared/components/SEO';
 
 interface FAQItem {
   question: string;
@@ -200,123 +201,126 @@ const FAQPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-16">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full mb-4">
-            <HelpCircle className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Frequently Asked Questions</h1>
-          <p className="text-gray-600 text-lg">Find answers to common questions about MGLTickets</p>
-        </div>
-
-        {/* Search Bar */}
-        <div className="bg-white rounded-xl shadow-md p-4 mb-8">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search for answers..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
-            />
-          </div>
-        </div>
-
-        {/* Category Filter */}
-        <div className="mb-8 overflow-x-auto">
-          <div className="flex gap-3 pb-2">
-            {categories.map((category) => {
-              const Icon = category.icon;
-              return (
-                <button
-                  key={category.id}
-                  onClick={() => setActiveCategory(category.id)}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-all ${
-                    activeCategory === category.id
-                      ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md'
-                      : 'bg-white text-gray-700 hover:bg-orange-50'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {category.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* FAQ List */}
-        <div className="space-y-4">
-          {filteredFAQs.length > 0 ? (
-            filteredFAQs.map((faq, index) => (
-              <div
-                key={index}
-                className="bg-white rounded-xl shadow-md overflow-hidden transition-all hover:shadow-lg"
-              >
-                <button
-                  onClick={() => toggleFAQ(index)}
-                  className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-orange-50 transition-colors"
-                >
-                  <span className="font-semibold text-gray-900 pr-4">{faq.question}</span>
-                  {openIndex === index ? (
-                    <ChevronUp className="w-5 h-5 text-orange-600 flex-shrink-0" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                  )}
-                </button>
-                {openIndex === index && (
-                  <div className="px-6 pb-5 pt-2 border-t border-gray-100">
-                    <p className="text-gray-700 leading-relaxed">{faq.answer}</p>
-                  </div>
-                )}
-              </div>
-            ))
-          ) : (
-            <div className="bg-white rounded-xl shadow-md p-12 text-center">
-              <HelpCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">No results found</h3>
-              <p className="text-gray-500 mb-6">
-                We couldn't find any FAQs matching your search. Try different keywords or browse by category.
-              </p>
-              <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setActiveCategory('all');
-                }}
-                className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all"
-              >
-                Clear Filters
-              </button>
+    <>
+      <FAQSEO />
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-16">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          {/* Header */}
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full mb-4">
+              <HelpCircle className="w-8 h-8 text-white" />
             </div>
-          )}
-        </div>
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">Frequently Asked Questions</h1>
+            <p className="text-gray-600 text-lg">Find answers to common questions about MGLTickets</p>
+          </div>
 
-        {/* Still Need Help */}
-        <div className="mt-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl shadow-lg p-8 text-center text-white">
-          <h2 className="text-2xl font-bold mb-4">Still need help?</h2>
-          <p className="text-lg mb-6 opacity-90">
-            Can't find the answer you're looking for? Our support team is here to help.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a
-              href="/contact"
-              className="bg-white text-orange-600 px-8 py-3 rounded-lg font-semibold hover:bg-orange-50 transition-colors"
-            >
-              Contact Support
-            </a>
-            <a
-              href="/help"
-              className="bg-transparent border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-orange-600 transition-colors"
-            >
-              Visit Help Center
-            </a>
+          {/* Search Bar */}
+          <div className="bg-white rounded-xl shadow-md p-4 mb-8">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search for answers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          {/* Category Filter */}
+          <div className="mb-8 overflow-x-auto">
+            <div className="flex gap-3 pb-2">
+              {categories.map((category) => {
+                const Icon = category.icon;
+                return (
+                  <button
+                    key={category.id}
+                    onClick={() => setActiveCategory(category.id)}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-all ${
+                      activeCategory === category.id
+                        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md'
+                        : 'bg-white text-gray-700 hover:bg-orange-50'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {category.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* FAQ List */}
+          <div className="space-y-4">
+            {filteredFAQs.length > 0 ? (
+              filteredFAQs.map((faq, index) => (
+                <div
+                  key={index}
+                  className="bg-white rounded-xl shadow-md overflow-hidden transition-all hover:shadow-lg"
+                >
+                  <button
+                    onClick={() => toggleFAQ(index)}
+                    className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-orange-50 transition-colors"
+                  >
+                    <span className="font-semibold text-gray-900 pr-4">{faq.question}</span>
+                    {openIndex === index ? (
+                      <ChevronUp className="w-5 h-5 text-orange-600 flex-shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                    )}
+                  </button>
+                  {openIndex === index && (
+                    <div className="px-6 pb-5 pt-2 border-t border-gray-100">
+                      <p className="text-gray-700 leading-relaxed">{faq.answer}</p>
+                    </div>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="bg-white rounded-xl shadow-md p-12 text-center">
+                <HelpCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">No results found</h3>
+                <p className="text-gray-500 mb-6">
+                  We couldn't find any FAQs matching your search. Try different keywords or browse by category.
+                </p>
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setActiveCategory('all');
+                  }}
+                  className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Still Need Help */}
+          <div className="mt-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl shadow-lg p-8 text-center text-white">
+            <h2 className="text-2xl font-bold mb-4">Still need help?</h2>
+            <p className="text-lg mb-6 opacity-90">
+              Can't find the answer you're looking for? Our support team is here to help.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <a
+                href="/contact"
+                className="bg-white text-orange-600 px-8 py-3 rounded-lg font-semibold hover:bg-orange-50 transition-colors"
+              >
+                Contact Support
+              </a>
+              <a
+                href="/help"
+                className="bg-transparent border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-orange-600 transition-colors"
+              >
+                Visit Help Center
+              </a>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

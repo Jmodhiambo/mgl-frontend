@@ -7,3 +7,4 @@ export { default as FAQPage } from './FAQ';
 export { default as HelpCenterPage } from './HelpCenter';
 export { default as PressAndMedia } from './PressAndMedia';
 export { default as CareersPage } from './Careers';
+export { default as NotFoundPage } from './NotFoundPage';

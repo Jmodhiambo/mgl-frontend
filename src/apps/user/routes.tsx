@@ -18,7 +18,8 @@ import OrganizerProfileSetup from './pages/OrganizerProfileSetup';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import { TermsOfService, PrivacyPolicy, RefundPolicy, AboutUs, ContactPage, FAQPage, HelpCenterPage } from '@shared/pages';
-import { PressAndMedia, CareersPage } from '@shared/pages';
+import { PressAndMedia, CareersPage, NotFoundPage } from '@shared/pages';
+import Test from './pages/Test';
 
 /**
  * Router configuration for MGLTickets
@@ -36,6 +37,10 @@ export const router = createBrowserRouter([
   {
     path: '/register',
     element: <Register />,
+  },
+  {
+    path: '/test',
+    element: <Test />,
   },
   
   // Public routes (accessible without authentication - No navbar)
@@ -152,9 +157,9 @@ export const router = createBrowserRouter([
     ],
   },
   
-  // Fallback - redirect to home
+  // Fallback - redirect to NotFoundPage for any unmatched routes
   {
     path: '*',
-    element: <Navigate to="/browse-events" replace />,
+    element: <NotFoundPage /> ,
   }
 ]);

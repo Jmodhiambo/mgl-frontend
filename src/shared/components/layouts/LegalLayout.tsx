@@ -1,12 +1,35 @@
 import React from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { Calendar, ArrowLeft } from 'lucide-react';
+import { Calendar, ArrowLeft, Loader2 } from 'lucide-react';
 import Footer from '@shared/components/navigation/Footer';
 
 
 const LegalLayout: React.FC = () => {
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+    useEffect(() => {
+    // Simulate page load - adjust timing as needed
+    setIsLoading(true);
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 300); // Short delay for smooth transition
+
+    return () => clearTimeout(timer);
+  }, []); // Re-run when page changes
+
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-white bg-opacity-90 z-50 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 text-orange-500 animate-spin mx-auto mb-4" />
+            <p className="text-gray-600 font-medium">Loading...</p>
+          </div>
+        </div>
+      )}
+
       {/* Minimal Header */}
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -40,9 +63,11 @@ const LegalLayout: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1">
-        <Outlet /> {/* Legal pages like TermsOfService, PrivacyPolicy, etc. render here */}
+      {/* Main Content with fade-in animation */}
+      <main className={`flex-1 transition-opacity duration-300 ${
+        isLoading ? 'opacity-0' : 'opacity-100'
+      }`}>
+        <Outlet />
       </main>
 
       {/* Footer */}
