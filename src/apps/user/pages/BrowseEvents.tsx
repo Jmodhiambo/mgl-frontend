@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, MapPin, Clock, Search, Filter, Ticket, ChevronRight, Heart, TrendingUp } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
+import { EventSEO } from '@shared/components/SEO';
 
 interface Event {
   id: number;
   title: string;
+  slug: string;
   description: string;
   venue: string;
   start_time: string;
@@ -60,6 +62,7 @@ const BrowseEventsPage: React.FC = () => {
         {
           id: 1,
           title: "Summer Music Festival 2025",
+          slug: "summer-music-festival-2025",
           description: "The biggest music festival of the year featuring top artists from across Africa. Experience live performances, food vendors, and amazing vibes!",
           venue: "Kasarani Stadium, Nairobi",
           start_time: "2025-07-15T14:00:00Z",
@@ -73,6 +76,7 @@ const BrowseEventsPage: React.FC = () => {
         {
           id: 2,
           title: "Tech Innovation Summit",
+          slug: "tech-innovation-summit",
           description: "Discover the latest in technology and innovation with keynote speakers and interactive workshops.",
           venue: "KICC Nairobi",
           start_time: "2025-01-20T09:00:00Z",
@@ -86,6 +90,7 @@ const BrowseEventsPage: React.FC = () => {
         {
           id: 3,
           title: "Food & Wine Expo",
+          slug: "food-and-wine-expo",
           description: "Experience culinary delights from renowned chefs and premium wine selections from around the world.",
           venue: "Sarit Centre",
           start_time: "2025-02-05T12:00:00Z",
@@ -99,6 +104,7 @@ const BrowseEventsPage: React.FC = () => {
         {
           id: 4,
           title: "Comedy Night Extravaganza",
+          slug: "comedy-night-extravaganza",
           description: "Laugh out loud with Kenya's best comedians in one epic night of entertainment.",
           venue: "Alliance Française",
           start_time: "2025-01-25T19:00:00Z",
@@ -112,6 +118,7 @@ const BrowseEventsPage: React.FC = () => {
         {
           id: 5,
           title: "Art Exhibition: Contemporary Africa",
+          slug: "art-exhibition-contemporary-africa",
           description: "Explore stunning contemporary art from emerging African artists in this exclusive exhibition.",
           venue: "Nairobi National Museum",
           start_time: "2025-02-10T10:00:00Z",
@@ -125,6 +132,7 @@ const BrowseEventsPage: React.FC = () => {
         {
           id: 6,
           title: "Marathon for Charity",
+          slug: "marathon-for-charity",
           description: "Run for a cause! Join thousands in this charity marathon supporting local communities.",
           venue: "Uhuru Park",
           start_time: "2025-02-15T06:00:00Z",
@@ -270,133 +278,136 @@ const BrowseEventsPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-16">
-      <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="w-6 h-6 text-orange-600" />
-            <h2 className="text-3xl font-bold text-gray-800">Browse Events</h2>
-          </div>
-          <p className="text-gray-600">Discover and book tickets for amazing events</p>
-        </div>
-
-        {/* Search and Filter Bar */}
-        <div className="bg-white rounded-xl shadow-md p-4 mb-8">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="Search events, venues, organizers..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              />
+    <>
+      <EventSEO />
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-16">
+        <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Page Header */}
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="w-6 h-6 text-orange-600" />
+              <h2 className="text-3xl font-bold text-gray-800">Browse Events</h2>
             </div>
-
-            <div className="flex gap-3">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
-              >
-                <option value="date-asc">Date: Earliest First</option>
-                <option value="date-desc">Date: Latest First</option>
-                <option value="title">Title: A-Z</option>
-              </select>
-
-              <button className="px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
-                <Filter size={20} />
-                <span className="hidden sm:inline">Filters</span>
-              </button>
-            </div>
+            <p className="text-gray-600">Discover and book tickets for amazing events</p>
           </div>
-        </div>
 
-        {/* Events Grid */}
-        {filteredEvents.length === 0 ? (
-          <div className="text-center py-16">
-            <Ticket size={64} className="mx-auto text-gray-400 mb-4" />
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">No events found</h3>
-            <p className="text-gray-500">Try adjusting your search or filters</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {filteredEvents.map((event) => (
-              <div
-                key={event.id}
-                onClick={() => navigate(`/browse-events/${event.id}`)}
-                onMouseEnter={() => setHoveredEventId(event.id)}
-                onMouseLeave={() => setHoveredEventId(null)}
-                className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group"
-              >
-                {/* Event Image */}
-                <div className="relative h-48 overflow-hidden">
-                  <img
-                    src={event.flyer_url}
-                    alt={event.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                  />
-                  
-                  {/* Favorite Button */}
-                  <button
-                    onClick={(e) => handleFavoriteToggle(e, event.id)}
-                    className={`absolute top-3 right-3 p-2 rounded-full backdrop-blur-sm transition-all duration-200 ${
-                      isFavorite(event.id)
-                        ? 'bg-orange-500 text-white'
-                        : 'bg-white/80 text-gray-600 hover:bg-orange-50'
-                    } ${hoveredEventId === event.id || isFavorite(event.id) ? 'opacity-100' : 'opacity-0'}`}
-                  >
-                    <Heart size={18} fill={isFavorite(event.id) ? 'currentColor' : 'none'} />
-                  </button>
-
-                  {/* Date Badge */}
-                  <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-lg">
-                    <p className="text-orange-600 font-bold text-sm">
-                      {new Date(event.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Event Info */}
-                <div className="p-5">
-                  <h3 className="text-lg font-bold text-gray-800 mb-2 line-clamp-2 group-hover:text-orange-600 transition-colors">
-                    {event.title}
-                  </h3>
-                  
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                    {event.description}
-                  </p>
-
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-center text-gray-600 text-sm">
-                      <Calendar size={16} className="mr-2 text-orange-500 flex-shrink-0" />
-                      <span className="font-medium">{formatEventDateRange(event.start_time, event.end_time)}</span>
-                    </div>
-                    
-                    <div className="flex items-center text-gray-600 text-sm">
-                      <Clock size={16} className="mr-2 text-orange-500 flex-shrink-0" />
-                      <span>{formatTimeRange(event.start_time, event.end_time)}</span>
-                    </div>
-                    
-                    <div className="flex items-center text-gray-600 text-sm">
-                      <MapPin size={16} className="mr-2 text-orange-500 flex-shrink-0" />
-                      <span className="line-clamp-1">{event.venue}</span>
-                    </div>
-                  </div>
-
-                  <button className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-2.5 rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all flex items-center justify-center gap-2 font-semibold shadow-md">
-                    View Details
-                    <ChevronRight size={18} />
-                  </button>
-                </div>
+          {/* Search and Filter Bar */}
+          <div className="bg-white rounded-xl shadow-md p-4 mb-8">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                  type="text"
+                  placeholder="Search events, venues, organizers..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
               </div>
-            ))}
+
+              <div className="flex gap-3">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+                >
+                  <option value="date-asc">Date: Earliest First</option>
+                  <option value="date-desc">Date: Latest First</option>
+                  <option value="title">Title: A-Z</option>
+                </select>
+
+                <button className="px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+                  <Filter size={20} />
+                  <span className="hidden sm:inline">Filters</span>
+                </button>
+              </div>
+            </div>
           </div>
-        )}
-      </main>
-    </div>
+
+          {/* Events Grid */}
+          {filteredEvents.length === 0 ? (
+            <div className="text-center py-16">
+              <Ticket size={64} className="mx-auto text-gray-400 mb-4" />
+              <h3 className="text-xl font-semibold text-gray-700 mb-2">No events found</h3>
+              <p className="text-gray-500">Try adjusting your search or filters</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {filteredEvents.map((event) => (
+                <div
+                  key={event.id}
+                  onClick={() => navigate(`/browse-events/${event.slug}`)}
+                  onMouseEnter={() => setHoveredEventId(event.id)}
+                  onMouseLeave={() => setHoveredEventId(null)}
+                  className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group"
+                >
+                  {/* Event Image */}
+                  <div className="relative h-48 overflow-hidden">
+                    <img
+                      src={event.flyer_url}
+                      alt={event.title}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                    
+                    {/* Favorite Button */}
+                    <button
+                      onClick={(e) => handleFavoriteToggle(e, event.id)}
+                      className={`absolute top-3 right-3 p-2 rounded-full backdrop-blur-sm transition-all duration-200 ${
+                        isFavorite(event.id)
+                          ? 'bg-orange-500 text-white'
+                          : 'bg-white/80 text-gray-600 hover:bg-orange-50'
+                      } ${hoveredEventId === event.id || isFavorite(event.id) ? 'opacity-100' : 'opacity-0'}`}
+                    >
+                      <Heart size={18} fill={isFavorite(event.id) ? 'currentColor' : 'none'} />
+                    </button>
+
+                    {/* Date Badge */}
+                    <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-lg">
+                      <p className="text-orange-600 font-bold text-sm">
+                        {new Date(event.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Event Info */}
+                  <div className="p-5">
+                    <h3 className="text-lg font-bold text-gray-800 mb-2 line-clamp-2 group-hover:text-orange-600 transition-colors">
+                      {event.title}
+                    </h3>
+                    
+                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                      {event.description}
+                    </p>
+
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center text-gray-600 text-sm">
+                        <Calendar size={16} className="mr-2 text-orange-500 flex-shrink-0" />
+                        <span className="font-medium">{formatEventDateRange(event.start_time, event.end_time)}</span>
+                      </div>
+                      
+                      <div className="flex items-center text-gray-600 text-sm">
+                        <Clock size={16} className="mr-2 text-orange-500 flex-shrink-0" />
+                        <span>{formatTimeRange(event.start_time, event.end_time)}</span>
+                      </div>
+                      
+                      <div className="flex items-center text-gray-600 text-sm">
+                        <MapPin size={16} className="mr-2 text-orange-500 flex-shrink-0" />
+                        <span className="line-clamp-1">{event.venue}</span>
+                      </div>
+                    </div>
+
+                    <button className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-2.5 rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all flex items-center justify-center gap-2 font-semibold shadow-md">
+                      View Details
+                      <ChevronRight size={18} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
+    </>
   );
 };
 

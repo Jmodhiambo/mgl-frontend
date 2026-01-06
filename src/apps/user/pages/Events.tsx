@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Calendar, MapPin, Clock, Search, Filter, Ticket, ChevronRight, Heart, TrendingUp, Home as HomeIcon } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
 import AuthModal from '@shared/components/modals/AuthModal';
+import { EventSEO } from '@shared/components/SEO';
 
 interface Event {
   id: number;
   title: string;
+  slug: string;
   description: string;
   venue: string;
   start_time: string;
@@ -63,6 +65,7 @@ const EventsPage: React.FC = () => {
         {
           id: 1,
           title: "Summer Music Festival 2025",
+          slug: "summer-music-festival-2025",
           description: "The biggest music festival of the year featuring top artists from across Africa. Experience live performances, food vendors, and amazing vibes!",
           venue: "Kasarani Stadium, Nairobi",
           start_time: "2025-07-15T14:00:00Z",
@@ -76,6 +79,7 @@ const EventsPage: React.FC = () => {
         {
           id: 2,
           title: "Tech Innovation Summit",
+          slug: "tech-innovation-summit",
           description: "Discover the latest in technology and innovation with keynote speakers and interactive workshops.",
           venue: "KICC Nairobi",
           start_time: "2025-01-20T09:00:00Z",
@@ -89,6 +93,7 @@ const EventsPage: React.FC = () => {
         {
           id: 3,
           title: "Food & Wine Expo",
+          slug: "food-and-wine-expo",
           description: "Experience culinary delights from renowned chefs and premium wine selections from around the world.",
           venue: "Sarit Centre",
           start_time: "2025-02-05T12:00:00Z",
@@ -102,6 +107,7 @@ const EventsPage: React.FC = () => {
         {
           id: 4,
           title: "Comedy Night Extravaganza",
+          slug: "comedy-night-extravaganza",
           description: "Laugh out loud with Kenya's best comedians in one epic night of entertainment.",
           venue: "Alliance Française",
           start_time: "2025-01-25T19:00:00Z",
@@ -115,6 +121,7 @@ const EventsPage: React.FC = () => {
         {
           id: 5,
           title: "Art Exhibition: Contemporary Africa",
+          slug: "art-exhibition-contemporary-africa",
           description: "Explore stunning contemporary art from emerging African artists in this exclusive exhibition.",
           venue: "Nairobi National Museum",
           start_time: "2025-02-10T10:00:00Z",
@@ -128,6 +135,7 @@ const EventsPage: React.FC = () => {
         {
           id: 6,
           title: "Marathon for Charity",
+          slug: "marathon-for-charity",
           description: "Run for a cause! Join thousands in this charity marathon supporting local communities.",
           venue: "Uhuru Park",
           start_time: "2025-02-15T06:00:00Z",
@@ -313,6 +321,7 @@ const EventsPage: React.FC = () => {
 
   return (
     <>
+      <EventSEO />
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
         <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Page Header */}
@@ -378,7 +387,7 @@ const EventsPage: React.FC = () => {
               {filteredEvents.map((event) => (
                 <div
                   key={event.id}
-                  onClick={() => navigate(isAuthenticated ? `/browse-events/${event.id}` : `/events/${event.id}`)}
+                  onClick={() => navigate(isAuthenticated ? `/browse-events/${event.slug}` : `/events/${event.slug}`)}
                   onMouseEnter={() => setHoveredEventId(event.id)}
                   onMouseLeave={() => setHoveredEventId(null)}
                   className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group"

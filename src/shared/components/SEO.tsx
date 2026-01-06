@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import APP_CONFIG from '@shared/config/app.config';
 
 interface SEOProps {
   title: string;
@@ -17,17 +18,19 @@ const SEO: React.FC<SEOProps> = ({
   title,
   description,
   keywords,
-  ogImage = 'https://mgltickets.com/og-image.png',
+  ogImage,
   ogType = 'website',
   canonicalUrl,
-  noindex = false,
+  noindex,
   author,
   publishedTime,
   modifiedTime,
 }) => {
-  const siteUrl = 'https://mgltickets.com';
-  const fullTitle = `${title} | MGLTickets`;
-  const canonical = canonicalUrl || `${siteUrl}${window.location.pathname}`;
+  // Auto-detect defaults based on app type
+  const finalOgImage = ogImage || APP_CONFIG.defaultOgImage;
+  const finalNoindex = noindex !== undefined ? noindex : !APP_CONFIG.allowIndexing;
+  const fullTitle = `${title} | ${APP_CONFIG.siteName}`;
+  const canonical = canonicalUrl || `${APP_CONFIG.siteUrl}${window.location.pathname}`;
 
   useEffect(() => {
     // Set document title
@@ -69,8 +72,8 @@ const SEO: React.FC<SEOProps> = ({
     // Canonical URL
     setLinkTag('canonical', canonical);
 
-    // Robots
-    if (noindex) {
+    // Robots - Force noindex for non-public sites
+    if (finalNoindex) {
       setMetaTag('robots', 'noindex, nofollow');
     } else {
       // Remove noindex if it exists
@@ -85,8 +88,8 @@ const SEO: React.FC<SEOProps> = ({
     setMetaTag('og:url', canonical, true);
     setMetaTag('og:title', fullTitle, true);
     setMetaTag('og:description', description, true);
-    setMetaTag('og:image', ogImage, true);
-    setMetaTag('og:site_name', 'MGLTickets', true);
+    setMetaTag('og:image', finalOgImage, true);
+    setMetaTag('og:site_name', APP_CONFIG.siteName, true);
     setMetaTag('og:locale', 'en_KE', true);
 
     // Article specific tags
@@ -99,9 +102,9 @@ const SEO: React.FC<SEOProps> = ({
     setMetaTag('twitter:url', canonical);
     setMetaTag('twitter:title', fullTitle);
     setMetaTag('twitter:description', description);
-    setMetaTag('twitter:image', ogImage);
-    setMetaTag('twitter:site', '@mgltickets');
-    setMetaTag('twitter:creator', '@mgltickets');
+    setMetaTag('twitter:image', finalOgImage);
+    setMetaTag('twitter:site', APP_CONFIG.twitterHandle);
+    setMetaTag('twitter:creator', APP_CONFIG.twitterHandle);
 
     // Additional Meta Tags (set once, don't update on every page)
     if (!document.querySelector('meta[name="viewport"]')) {
@@ -117,7 +120,7 @@ const SEO: React.FC<SEOProps> = ({
     setMetaTag('geo.region', 'KE');
     setMetaTag('geo.placename', 'Nairobi');
 
-  }, [fullTitle, description, keywords, canonical, ogImage, ogType, noindex, author, publishedTime, modifiedTime]);
+  }, [fullTitle, description, keywords, canonical, finalOgImage, ogType, finalNoindex, author, publishedTime, modifiedTime]);
 
   return null; // This component doesn't render anything
 };
@@ -197,7 +200,7 @@ export const MyEventsSEO: React.FC = () => (
   />
 );
 
-export const MyTicketSEO: React.FC = () => (
+export const MyTicketsSEO: React.FC = () => (
   <SEO
     title="Buy Event Tickets Online"
     description="Access your digital tickets and QR codes for entry to events. Manage your bookings easily on MGLTickets. Secure ticketing platform with M-Pesa payment."
@@ -243,7 +246,6 @@ export const PrivacySEO: React.FC = () => (
     title="Privacy Policy"
     description="Read MGLTickets privacy policy. Learn how we collect, use, and protect your personal information."
     keywords="privacy policy, data protection, personal information"
-    noindex={false}
   />
 );
 
@@ -252,7 +254,6 @@ export const TermsSEO: React.FC = () => (
     title="Terms of Service"
     description="Review MGLTickets terms of service. Understand your rights and responsibilities when using our platform."
     keywords="terms of service, user agreement, terms and conditions"
-    noindex={false}
   />
 );
 
@@ -261,7 +262,6 @@ export const RefundSEO: React.FC = () => (
     title="Refund Policy"
     description="Understand MGLTickets refund policy. Learn about eligibility, process, and timelines for ticket refunds."
     keywords="refund policy, ticket refund, cancellation policy, money back"
-    noindex={false}
   />
 );
 

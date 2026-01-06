@@ -1,0 +1,30 @@
+# Allow search engines
+User-agent: *
+Allow: /
+
+# Block private sections
+Disallow: /dashboard
+Disallow: /my-events
+Disallow: /my-tickets
+Disallow: /profile
+
+# Allow public pages
+Allow: /events/
+Allow: /browse-events/
+Allow: /about
+Allow: /contact
+Allow: /help
+Allow: /faq
+Allow: /privacy
+Allow: /terms
+Allow: /refund
+
+# Block auth pages (no SEO value)
+Disallow: /login
+Disallow: /register
+Disallow: /verify-email
+Disallow: /setup-organizer-profile
+
+
+# Sitemap
+Sitemap: https://mgltickets.com/sitemap.xml

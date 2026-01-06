@@ -1,13 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { replace, useNavigate, useParams } from 'react-router-dom';
 import { Calendar, MapPin, Clock, Users, Share2, Heart, ChevronLeft, Ticket, AlertCircle } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
 import AuthModal from '@shared/components/modals/AuthModal';
+import SEO from '@shared/components/SEO';
 
+// Base Url
+const baseUrl = import.meta.env.VITE_BASE_URL ?? 'http://localhost:8000';
+
+
+// Types
 interface Event {
   id: number;
   title: string;
   venue: string;
+  slug: string;
   start_time: string;
   end_time: string;
   flyer_url: string;
@@ -60,6 +67,7 @@ const EventDetailsPage: React.FC = () => {
       const mockEvent: Event = {
         id: parseInt(eventId || '1'),
         title: "Summer Music Festival 2025",
+        slug: "summer-music-festival-2025",
         venue: "Kasarani Stadium, Nairobi",
         start_time: "2025-07-15T14:00:00Z",
         end_time: "2025-07-15T23:00:00Z",
@@ -244,6 +252,18 @@ const EventDetailsPage: React.FC = () => {
 
   return (
     <>
+      {event && (
+        <SEO
+          title={event.title}
+          description={`${event.description.substring(0, 155)}... Get tickets now!`}
+          keywords={`${event.title}, ${event.venue}, Kenya events, tickets`}
+          ogImage={event.flyer_url}
+          ogType="article"
+          canonicalUrl={`${baseUrl}/events/${event.slug}`}
+        />
+      )}
+
+      { /* Event details */}
       <div className={`min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 ${isAuthenticated ? 'pt-20' : ''}`}>
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-orange-100">
