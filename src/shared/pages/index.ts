@@ -4,7 +4,7 @@ export { default as RefundPolicy } from './RefundPolicy';
 export { default as AboutUs } from './AboutUs';
 export { default as ContactPage } from './ContactUs';
 export { default as FAQPage } from './FAQ';
-export { default as HelpCenterPage } from './HelpCenter';
+export { default as OldHelpCenterPage } from './OldHelpCenter';
 export { default as PressAndMedia } from './PressAndMedia';
 export { default as CareersPage } from './Careers';
 export { default as NotFoundPage } from './NotFoundPage';

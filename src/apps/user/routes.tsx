@@ -17,8 +17,9 @@ import MyEvents from './pages/MyEvents';
 import OrganizerProfileSetup from './pages/OrganizerProfileSetup';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import { TermsOfService, PrivacyPolicy, RefundPolicy, AboutUs, ContactPage, FAQPage, HelpCenterPage } from '@shared/pages';
+import { TermsOfService, PrivacyPolicy, RefundPolicy, AboutUs, ContactPage, FAQPage, OldHelpCenterPage } from '@shared/pages';
 import { PressAndMedia, CareersPage, NotFoundPage } from '@shared/pages';
+import { helpRoutes } from '@shared/routing/HelpRoutes';
 import Test from './pages/Test';
 
 /**
@@ -99,8 +100,8 @@ export const router = createBrowserRouter([
         element: <FAQPage />,
       },
       {
-        path: 'help',
-        element: <HelpCenterPage />,
+        path: 'help-old',
+        element: <OldHelpCenterPage />,
       },
       {
         path: 'press',
@@ -110,6 +111,8 @@ export const router = createBrowserRouter([
         path: 'careers',
         element: <CareersPage />,
       },
+
+      ...helpRoutes,
     ],
   },
   

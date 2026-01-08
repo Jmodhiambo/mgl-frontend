@@ -16,7 +16,7 @@ interface HelpArticle {
   summary: string;
 }
 
-const HelpCenterPage: React.FC = () => {
+const OldHelpCenterPage: React.FC = () => {
   document.title = 'Help Center - MGLTickets';
 
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -343,4 +343,4 @@ const HelpCenterPage: React.FC = () => {
   );
 };
 
-export default HelpCenterPage;
+export default OldHelpCenterPage;
