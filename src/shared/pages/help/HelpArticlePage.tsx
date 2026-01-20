@@ -1,5 +1,5 @@
 // src/pages/help/HelpArticlePage.tsx
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, Navigate, Link } from 'react-router-dom';
 import { ArrowLeft, Clock, Mail, MessageCircle } from 'lucide-react';
 import ArticleLayout from '@shared/components/layouts/ArticleLayout';
@@ -7,9 +7,13 @@ import ArticleFeedback from '@shared/components/articles/ArticleFeedback';
 import RelatedArticles from '@shared/components/articles/RelatedArticles';
 import { getArticleBySlug } from '@shared/data/helpArticles';
 import { articleComponents } from '@shared/articles/help';
+import api from '@shared/auth/axiosConfig'; // Your configured axios instance
 
 const HelpArticlePage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
+  const startTimeRef = useRef<number>(Date.now());
+  const [maxScrollDepth, setMaxScrollDepth] = useState<number>(0);
+  const hasTrackedInitialView = useRef<boolean>(false);
   
   // Get article metadata
   const articleMeta = slug ? getArticleBySlug(slug) : undefined;
@@ -21,6 +25,137 @@ const HelpArticlePage: React.FC = () => {
 
   // Get the article component
   const ArticleComponent = articleComponents[articleMeta.componentName];
+
+  // Track scroll depth
+  useEffect(() => {
+    if (!slug) return;
+
+    const handleScroll = () => {
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      const scrollTop = window.scrollY;
+      
+      // Calculate scroll depth percentage
+      const scrollDepth = Math.round(
+        ((scrollTop + windowHeight) / documentHeight) * 100
+      );
+      
+      // Update max scroll depth
+      setMaxScrollDepth(prev => Math.max(prev, Math.min(scrollDepth, 100)));
+    };
+
+    // Add scroll listener
+    window.addEventListener('scroll', handleScroll);
+    
+    // Initial calculation
+    handleScroll();
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [slug]);
+
+  // Track initial article view
+  useEffect(() => {
+    if (!slug || hasTrackedInitialView.current) return;
+
+    const trackArticleView = async () => {
+      try {
+        // Get or create session ID
+        let sessionId = sessionStorage.getItem('session_id');
+        if (!sessionId) {
+          sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          sessionStorage.setItem('session_id', sessionId);
+        }
+
+        // Determine device type
+        const deviceType = window.innerWidth < 768 ? 'mobile' : 
+                          window.innerWidth < 1024 ? 'tablet' : 'desktop';
+
+        // Track the initial view
+        await api.post('/analytics/article-view', {
+          article_slug: slug,
+          session_id: sessionId,
+          referrer: document.referrer || 'direct',
+          device_type: deviceType,
+          user_agent: navigator.userAgent,
+          screen_width: window.innerWidth,
+          screen_height: window.innerHeight
+        });
+
+        hasTrackedInitialView.current = true;
+      } catch (error) {
+        // Silent fail - don't disrupt user experience
+        console.error('Failed to track article view:', error);
+      }
+    };
+
+    // Track view after a short delay to ensure legitimate view
+    const timeoutId = setTimeout(trackArticleView, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [slug]);
+
+  // Track time spent and scroll depth on page leave
+  useEffect(() => {
+    if (!slug) return;
+
+    const trackEngagement = async () => {
+      try {
+        // Calculate time spent in seconds
+        const timeSpent = Math.round((Date.now() - startTimeRef.current) / 1000);
+        
+        // Only track if user spent at least 3 seconds
+        if (timeSpent < 3) return;
+
+        // Get session ID
+        const sessionId = sessionStorage.getItem('session_id');
+        if (!sessionId) return;
+
+        // Send engagement data
+        await api.post('/analytics/article-engagement', {
+          article_slug: slug,
+          session_id: sessionId,
+          time_spent_seconds: timeSpent,
+          scroll_depth_percent: maxScrollDepth
+        });
+      } catch (error) {
+        // Silent fail
+        console.error('Failed to track engagement:', error);
+      }
+    };
+
+    // Track on page unload/visibility change
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        trackEngagement();
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      trackEngagement();
+    };
+
+    // Add event listeners
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Also track periodically (every 30 seconds) for long reads
+    const intervalId = setInterval(trackEngagement, 30000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      clearInterval(intervalId);
+      // Final tracking on unmount
+      trackEngagement();
+    };
+  }, [slug, maxScrollDepth]);
+
+  // Set page title
+  useEffect(() => {
+    if (articleMeta) {
+      document.title = `${articleMeta.title} - MGLTickets Help Center`;
+    }
+  }, [articleMeta]);
 
   // If component doesn't exist, show coming soon
   if (!ArticleComponent) {
@@ -51,11 +186,6 @@ const HelpArticlePage: React.FC = () => {
       </ArticleLayout>
     );
   }
-
-  // Set page title
-  useEffect(() => {
-    document.title = `${articleMeta.title} - MGLTickets Help Center`;
-  }, [articleMeta]);
 
   return (
     <ArticleLayout>

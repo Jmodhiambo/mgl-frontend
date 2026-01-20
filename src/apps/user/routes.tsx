@@ -17,10 +17,10 @@ import MyEvents from './pages/MyEvents';
 import OrganizerProfileSetup from './pages/OrganizerProfileSetup';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import EmailVerification from '@user/pages/EmailVerification';
 import { TermsOfService, PrivacyPolicy, RefundPolicy, AboutUs, ContactPage, FAQPage, OldHelpCenterPage } from '@shared/pages';
 import { PressAndMedia, CareersPage, NotFoundPage } from '@shared/pages';
 import { helpRoutes } from '@shared/routing/HelpRoutes';
-import Test from './pages/Test';
 
 /**
  * Router configuration for MGLTickets
@@ -40,8 +40,8 @@ export const router = createBrowserRouter([
     element: <Register />,
   },
   {
-    path: '/test',
-    element: <Test />,
+    path: '/verify-email',
+    element: <EmailVerification />,
   },
   
   // Public routes (accessible without authentication - No navbar)

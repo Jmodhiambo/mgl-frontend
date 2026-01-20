@@ -3,6 +3,9 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 
 export default defineConfig({
+  // Tell Vite where to look for .env files (project root)
+  envDir: path.resolve(__dirname, "../../../"),
+
   cacheDir: "../../../node_modules/.vite",
   plugins: [
     react({

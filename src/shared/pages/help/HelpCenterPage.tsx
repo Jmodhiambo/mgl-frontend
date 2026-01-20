@@ -1,13 +1,16 @@
-// src/pages/help/HelpCenterPage.tsx
+// src/pages/help/HelpCenterPage.tsx (Fixed with proper analytics tracking)
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BookOpen, Search, Ticket, CreditCard, User, Calendar, Shield, Settings, ChevronRight, Mail, MessageCircle, Phone } from 'lucide-react';
 import { articleRegistry, getAllCategories, searchArticles } from '@shared/data/helpArticles';
+import api from '@shared/auth/axiosConfig';
 
 const HelpCenterPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<typeof articleRegistry>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [lastSearchId, setLastSearchId] = useState<number | null>(null);
+  const [searchStartTime, setSearchStartTime] = useState<number | null>(null);
 
   const categories = getAllCategories();
 
@@ -23,15 +26,61 @@ const HelpCenterPage: React.FC = () => {
     'security': Shield,
   };
 
-  const handleSearch = (query: string) => {
+  const handleSearch = async (query: string) => {
     setSearchTerm(query);
+    
     if (query.trim().length > 0) {
       setIsSearching(true);
+      setSearchStartTime(Date.now());
+      
       const results = searchArticles(query);
       setSearchResults(results);
+      
+      // Track the search query
+      try {
+        const response = await api.post('/analytics/article-search', {
+          query: query.trim(),
+          results_count: results.length,
+          // Optional: include session_id for anonymous users
+          session_id: sessionStorage.getItem('session_id') || null
+        });
+        
+        // Store the search ID for click tracking
+        if (response.data?.search_query_id) {
+          setLastSearchId(response.data.search_query_id);
+        }
+      } catch (error) {
+        console.error('Failed to track search:', error);
+        // Don't block UI if analytics fails
+      }
     } else {
       setIsSearching(false);
       setSearchResults([]);
+      setLastSearchId(null);
+      setSearchStartTime(null);
+    }
+  };
+
+  const handleArticleClick = async (articleSlug: string, articleTitle: string, position: number) => {
+    // Calculate time to click if we have a search start time
+    const timeToClick = searchStartTime 
+      ? Math.floor((Date.now() - searchStartTime) / 1000)
+      : null;
+
+    // Track which article was clicked from search results
+    if (lastSearchId && isSearching) {
+      try {
+        await api.post('/analytics/article-search-click', {
+          search_query_id: lastSearchId,
+          clicked_article_slug: articleSlug,
+          clicked_article_title: articleTitle,
+          result_position: position + 1,  // Convert to 1-indexed
+          time_to_click_seconds: timeToClick
+        });
+      } catch (error) {
+        console.error('Failed to track search click:', error);
+        // Don't block navigation if analytics fails
+      }
     }
   };
 
@@ -74,10 +123,11 @@ const HelpCenterPage: React.FC = () => {
               </h2>
               {searchResults.length > 0 ? (
                 <div className="space-y-3">
-                  {searchResults.map((article) => (
+                  {searchResults.map((article, index) => (
                     <Link
                       key={article.slug}
                       to={`/help/articles/${article.slug}`}
+                      onClick={() => handleArticleClick(article.slug, article.title, index)}
                       className="block p-4 border border-gray-200 rounded-lg hover:border-orange-500 hover:shadow-md transition-all group"
                     >
                       <div className="flex items-start justify-between">
@@ -111,7 +161,7 @@ const HelpCenterPage: React.FC = () => {
           )}
         </div>
 
-        {/* Categories Grid */}
+        {/* Categories Grid - Only show when not searching */}
         {!isSearching && (
           <>
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Browse by Category</h2>
@@ -166,7 +216,7 @@ const HelpCenterPage: React.FC = () => {
           </>
         )}
 
-        {/* Popular Articles */}
+        {/* Popular Articles - Only show when not searching */}
         {!isSearching && (
           <>
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Popular Articles</h2>
@@ -212,7 +262,7 @@ const HelpCenterPage: React.FC = () => {
               Contact Support
             </Link>
             <a
-              href="https://wa.me/254700000000"
+              href="https://wa.me/254799602055"
               target="_blank"
               rel="noopener noreferrer"
               className="bg-transparent border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-orange-600 transition-colors flex items-center justify-center gap-2"

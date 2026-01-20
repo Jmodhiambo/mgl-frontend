@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+// src/shared/pages/ContactUs.tsx
+import React, { useState, useEffect } from 'react';
 import { Mail, Phone, MapPin, Clock, Send, MessageSquare, User, AlertCircle, CheckCircle, MessageCircle } from 'lucide-react';
 import { ContactSEO } from '@shared/components/SEO';
+import { submitContactMessage, ContactMessageCreate } from '@shared/api/user/contactApi';
+import { executeRecaptcha, loadRecaptchaScript, RECAPTCHA_CONFIG } from '@shared/config/recaptcha';
 
 interface ContactFormData {
   name: string;
@@ -9,13 +12,6 @@ interface ContactFormData {
   subject: string;
   category: string;
   message: string;
-  recaptchaToken: string;
-}
-
-interface SubmitResponse {
-  success: boolean;
-  referenceId?: string;
-  message?: string;
 }
 
 const ContactPage: React.FC = () => {
@@ -26,14 +22,31 @@ const ContactPage: React.FC = () => {
     subject: '',
     category: 'general',
     message: '',
-    recaptchaToken: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [referenceId, setReferenceId] = useState('');
+  const [recaptchaLoaded, setRecaptchaLoaded] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  // Load reCAPTCHA script on component mount
+  useEffect(() => {
+    const initRecaptcha = async () => {
+      try {
+        await loadRecaptchaScript();
+        setRecaptchaLoaded(true);
+      } catch (error) {
+        console.error('Failed to load reCAPTCHA:', error);
+        setRecaptchaLoaded(false);
+      }
+    };
+
+    initRecaptcha();
+  }, []);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
@@ -68,41 +81,33 @@ const ContactPage: React.FC = () => {
       return;
     }
 
+    if (!recaptchaLoaded) {
+      setErrorMessage('Security verification not loaded. Please refresh the page.');
+      setSubmitStatus('error');
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitStatus('idle');
 
     try {
-      // Get reCAPTCHA token (if you have it set up)
-      // For now, we'll use a placeholder
-      const token = localStorage.getItem('access_token');
-      
-      const response = await fetch('/api/contact', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` }),
-        },
-        body: JSON.stringify({
-          ...formData,
-          recaptchaToken: 'placeholder_token' // Replace with actual reCAPTCHA token
-        }),
-      });
+      // Get reCAPTCHA token
+      const recaptchaToken = await executeRecaptcha(RECAPTCHA_CONFIG.action.contact);
 
-      const data = await response.json();
+      // Prepare submission data
+      const submissionData: ContactMessageCreate = {
+        ...formData,
+        recaptcha_token: recaptchaToken,
+      };
 
-      if (response.status === 429) {
-        setSubmitStatus('error');
-        setErrorMessage(data.detail || 'Too many requests. Please try again later.');
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Failed to send message');
-      }
+      // Submit to API
+      const response = await submitContactMessage(submissionData);
 
       // Success
       setSubmitStatus('success');
-      setReferenceId(data.reference_id);
+      setReferenceId(response.reference_id);
+      
+      // Reset form
       setFormData({
         name: '',
         email: '',
@@ -110,14 +115,13 @@ const ContactPage: React.FC = () => {
         subject: '',
         category: 'general',
         message: '',
-        recaptchaToken: ''
       });
 
-      // Reset after 10 seconds
+      // Auto-hide success message after 15 seconds
       setTimeout(() => {
         setSubmitStatus('idle');
         setReferenceId('');
-      }, 10000);
+      }, 150000);
     } catch (error) {
       console.error('Contact form error:', error);
       setSubmitStatus('error');
@@ -221,8 +225,8 @@ const ContactPage: React.FC = () => {
               )}
 
               {submitStatus === 'error' && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-red-800 font-medium">Failed to send message</p>
                     <p className="text-red-700 text-sm">{errorMessage}</p>
@@ -352,7 +356,7 @@ const ContactPage: React.FC = () => {
 
                 <button
                   onClick={handleSubmit}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !recaptchaLoaded}
                   className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (
@@ -367,6 +371,19 @@ const ContactPage: React.FC = () => {
                     </>
                   )}
                 </button>
+
+                {/* reCAPTCHA Badge Info */}
+                <p className="text-xs text-gray-500 text-center">
+                  This site is protected by reCAPTCHA and the Google{' '}
+                  <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-orange-600 hover:underline">
+                    Privacy Policy
+                  </a>{' '}
+                  and{' '}
+                  <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="text-orange-600 hover:underline">
+                    Terms of Service
+                  </a>{' '}
+                  apply.
+                </p>
               </div>
             </div>
 
