@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BookOpen, Search, Ticket, CreditCard, User, Calendar, Shield, Settings, ChevronRight, Mail, MessageCircle, Phone } from 'lucide-react';
 import { articleRegistry, getAllCategories, searchArticles } from '@shared/data/helpArticles';
-import api from '@shared/auth/axiosConfig';
+import api from '@shared/api/axiosConfig';
 
 const HelpCenterPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');

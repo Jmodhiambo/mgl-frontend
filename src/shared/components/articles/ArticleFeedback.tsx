@@ -1,7 +1,7 @@
 // src/components/articles/ArticleFeedback.tsx
 import React, { useState } from 'react';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
-import api from '@shared/auth/axiosConfig';
+import api from '@shared/api/axiosConfig';
 
 interface ArticleFeedbackProps {
   articleSlug: string;

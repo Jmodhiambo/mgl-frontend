@@ -1,41 +1,39 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '@shared/contexts/AuthContext';
-import { loginUser } from '@shared/api/auth/authApi';
-import { LoginSEO } from '@shared/components/SEO';
+import { ReactivateAccountSEO } from '@shared/components/SEO';
+import type { ReactivateAccountResponse } from '@shared/types/Auth';
+import { reactivateUserAccount } from '@shared/api/auth/authApi';
 
-export default function Login() {
+export default function ReactivateAccount() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showReactivateLink, setShowReactivateLink] = useState(false);
-  
-  const { login } = useAuth();
+  const [showRegisterLink, setShowRegisterLink] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setShowReactivateLink(false);
+    setShowRegisterLink(false);
     setIsLoading(true);
-    
+
     try {
-      // Call your API
-      const response = await loginUser({ email, password });
-      
-      // Update auth context with the access token
-      login(response.access_token);
-      
-      // Navigate to dashboard
-      navigate('/dashboard');
+      const data: ReactivateAccountResponse = await reactivateUserAccount(email, password);
+
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to reactivate account');
+      }
+
+      alert('Account reactivated successfully! Please login.');
+      navigate('/login');
     } catch (err: any) {
-      const errorDetail = err.response?.data?.detail || 'Invalid email or password';
-      setError(errorDetail);
+      const errorMessage = err.message || 'An error occurred. Please try again.';
+      setError(errorMessage);
       
-      // Check if the error is due to inactive account
-      if (err.response?.status === 403 || errorDetail.toLowerCase().includes('inactive') || errorDetail.toLowerCase().includes('deactivated')) {
-        setShowReactivateLink(true);
+      // Check if the error indicates user doesn't exist
+      if (err.message?.toLowerCase().includes('not found') || err.message?.toLowerCase().includes('does not exist')) {
+        setShowRegisterLink(true);
       }
     } finally {
       setIsLoading(false);
@@ -44,25 +42,28 @@ export default function Login() {
 
   return (
     <>
-      <LoginSEO />
+      <ReactivateAccountSEO />
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="w-full max-w-md">
           <form onSubmit={handleSubmit} className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-            <h1 className="text-2xl font-bold mb-6 text-center">Login to MGLTickets</h1>
-            
+            <h1 className="text-2xl font-bold mb-2 text-center">Reactivate Account</h1>
+            <p className="text-sm text-gray-600 mb-6 text-center">
+              Welcome back! Enter your credentials to reactivate your account
+            </p>
+
             {error && (
               <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
                 {error}
-                {showReactivateLink && (
+                {showRegisterLink && (
                   <p className="mt-2">
-                    <Link to="/reactivate" className="font-semibold underline">
-                      Click here to reactivate your account
+                    <Link to="/register" className="font-semibold underline">
+                      Click here to create a new account
                     </Link>
                   </p>
                 )}
               </div>
             )}
-            
+
             <div className="mb-4">
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
                 Email
@@ -78,8 +79,8 @@ export default function Login() {
                 disabled={isLoading}
               />
             </div>
-            
-            <div className="mb-4">
+
+            <div className="mb-6">
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
                 Password
               </label>
@@ -95,27 +96,20 @@ export default function Login() {
               />
             </div>
 
-            <div className="mb-4 text-right">
-              <Link to="/forgot-password" className="text-sm text-orange-600 hover:text-orange-800 font-semibold">
-                Forgot Password?
-              </Link>
-            </div>
-            
             <div className="mb-4">
-              <button 
+              <button
                 type="submit"
                 disabled={isLoading}
                 className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50 disabled:cursor-not-allowed w-full"
               >
-                {isLoading ? 'Logging in...' : 'Login'}
+                {isLoading ? 'Reactivating...' : 'Reactivate Account'}
               </button>
             </div>
-            
+
             <div className="text-center">
               <p className="text-sm text-gray-600">
-                Don't have an account?{' '}
-                <Link to="/register" className="text-orange-600 hover:text-orange-800 font-semibold">
-                  Register here
+                <Link to="/login" className="text-orange-600 hover:text-orange-800 font-semibold">
+                  Back to Login
                 </Link>
               </p>
             </div>

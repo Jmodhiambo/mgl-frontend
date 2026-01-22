@@ -2,7 +2,7 @@
  * Organizer Event API Module
  */
 
-import api from '../../auth/axiosConfig'
+import api from '../axiosConfig'
 import type { OrganizerEventsResponse as Organizer, EventCreate, EventUpdate, EventStatus } from '@shared/types/Event'
 
 // Create a new event

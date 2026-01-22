@@ -2,7 +2,7 @@
  * Organizer User API Module
  */
 
-import api from '../../auth/axiosConfig'
+import api from '../axiosConfig'
 import type { Organizer, OrganizerCreate, OrganizerUpdate } from '@shared/types/User'
 
 // Create a new organizer

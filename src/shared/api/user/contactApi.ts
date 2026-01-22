@@ -3,7 +3,7 @@
  * Contact Message API Module
  */
 
-import api from '@shared/auth/axiosConfig';
+import api from '@shared/api/axiosConfig';
 
 export interface ContactMessageCreate {
   name: string;

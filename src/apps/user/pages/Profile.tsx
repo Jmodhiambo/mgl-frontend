@@ -1,17 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, Lock, CheckCircle, AlertCircle, Eye, EyeOff, Save } from 'lucide-react';
 import { ProfileSEO } from '@shared/components/SEO';
+import { getCurrentUser, updateUserContact, changeUserPassword, deactivateUserAccount } from '@shared/api/user/usersApi';
+import { logoutUser } from '@shared/api/auth/authApi';
+import type { User as UserData, UserPasswordChange, UserUpdate } from '@shared/types/User';
 
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  phone_number: string;
-  role: string;
-  is_verified: boolean;
-  is_active: boolean;
-  created_at: string;
-}
 
 interface ProfileFormData {
   name: string;
@@ -44,11 +37,12 @@ interface FormErrors {
 type ActiveTab = 'profile' | 'security';
 
 const ProfileSettingsPage: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserData | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('profile');
   const [loading, setLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string>('');
+  const [emailVerified, setEmailVerified] = useState<boolean>(false);
   const [errors, setErrors] = useState<FormErrors>({});
 
   // Profile form state
@@ -76,26 +70,14 @@ const ProfileSettingsPage: React.FC = () => {
     
     const fetchUserData = async (): Promise<void> => {
       try {
-        // Replace with actual API call:
-        // const response = await fetch('/api/users/me');
-        // const data: User = await response.json();
-        
-        const mockUser: User = {
-          id: 1,
-          name: "John Doe",
-          email: "john.doe@example.com",
-          phone_number: "+254712345678",
-          role: "user",
-          is_verified: true,
-          is_active: true,
-          created_at: "2024-01-15T10:30:00Z"
-        };
+        const userData: UserData = await getCurrentUser();
 
-        setUser(mockUser);
+        setUser(userData);
+        setEmailVerified(userData.email_verified);
         setProfileForm({
-          name: mockUser.name,
-          email: mockUser.email,
-          phone_number: mockUser.phone_number
+          name: userData.name,
+          email: userData.email,
+          phone_number: userData.phone_number
         });
         setLoading(false);
       } catch (error) {
@@ -160,15 +142,9 @@ const ProfileSettingsPage: React.FC = () => {
     setSuccessMessage('');
 
     try {
-      // Replace with actual API call:
-      // await fetch('/api/users/me/contact', {
-      //   method: 'PATCH',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(profileForm)
-      // });
+      const updatedUser: UserData = await updateUserContact(profileForm as UserUpdate);
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      setUser(updatedUser);
 
       if (user) {
         setUser({ ...user, ...profileForm });
@@ -193,18 +169,12 @@ const ProfileSettingsPage: React.FC = () => {
     setSuccessMessage('');
 
     try {
-      // Replace with actual API call:
-      // await fetch('/api/users/me/change-password', {
-      //   method: 'PATCH',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     old_password: passwordForm.old_password,
-      //     new_password: passwordForm.new_password
-      //   })
-      // });
+      const passwordData: UserPasswordChange = {
+        old_password: passwordForm.old_password,
+        new_password: passwordForm.new_password
+      };  
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await changeUserPassword(passwordData);
 
       setPasswordForm({
         old_password: '',
@@ -228,8 +198,8 @@ const ProfileSettingsPage: React.FC = () => {
     }
 
     try {
-      // Replace with actual API call:
-      // await fetch('/api/users/me/deactivate', { method: 'PATCH' });
+      await deactivateUserAccount();
+      await logoutUser();
       
       console.log('Account deactivated');
       // Redirect to login or home page
@@ -333,10 +303,17 @@ const ProfileSettingsPage: React.FC = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">Verified:</span>
-                      <span className="flex items-center text-green-600 font-medium">
-                        <CheckCircle className="w-4 h-4 mr-1" />
-                        Yes
-                      </span>
+                      {emailVerified ? (
+                        <span className="flex items-center text-green-600 font-medium">
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                          Yes
+                        </span>
+                      ) : (
+                        <span className="flex items-center text-red-600 font-medium">
+                          <AlertCircle className="w-4 h-4 mr-1" />
+                          No
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-600">Member since:</span>

@@ -7,7 +7,7 @@ import ArticleFeedback from '@shared/components/articles/ArticleFeedback';
 import RelatedArticles from '@shared/components/articles/RelatedArticles';
 import { getArticleBySlug } from '@shared/data/helpArticles';
 import { articleComponents } from '@shared/articles/help';
-import api from '@shared/auth/axiosConfig'; // Your configured axios instance
+import api from '@shared/api/axiosConfig'; // Your configured axios instance
 
 const HelpArticlePage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();

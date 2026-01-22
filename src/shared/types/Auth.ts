@@ -37,3 +37,40 @@ export interface AuthContextType {
     login: (accessToken: string) => void;
     logout: () => Promise<void>;
 }
+
+export interface ForgotPasswordResponse {
+    success: boolean;
+    message: string;
+  }
+
+export interface ResetPasswordResponse {
+    success: boolean;
+    message: string;
+  }
+
+export interface ReactivateAccountResponse {
+    success: boolean;
+    message: string;
+  }
+
+export interface VerificationResponse {
+    success: boolean;
+    message: string;
+    user?: {
+        email: string;
+        name: string;
+    };
+}
+
+export interface EmailVerificationRequest {
+    token: string;
+}
+
+export interface EmailResendRequest {
+    email: string;
+}
+
+export interface EmailResendResponse {
+    success: boolean;
+    message: string;
+}

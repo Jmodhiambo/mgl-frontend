@@ -17,6 +17,9 @@ import MyEvents from './pages/MyEvents';
 import OrganizerProfileSetup from './pages/OrganizerProfileSetup';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ReactivateAccount from './pages/ReactivateAccount';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import EmailVerification from '@user/pages/EmailVerification';
 import { TermsOfService, PrivacyPolicy, RefundPolicy, AboutUs, ContactPage, FAQPage, OldHelpCenterPage } from '@shared/pages';
 import { PressAndMedia, CareersPage, NotFoundPage } from '@shared/pages';
@@ -39,6 +42,19 @@ export const router = createBrowserRouter([
     path: '/register',
     element: <Register />,
   },
+  {
+    path: '/reactivate-account',
+    element: <ReactivateAccount />,
+  },
+  {
+    path: '/forgot-password',
+    element: <ForgotPassword />,
+  },
+  {
+    path: '/reset-password',
+    element: <ResetPassword />,
+  },
+
   {
     path: '/verify-email',
     element: <EmailVerification />,

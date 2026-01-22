@@ -2,7 +2,7 @@
  * User API Module
  */
 
-import api from '../../auth/axiosConfig';
+import api from '@shared/api/axiosConfig';
 import type { User, UserPasswordChange, UserPasswordUpdate, UserUpdate } from '@shared/types/User';
 
 // Get current user details
@@ -36,14 +36,4 @@ export const changeUserPassword = async (passwordData: UserPasswordChange): Prom
 // Deactivate user account
 export const deactivateUserAccount = async (): Promise<void> => {
     await api.delete(`/users/me/deactivate`);
-}
-
-// Reactivate user account
-export const reactivateUserAccount = async (): Promise<void> => {
-    await api.post(`/users/me/reactivate`);
-}
-
-// Verify user email
-export const verifyUserEmail = async (token: string): Promise<void> => {
-    await api.post(`/users/me/verify-email`, { token });
 }

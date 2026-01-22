@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Mail, CheckCircle, XCircle, Loader2, ArrowRight, RefreshCw } from 'lucide-react';
-import { emailVerification, resendVerificationEmail, VerificationResponse } from '@shared/api/user/emailVerificationApi';
+import { emailVerification, resendVerificationEmail } from '@shared/api/auth/authApi';
+import type { VerificationResponse } from '@shared/types/Auth';
 import axios from 'axios';
 
 const EmailVerification = () => {

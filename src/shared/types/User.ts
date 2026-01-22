@@ -8,7 +8,7 @@ export interface User {
   email: string;
   phone_number: string;
   role: string;
-  is_verified: boolean;
+  email_verified: boolean;
   is_active: boolean;    
   created_at: string;
   // updated_at: string;
@@ -47,7 +47,7 @@ export interface Organizer {
     email: string;
     phone_number: string;
     role: string;
-    is_verified: boolean;
+    email_verified: boolean;
     is_active: boolean;
     created_at: string;
     updated_at: string;

@@ -10,7 +10,7 @@ interface User {
   email: string;
   phone_number: string;
   role: string;
-  is_verified: boolean;
+  email_verified: boolean;
 }
 
 interface DashboardStats {

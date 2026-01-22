@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
-import { registerUser } from '@shared/auth/authApi';
-import { loginUser } from '@shared/auth/authApi';
+import { registerUser } from '@shared/api/auth/authApi';
+import { loginUser } from '@shared/api/auth/authApi';
 import { RegisterSEO } from '@shared/components/SEO';
 
 export default function Register() {

@@ -2,7 +2,7 @@
  * Organizer Booking API Module
  */
 
-import api from '../../auth/axiosConfig';
+import api from '../axiosConfig';
 import type { Booking } from '@shared/types/Booking';
 
 // Create booking

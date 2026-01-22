@@ -2,7 +2,7 @@
  * User Bookings API Module
  */
 
-import api from '../../auth/axiosConfig';
+import api from '@shared/api/axiosConfig';
 import type { Booking, BookingCreate, BookingUpdate } from "@shared/types/Booking";
 
 // Create a new booking

@@ -306,3 +306,30 @@ export const RegisterSEO: React.FC = () => (
     noindex={true}
   />
 );
+
+export const ReactivateAccountSEO: React.FC = () => (
+  <SEO
+    title="Reactivate Your MGLTickets Account"
+    description="Reactivate your MGLTickets account to access your event bookings and manage your profile."
+    keywords="MGLTickets reactivate, event bookings, account management"
+    noindex={true}
+  />
+);
+
+export const ResetPasswordSEO: React.FC = () => (
+  <SEO
+    title="Reset Your MGLTickets Password"    
+    description="Reset your MGLTickets password to access your event bookings and manage your profile."
+    keywords="MGLTickets reset password, event bookings, account management"
+    noindex={true}
+  />
+);
+
+export const ForgotPasswordSEO: React.FC = () => (
+  <SEO
+    title="Forgot Your MGLTickets Password"    
+    description="Forgot your MGLTickets password to access your event bookings and manage your profile."
+    keywords="MGLTickets forgot password, event bookings, account management"
+    noindex={true}
+  />
+);
