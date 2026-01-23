@@ -19,7 +19,7 @@ export default function ReactivateAccount() {
     setIsLoading(true);
 
     try {
-      const data: ReactivateAccountResponse = await reactivateUserAccount(email, password);
+      const data: ReactivateAccountResponse = await reactivateUserAccount(email);
 
       if (!data.success) {
         throw new Error(data.message || 'Failed to reactivate account');
@@ -48,7 +48,7 @@ export default function ReactivateAccount() {
           <form onSubmit={handleSubmit} className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
             <h1 className="text-2xl font-bold mb-2 text-center">Reactivate Account</h1>
             <p className="text-sm text-gray-600 mb-6 text-center">
-              Welcome back! Enter your credentials to reactivate your account
+              Welcome back! Enter your email to reactivate your account
             </p>
 
             {error && (
@@ -80,7 +80,7 @@ export default function ReactivateAccount() {
               />
             </div>
 
-            <div className="mb-6">
+            {/* <div className="mb-6">
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
                 Password
               </label>
@@ -94,7 +94,7 @@ export default function ReactivateAccount() {
                 required
                 disabled={isLoading}
               />
-            </div>
+            </div> */}
 
             <div className="mb-4">
               <button

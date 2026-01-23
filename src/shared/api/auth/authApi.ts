@@ -52,9 +52,14 @@ export const verifyUserEmail = async (token: string): Promise<void> => {
 };
 
 // Reactivate account function
-export const reactivateUserAccount = async (email: string, password: string): Promise<ReactivateAccountResponse> => {
-    const response = await api.post(`/auth/reactivate`, { email, password });
+export const reactivateUserAccount = async (email: string): Promise<ReactivateAccountResponse> => {
+    const response = await api.post(`/auth/reactivate`, { email });
     return response.data;
+}
+
+// Deactivate user account
+export const deactivateUserAccount = async (): Promise<void> => {
+    await api.patch(`/auth/deactivate`);
 }
 
 // Email verification

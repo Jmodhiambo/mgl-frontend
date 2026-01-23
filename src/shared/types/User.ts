@@ -16,9 +16,8 @@ export interface User {
 
 export interface UserUpdate {
   name?: string;
-  email?: string;
+  // email?: string;
   phone_number?: string;
-  role?: string;
 }
 
 export interface UserPasswordChange {

@@ -1,8 +1,11 @@
+import axios from 'axios';
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@shared/contexts/AuthContext';
 import { User, Mail, Phone, Lock, CheckCircle, AlertCircle, Eye, EyeOff, Save } from 'lucide-react';
 import { ProfileSEO } from '@shared/components/SEO';
-import { getCurrentUser, updateUserContact, changeUserPassword, deactivateUserAccount } from '@shared/api/user/usersApi';
-import { logoutUser } from '@shared/api/auth/authApi';
+import { getCurrentUser, updateUserContact, changeUserPassword } from '@shared/api/user/usersApi';
+import { deactivateUserAccount } from '@shared/api/auth/authApi';
 import type { User as UserData, UserPasswordChange, UserUpdate } from '@shared/types/User';
 
 
@@ -37,6 +40,7 @@ interface FormErrors {
 type ActiveTab = 'profile' | 'security';
 
 const ProfileSettingsPage: React.FC = () => {
+  const { logout } = useAuth();
   const [user, setUser] = useState<UserData | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('profile');
   const [loading, setLoading] = useState<boolean>(true);
@@ -64,6 +68,8 @@ const ProfileSettingsPage: React.FC = () => {
     new: false,
     confirm: false
   });
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     document.title = 'Profile Settings - MGLTickets';
@@ -142,7 +148,11 @@ const ProfileSettingsPage: React.FC = () => {
     setSuccessMessage('');
 
     try {
-      const updatedUser: UserData = await updateUserContact(profileForm as UserUpdate);
+      const updatedData: UserUpdate = {
+        name: profileForm.name,
+        phone_number: profileForm.phone_number
+      };
+      const updatedUser: UserData = await updateUserContact(updatedData);
 
       setUser(updatedUser);
 
@@ -154,7 +164,14 @@ const ProfileSettingsPage: React.FC = () => {
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Error updating profile:', error);
-      setErrors({ general: 'Failed to update profile. Please try again.' });
+
+      // Proper axios error handling
+      if (axios.isAxiosError(error) && error.response) {
+        const detail = error.response.data.detail || error.response.data.message;
+        setErrors({ general: detail });
+      } else {
+        setErrors({ general: 'Failed to update profile. Please try again.' });
+      }
     } finally {
       setIsSaving(false);
     }
@@ -186,7 +203,14 @@ const ProfileSettingsPage: React.FC = () => {
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Error changing password:', error);
-      setErrors({ general: 'Failed to change password. Please try again.' });
+
+      // Proper axios error handling
+      if (axios.isAxiosError(error) && error.response) {
+        const detail = error.response.data.detail || error.response.data.message;
+        setErrors({ general: detail });
+      } else {
+        setErrors({ general: 'Failed to change password. Please try again.' });
+      }
     } finally {
       setIsSaving(false);
     }
@@ -199,10 +223,10 @@ const ProfileSettingsPage: React.FC = () => {
 
     try {
       await deactivateUserAccount();
-      await logoutUser();
-      
-      console.log('Account deactivated');
-      // Redirect to login or home page
+      await logout();
+      alert('Your account has been deactivated. You can reactivate it by logging in again within 90 days.');
+      navigate('/login');
+
     } catch (error) {
       console.error('Error deactivating account:', error);
     }
@@ -369,10 +393,7 @@ const ProfileSettingsPage: React.FC = () => {
                         <input
                           type="email"
                           value={profileForm.email}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                            setProfileForm({ ...profileForm, email: e.target.value });
-                            setErrors({ ...errors, email: undefined });
-                          }}
+                          disabled
                           className={`w-full pl-12 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 ${
                             errors.email ? 'border-red-500' : 'border-gray-300'
                           }`}
@@ -577,7 +598,7 @@ const ProfileSettingsPage: React.FC = () => {
                   <div className="bg-white rounded-xl shadow-md p-8 border-2 border-red-200">
                     <h3 className="text-2xl font-bold text-red-600 mb-4">Danger Zone</h3>
                     <p className="text-gray-600 mb-6">
-                      Deactivating your account will temporarily disable access. You can reactivate it anytime by logging in.
+                      Deactivating your account will temporarily disable access. You can reactivate it anytime by logging in within 90 days.
                     </p>
                     <button
                       onClick={handleDeactivateAccount}

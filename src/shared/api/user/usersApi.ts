@@ -23,17 +23,12 @@ export const updateUserContact = async (userData: UserUpdate): Promise<User> => 
     return response.data;
 }
 
-// Update user password
-export const updateUserPassword = async (passwordData: UserPasswordUpdate): Promise<void> => {
-    await api.patch(`/users/me/password`, passwordData);
-}
+// // Update user password
+// export const updateUserPassword = async (passwordData: UserPasswordUpdate): Promise<void> => {
+//     await api.patch(`/users/me/password`, passwordData);
+// }
 
 // Change user password
 export const changeUserPassword = async (passwordData: UserPasswordChange): Promise<void> => {
-    await api.post(`/users/me/change-password`, passwordData);
-}
-
-// Deactivate user account
-export const deactivateUserAccount = async (): Promise<void> => {
-    await api.delete(`/users/me/deactivate`);
+    await api.patch(`/users/me/change-password`, passwordData);
 }

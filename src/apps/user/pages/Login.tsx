@@ -36,6 +36,7 @@ export default function Login() {
       // Check if the error is due to inactive account
       if (err.response?.status === 403 || errorDetail.toLowerCase().includes('inactive') || errorDetail.toLowerCase().includes('deactivated')) {
         setShowReactivateLink(true);
+        setError('Your account was deactivated!');
       }
     } finally {
       setIsLoading(false);
@@ -55,7 +56,7 @@ export default function Login() {
                 {error}
                 {showReactivateLink && (
                   <p className="mt-2">
-                    <Link to="/reactivate" className="font-semibold underline">
+                    <Link to="/reactivate-account" className="font-semibold underline">
                       Click here to reactivate your account
                     </Link>
                   </p>

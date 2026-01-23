@@ -6,6 +6,7 @@ import { createContext, useContext, useEffect, useState, useRef } from "react";
 import type { ReactNode } from "react";
 import api, { setAccessToken } from "@shared/api/axiosConfig";
 import type { AuthContextType } from "@shared/types/Auth";
+import { logoutUser } from "@shared/api/auth/authApi";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -50,7 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     try {
-      await api.post("/auth/logout");
+      await logoutUser();
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
