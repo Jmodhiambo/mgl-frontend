@@ -7,8 +7,8 @@ import type { User as CoOrganizer } from '@shared/types/User';
 
 
 // Create Co-Organizer
-export const createCoOrganizer = async (email: string): Promise<CoOrganizer> => {
-  const response = await api.post<CoOrganizer>(`/organizers/me/co-organizers`, { email })
+export const createCoOrganizer = async (eventId: number, email: string): Promise<CoOrganizer> => {
+  const response = await api.post<CoOrganizer>(`/organizers/me/events/${eventId}/co-organizers/${email}`)
   return response.data
 }
 
