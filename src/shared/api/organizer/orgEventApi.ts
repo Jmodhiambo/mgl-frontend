@@ -2,7 +2,7 @@
  * Organizer Event API Module
  */
 
-import api from '../axiosConfig'
+import api from '@shared/api/axiosConfig'
 import type { OrganizerEventsResponse as Organizer, EventCreate, EventUpdate, EventStatus } from '@shared/types/Event'
 
 // Create a new event
@@ -12,7 +12,7 @@ export const createEvent = async (data: EventCreate): Promise<Organizer> => {
 }
 
 // Get events by organizer ID
-export const getEventsByOrganizerId = async (): Promise<Organizer> => {
+export const getOrganizerEvents = async (): Promise<Organizer> => {
   const response = await api.get<Organizer>(`/organizers/me/events`)
   return response.data
 }
