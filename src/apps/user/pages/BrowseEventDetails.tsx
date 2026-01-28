@@ -26,7 +26,7 @@ interface TicketType {
   name: string;
   description: string;
   price: number;
-  quantity_available: number;
+  total_quantity: number;
   quantity_sold: number;
 }
 
@@ -85,7 +85,7 @@ const BrowseEventDetailsPage: React.FC = () => {
           name: "VIP Pass",
           description: "Front row access, complimentary drinks, exclusive lounge area",
           price: 5000,
-          quantity_available: 50,
+          total_quantity: 50,
           quantity_sold: 23
         },
         {
@@ -94,7 +94,7 @@ const BrowseEventDetailsPage: React.FC = () => {
           name: "Regular Admission",
           description: "General admission to the festival",
           price: 1500,
-          quantity_available: 500,
+          total_quantity: 500,
           quantity_sold: 342
         },
         {
@@ -103,7 +103,7 @@ const BrowseEventDetailsPage: React.FC = () => {
           name: "Student Ticket",
           description: "Valid student ID required at entrance",
           price: 1000,
-          quantity_available: 200,
+          total_quantity: 200,
           quantity_sold: 156
         },
         {
@@ -112,7 +112,7 @@ const BrowseEventDetailsPage: React.FC = () => {
           name: "Early Bird Special",
           description: "Limited time offer - save 30%!",
           price: 1050,
-          quantity_available: 100,
+          total_quantity: 100,
           quantity_sold: 98
         }
       ];
@@ -387,7 +387,7 @@ const BrowseEventDetailsPage: React.FC = () => {
                 <h2 className="text-2xl font-bold text-gray-800 mb-6">Select Tickets</h2>
                 <div className="space-y-4">
                   {ticketTypes.map((ticket: TicketType) => {
-                    const availableTickets: number = ticket.quantity_available - ticket.quantity_sold;
+                    const availableTickets: number = ticket.total_quantity - ticket.quantity_sold;
                     const isLowStock: boolean = availableTickets <= 10 && availableTickets > 0;
                     const isSoldOut: boolean = availableTickets <= 0;
                     const selectedQty: number = selectedTickets[ticket.id] || 0;
@@ -421,7 +421,7 @@ const BrowseEventDetailsPage: React.FC = () => {
                             <p className="text-gray-600 text-sm mb-3">{ticket.description}</p>
                             <div className="flex items-center text-sm text-gray-500">
                               <Users className="w-4 h-4 mr-1" />
-                              <span>{ticket.quantity_sold} sold / {ticket.quantity_available} available</span>
+                              <span>{ticket.quantity_sold} sold / {ticket.total_quantity} available</span>
                             </div>
                           </div>
                           <div className="text-right ml-4">

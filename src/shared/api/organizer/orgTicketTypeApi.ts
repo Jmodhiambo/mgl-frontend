@@ -3,35 +3,36 @@
  */
 
 import api from '@shared/api/axiosConfig';
-import type { Booking } from '@shared/types/Booking';
+import type { TicketType } from '@shared/types/TicketType';
 
 
-// List all bookings for an organizer
-export const listBookings = async (eventId: number): Promise<Booking[]> => {
-  const response = await api.get(`organizers/me/events/${eventId}/bookings`);
+// Create a new ticket type
+export const createTicketType = async (eventId: number, data: TicketType): Promise<TicketType> => {
+  const response = await api.post<TicketType>(`/organizers/me/events/${eventId}/ticket-types`, data);
   return response.data;
 };
 
-// Get a specific booking by ID for an organizer
-export const getBookingById = async (bookingId: number): Promise<Booking> => {
-  const response = await api.get(`organizers/me//bookings/${bookingId}`);
+
+// Get ticket types for an event
+export const getTicketTypes = async (eventId: number): Promise<TicketType[]> => {
+  const response = await api.get<TicketType[]>(`/organizers/me/events/${eventId}/ticket-types`);
   return response.data;
 };
 
-// Get bookings by a specific ticket type for an organizer
-export const getBookingsByTicketType = async (eventId: number, ticketTypeId: number): Promise<Booking[]> => {
-  const response = await api.get(`organizers/me/events/${eventId}/ticket-types/${ticketTypeId}/bookings`);
+// Get a Ticket Type by ID
+export const getTicketType = async (ticketTypeId: number): Promise<TicketType> => {
+  const response = await api.get<TicketType>(`/organizers/me/ticket-types/${ticketTypeId}`);
   return response.data;
 };
 
-// Get latest bookings for an event
-export const getLatestBookings = async (eventId: number): Promise<Booking[]> => {
-  const response = await api.get(`organizers/me/events/${eventId}/latest-bookings`);
+// Update a ticket type
+export const updateTicketType = async (eventId: number, ticketTypeId: number, data: TicketType): Promise<TicketType> => {
+  const response = await api.put<TicketType>(`/organizers/me/events/${eventId}/ticket-types/${ticketTypeId}`, data);
   return response.data;
 };
 
-// List bookings in date range
-export const listBookingsInDateRange = async (eventId: number, startDate: string, endDate: string): Promise<Booking[]> => {
-  const response = await api.get(`organizers/me/events/${eventId}/bookings/${startDate}/${endDate}`);
+// Delete a ticket type
+export const deleteTicketType = async (eventId: number, ticketTypeId: number): Promise<TicketType> => {
+  const response = await api.delete<TicketType>(`/organizers/me/events/${eventId}/ticket-types/${ticketTypeId}`);
   return response.data;
 };

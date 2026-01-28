@@ -21,6 +21,7 @@ import ReactivateAccount from './pages/ReactivateAccount';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import EmailVerification from '@user/pages/EmailVerification';
+import AcceptCoOrganizerInvitation from '@user/pages/CoOrganizerInvitation';
 import { TermsOfService, PrivacyPolicy, RefundPolicy, AboutUs, ContactPage, FAQPage, OldHelpCenterPage } from '@shared/pages';
 import { PressAndMedia, CareersPage, NotFoundPage } from '@shared/pages';
 import { helpRoutes } from '@shared/routing/HelpRoutes';
@@ -58,6 +59,10 @@ export const router = createBrowserRouter([
   {
     path: '/verify-email',
     element: <EmailVerification />,
+  },
+  {
+    path: '/co-organizer-invitation',
+    element: <AcceptCoOrganizerInvitation />,
   },
   
   // Public routes (accessible without authentication - No navbar)
@@ -169,6 +174,7 @@ export const router = createBrowserRouter([
         path: 'my-events',
         element: <MyEvents />,
       },
+
       {
         path: 'setup-organizer-profile',
         element: <OrganizerProfileSetup />,

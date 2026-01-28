@@ -13,7 +13,7 @@ export const upgradeUserToOrganizer = async (data: OrganizerCreate): Promise<Org
 
 // Get organizer details by user ID
 export const getOrganizerProfile = async (): Promise<Organizer> => {
-  const response = await api.get<Organizer>(`/organizers/me/profile`)
+  const response = await api.get<Organizer>(`/organizers/me`)
   return response.data
 }
 

@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
 import { Calendar, Menu, X, LogOut, User } from 'lucide-react';
 
-export default function Navbar() {
+const Navbar: React.FC = () => {
   const { logout } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
@@ -32,6 +32,9 @@ export default function Navbar() {
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/my-tickets', label: 'My Tickets' },
     { path: '/my-events', label: 'My Events' },
+    { path: '/help', label: 'Help' },
+    { path: '/contact', label: 'Contact' },
+    { path: '/faq', label: 'FAQ' },
   ];
 
   return (
@@ -137,3 +140,5 @@ export default function Navbar() {
     </nav>
   );
 }
+
+export default Navbar;
