@@ -5,6 +5,7 @@ import { MyEventsSEO } from '@shared/components/SEO';
 interface Event {
   id: number;
   title: string;
+  slug: string;
   description: string;
   venue: string;
   start_time: string;
@@ -44,6 +45,7 @@ interface User {
 }
 
 const MyEventsPage: React.FC = () => {
+  const organizerBaseURL = import.meta.env.VITE_ORGANIZER_DOMAIN;
   const [favoriteEvents, setFavoriteEvents] = useState<Event[]>([]);
   const [organizingEvents, setOrganizingEvents] = useState<OrganizerEvent[]>([]);
   const [coOrganizingEvents, setCoOrganizingEvents] = useState<OrganizerEvent[]>([]);
@@ -83,6 +85,7 @@ const MyEventsPage: React.FC = () => {
           {
             id: 2,
             title: "Tech Conference 2025",
+            slug: "tech-conference-2025",
             description: "Annual technology and innovation conference",
             venue: "KICC, Nairobi",
             start_time: "2025-08-20T09:00:00Z",
@@ -93,6 +96,7 @@ const MyEventsPage: React.FC = () => {
           {
             id: 5,
             title: "Charity Marathon 2025",
+            slug: "charity-marathon-2025",
             description: "Run for a cause",
             venue: "Uhuru Park, Nairobi",
             start_time: "2025-06-05T06:00:00Z",
@@ -108,6 +112,7 @@ const MyEventsPage: React.FC = () => {
           {
             id: 1,
             title: "Summer Music Festival 2025",
+            slug: "summer-music-festival-2025",
             description: "The biggest music festival of the year",
             venue: "Kasarani Stadium, Nairobi",
             start_time: "2025-07-15T14:00:00Z",
@@ -123,6 +128,7 @@ const MyEventsPage: React.FC = () => {
           {
             id: 4,
             title: "Art Gallery Opening",
+            slug: "art-gallery-opening",
             description: "Contemporary art exhibition",
             venue: "National Museum, Nairobi",
             start_time: "2024-12-05T18:00:00Z",
@@ -143,6 +149,7 @@ const MyEventsPage: React.FC = () => {
           {
             id: 3,
             title: "Food & Wine Expo",
+            slug: "food-and-wine-expo",
             description: "Culinary excellence showcase",
             venue: "Villa Rosa Kempinski, Nairobi",
             start_time: "2025-09-10T12:00:00Z",
@@ -158,6 +165,7 @@ const MyEventsPage: React.FC = () => {
           {
             id: 6,
             title: "Jazz Night Live",
+            slug: "jazz-night-live",
             description: "An evening of smooth jazz",
             venue: "Alliance Française, Nairobi",
             start_time: "2025-07-22T19:00:00Z",
@@ -276,7 +284,7 @@ const MyEventsPage: React.FC = () => {
     
     if (eventType === 'favorite') {
       // Navigate to public event details page
-      window.location.href = `/events/${event.id}`;
+      window.location.href = `/events/${event.slug}`;
     } else if (eventType === 'organizer') {
       // User is THE organizer of this event - show stats modal with dashboard access
       setSelectedEvent(event as OrganizerEvent);
@@ -297,7 +305,7 @@ const MyEventsPage: React.FC = () => {
   const handleViewFullDashboard = (): void => {
     if (selectedEvent) {
       // Only organizers (not co-organizers) can access the full dashboard
-      window.location.href = `https://organizer.mgltickets.com/events/${selectedEvent.id}`;
+      window.location.href = `${organizerBaseURL}/events/${selectedEvent.slug}`;
     }
   };
 

@@ -1,47 +1,4 @@
 mgl-frontend/
-│
-├── src/
-│   ├── api/
-│   │   ├── axiosConfig.js
-│   │   ├── authApi.js
-│   │   ├── eventsApi.js
-│   │   └── bookingsApi.js
-│   │
-│   ├── components/
-│   │   ├── Navbar.jsx
-│   │   ├── EventCard.jsx
-│   │   └── Loader.jsx
-│   │
-│   ├── context/
-│   │   └── AuthContext.jsx
-│   │
-│   ├── hooks/
-│   │   ├── useAuth.js
-│   │   └── useFetch.js   (optional)
-│   │
-│   ├── pages/
-│   │   ├── Home.jsx
-│   │   ├── Login.jsx
-│   │   ├── Register.jsx
-│   │   ├── EventDetails.jsx
-│   │   ├── Dashboard.jsx
-│   │   └── OrganiserBookings.jsx
-│   │
-│   ├── utils/
-│   │   ├── formatDate.js
-│   │   └── validators.js
-│   │
-│   ├── App.jsx
-│   ├── main.jsx
-│   └── index.css (or tailwind.css)
-│
-├── public/
-│   └── favicon.ico
-│
-├── package.json
-└── vite.config.js
-
-mgl-frontend/
   src/
     apps/
       user/
@@ -52,6 +9,7 @@ mgl-frontend/
         routes.tsx
         App.tsx
         main.tsx
+        vite.config.js
 
       organizer/
         pages/
@@ -62,6 +20,7 @@ mgl-frontend/
         routes.tsx
         App.tsx
         main.tsx
+        vite.config.js
 
       admin/
         pages/
@@ -72,6 +31,7 @@ mgl-frontend/
         routes.tsx
         App.tsx
         main.tsx
+        vite.config.js
 
     shared/
       components/
@@ -79,3 +39,10 @@ mgl-frontend/
       hooks/
       auth/
       api/
+      contexts
+      types
+
+    vite-env.d.ts
+
+  package.json
+  .gitignore

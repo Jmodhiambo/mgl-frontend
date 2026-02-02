@@ -1,5 +1,9 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
+import ProtectedRoute from '@shared/routing/ProtectedRoute';
+import PublicRoute from '@shared/routing/PublicRoute';
 import OrganizerLayout from '@shared/components/layouts/OrganizerLayout';
+
+// Import Organizer Pages
 import Dashboard from '@organizer/pages/Dashboard';
 import EventsList from '@organizer/pages/EventsList';
 import EventForm from '@organizer/pages/EventForm';
@@ -8,14 +12,22 @@ import TicketTypes from '@organizer/pages/TicketTypes';
 import BookingsView from '@organizer/pages/BookingsView';
 import Profile from '@organizer/pages/Profile';
 import CoOrganizers from '@organizer/pages/CoOrganizers';
-import ProtectedRoute from '@shared/routing/ProtectedRoute';
+import { NotFoundPage } from '@shared/pages';
 
 /**
  * Router configuration for MGLTickets Organizer Portal
  * 
+ * Base path is configured here based on environment:
+ * Development: /organizer
+ * Production: /
+ * 
  * All routes require organizer authentication
  * Port: 3001
  */
+
+// Check if we're in development mode
+const isDev = import.meta.env.DEV;
+
 export const router = createBrowserRouter([
   // Root redirect to dashboard
   {
@@ -25,8 +37,11 @@ export const router = createBrowserRouter([
 
   // Protected Organizer Routes
   {
+    // Remove ProtectedRoute wrapper in development for easier testing
     path: '/',
-    element: (
+    element: isDev ? ( 
+      <OrganizerLayout /> 
+    ) : (
       <ProtectedRoute>
         <OrganizerLayout />
       </ProtectedRoute>
@@ -49,17 +64,17 @@ export const router = createBrowserRouter([
         element: <EventForm mode="create" />,
       },
       {
-        path: 'events/:eventId',
+        path: 'events/:eventSlug',
         element: <EventDetails />,
       },
       {
-        path: 'events/:eventId/edit',
-        // EventForm will extract eventId from useParams
+        path: 'events/:eventSlug/edit',
+        // EventForm will extract eventSlug from useParams
         element: <EventForm mode="edit" />,
       },
       {
         path: 'events/:eventId/tickets',
-        // TicketTypes will extract eventId from useParams
+        // TicketTypes will extract eventId from useParams for api calls and not eventSlug
         element: <TicketTypes />,
       },
       {
@@ -86,6 +101,12 @@ export const router = createBrowserRouter([
   // Fallback - redirect to dashboard
   {
     path: '*',
-    element: <Navigate to="/dashboard" replace />,
+    element: <NotFoundPage />,
   },
-]);
+],
+// {
+//   // basename: import.meta.env.VITE_ORGANIZER_BAiSE_PATH || '/',
+// //   basename: import.meta.env.PROD ? '/' : '/organizer', // Same as the above line. For local dev use /organizer and for prod use /
+// }
+
+);

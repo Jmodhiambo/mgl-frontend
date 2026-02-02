@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
 import { loginUser } from '@shared/api/auth/authApi';
 import { LoginSEO } from '@shared/components/SEO';
 
-export default function Login() {
+const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -13,6 +13,9 @@ export default function Login() {
   
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectUrl = searchParams.get('redirect');
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,9 +29,20 @@ export default function Login() {
       
       // Update auth context with the access token
       login(response.access_token);
-      
-      // Navigate to dashboard
-      navigate('/dashboard');
+
+      // Redirect to original URL or default
+      if (redirectUrl) {
+        // Check if redirect is external (production) or internal (development)
+        if (redirectUrl.startsWith('http')) {
+          // External redirect (production cross-domain)
+          window.location.href = redirectUrl;
+        } else {
+          // Internal redirect (development same-domain)
+          navigate(redirectUrl);
+        }
+      } else {
+        navigate('/browse-events');
+      }
     } catch (err: any) {
       const errorDetail = err.response?.data?.detail || 'Invalid email or password';
       setError(errorDetail);
@@ -126,3 +140,5 @@ export default function Login() {
     </>
   );
 }
+
+export default Login;

@@ -187,4 +187,10 @@ export const router = createBrowserRouter([
     path: '*',
     element: <NotFoundPage /> ,
   }
-]);
+],
+
+// {
+//   basename: import.meta.env.VITE_USER_BASE_PATH || '/',
+// }
+
+);

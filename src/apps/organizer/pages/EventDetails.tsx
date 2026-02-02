@@ -22,7 +22,7 @@ interface TicketType {
   name: string;
   description: string;
   price: number;
-  total_quantity: number;
+  quantity_available: number;
   quantity_sold: number;
   is_active: boolean;
 }
@@ -46,7 +46,7 @@ interface EventStats {
 }
 
 const EventDetails: React.FC = () => {
-  const { eventId } = useParams<{ eventId: string }>();
+  const { eventSlug } = useParams<{ eventSlug: string }>();
   const navigate = useNavigate();
   
   const [event, setEvent] = useState<Event | null>(null);
@@ -58,20 +58,20 @@ const EventDetails: React.FC = () => {
 
   useEffect(() => {
     loadEventDetails();
-  }, [eventId]);
+  }, [eventSlug]);
 
   const loadEventDetails = async () => {
     setLoading(true);
     // TODO: Replace with actual API calls
-    // const eventData = await getEventById(eventId);
-    // const ticketsData = await getTicketTypesByEvent(eventId);
-    // const bookingsData = await getRecentBookingsByEvent(eventId, 5);
-    // const statsData = await getEventStats(eventId);
+    // const eventData = await getEventBySlug(eventSlug);
+    // const ticketsData = await getTicketTypesByEvent(eventData.id);
+    // const bookingsData = await getRecentBookingsByEvent(eventData.id, 5);
+    // const statsData = await getEventStats(eventData.id);
 
     const mockEvent: Event = {
-      id: parseInt(eventId || '1'),
+      id: 1, // This would come from API
       title: 'Summer Music Festival 2025',
-      slug: 'summer-music-festival-2025',
+      slug: eventSlug || 'summer-music-festival-2025',
       venue: 'Kasarani Stadium, Nairobi',
       start_time: '2025-07-15T14:00:00Z',
       end_time: '2025-07-15T23:00:00Z',
@@ -84,9 +84,9 @@ const EventDetails: React.FC = () => {
     };
 
     const mockTicketTypes: TicketType[] = [
-      { id: 1, name: 'VIP Pass', description: 'Front row access, complimentary drinks', price: 5000, total_quantity: 50, quantity_sold: 23, is_active: true },
-      { id: 2, name: 'Regular Admission', description: 'General admission', price: 1500, total_quantity: 500, quantity_sold: 342, is_active: true },
-      { id: 3, name: 'Student Ticket', description: 'Valid student ID required', price: 1000, total_quantity: 200, quantity_sold: 156, is_active: true },
+      { id: 1, name: 'VIP Pass', description: 'Front row access, complimentary drinks', price: 5000, quantity_available: 50, quantity_sold: 23, is_active: true },
+      { id: 2, name: 'Regular Admission', description: 'General admission', price: 1500, quantity_available: 500, quantity_sold: 342, is_active: true },
+      { id: 3, name: 'Student Ticket', description: 'Valid student ID required', price: 1000, quantity_available: 200, quantity_sold: 156, is_active: true },
     ];
 
     const mockBookings: Booking[] = [
@@ -155,14 +155,14 @@ const EventDetails: React.FC = () => {
 
   const handleDeleteEvent = async () => {
     // TODO: API call to delete event
-    // await deleteEvent(eventId);
-    navigate('/organizer/events');
+    // await deleteEvent(event.id);
+    navigate('/events');
   };
 
   const handleCancelEvent = async () => {
     // TODO: API call to cancel event
-    // await updateEventStatus(eventId, 'cancelled');
-    navigate('/organizer/events');
+    // await updateEventStatus(event.id, 'cancelled');
+    navigate('/events');
   };
 
   if (loading) {
@@ -178,7 +178,7 @@ const EventDetails: React.FC = () => {
       <div className="text-center py-12">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Event Not Found</h2>
         <button
-          onClick={() => navigate('/organizer/events')}
+          onClick={() => navigate('/events')}
           className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all"
         >
           Back to Events
@@ -191,7 +191,7 @@ const EventDetails: React.FC = () => {
     <div>
       {/* Back Button */}
       <button
-        onClick={() => navigate('/organizer/events')}
+        onClick={() => navigate('/events')}
         className="flex items-center text-gray-600 hover:text-orange-600 transition-colors mb-6"
       >
         <ArrowLeft className="w-5 h-5 mr-1" />
@@ -216,7 +216,7 @@ const EventDetails: React.FC = () => {
               </div>
               <div className="flex gap-2 ml-4">
                 <button
-                  onClick={() => navigate(`/organizer/events/${eventId}/edit`)}
+                  onClick={() => navigate(`/events/${event.slug}/edit`)}
                   className="p-2 border-2 border-orange-500 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors"
                 >
                   <Edit className="w-5 h-5" />
@@ -245,14 +245,14 @@ const EventDetails: React.FC = () => {
 
             <div className="flex gap-3">
               <button
-                onClick={() => navigate(`/organizer/events/${eventId}/tickets`)}
+                onClick={() => navigate(`/events/${event.id}/tickets`)}
                 className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all flex items-center justify-center"
               >
                 <Ticket className="w-5 h-5 mr-2" />
                 Manage Tickets
               </button>
               <button
-                onClick={() => navigate(`/organizer/events/${eventId}/bookings`)}
+                onClick={() => navigate(`/events/${event.id}/bookings`)}
                 className="flex-1 border-2 border-orange-500 text-orange-600 py-3 rounded-lg font-semibold hover:bg-orange-50 transition-colors flex items-center justify-center"
               >
                 <Eye className="w-5 h-5 mr-2" />
@@ -306,7 +306,7 @@ const EventDetails: React.FC = () => {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-gray-800">Ticket Types</h2>
             <button
-              onClick={() => navigate(`/organizer/events/${eventId}/tickets`)}
+              onClick={() => navigate(`/events/${event.id}/tickets`)}
               className="text-orange-600 hover:text-orange-700 font-medium text-sm flex items-center"
             >
               <Plus className="w-4 h-4 mr-1" />
@@ -327,7 +327,7 @@ const EventDetails: React.FC = () => {
                   </span>
                 </div>
                 <div className="flex justify-between text-sm text-gray-600">
-                  <span>Sold: {ticket.quantity_sold} / {ticket.total_quantity}</span>
+                  <span>Sold: {ticket.quantity_sold} / {ticket.quantity_available}</span>
                   <span className={ticket.is_active ? 'text-green-600' : 'text-red-600'}>
                     {ticket.is_active ? 'Active' : 'Inactive'}
                   </span>
@@ -342,7 +342,7 @@ const EventDetails: React.FC = () => {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-gray-800">Recent Bookings</h2>
             <button
-              onClick={() => navigate(`/organizer/events/${eventId}/bookings`)}
+              onClick={() => navigate(`/events/${event.id}/bookings`)}
               className="text-orange-600 hover:text-orange-700 font-medium text-sm"
             >
               View All

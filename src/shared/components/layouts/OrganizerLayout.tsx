@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
+import { useAuth } from '@shared/contexts/AuthContext';
 import { Calendar, LayoutDashboard, Ticket, Users, User, LogOut, Menu, X, ChevronRight } from 'lucide-react';
 
 interface NavItem {
@@ -9,9 +10,10 @@ interface NavItem {
 }
 
 const OrganizerLayout: React.FC = () => {
+  const { logout } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const userAppUrl = import.meta.env.VITE_USER_DOMAIN || 'http://localhost:3000';
 
   const navItems: NavItem[] = [
     { path: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
@@ -27,9 +29,8 @@ const OrganizerLayout: React.FC = () => {
 
   const handleLogout = async (): Promise<void> => {
     try {
-      // TODO: Implement logout logic
-      // await logout();
-      navigate('/login');
+      await logout();
+      window.location.href = userAppUrl; // Redirect to main site after logout
     } catch (error) {
       console.error('Logout failed:', error);
     }
@@ -69,6 +70,16 @@ const OrganizerLayout: React.FC = () => {
 
             {/* User Menu */}
             <div className="flex items-center space-x-4">
+              {/* Context Switcher - Browse Events */}
+              <a
+                href={import.meta.env.VITE_USER_DOMAIN}
+                className="hidden sm:flex items-center space-x-2 px-3 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 font-medium transition-colors text-sm"
+                title="Browse Events as User"
+              >
+                <Calendar className="w-4 h-4" />
+                <span>Browse Events</span>
+              </a>
+              
               <div className="hidden sm:flex items-center space-x-2 text-sm">
                 <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
                   <User className="w-4 h-4 text-orange-600" />
