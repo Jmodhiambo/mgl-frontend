@@ -151,7 +151,7 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
       // }
 
       // Navigate back to events list
-      // navigate('/organizer/events');
+      // navigate('/events');
       
       console.log('Form submitted:', formData);
       alert(`Event ${mode === 'create' ? 'created' : 'updated'} successfully!`);

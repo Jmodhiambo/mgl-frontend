@@ -7,11 +7,14 @@ import type { ReactNode } from "react";
 import api, { setAccessToken } from "@shared/api/axiosConfig";
 import type { AuthContextType } from "@shared/types/Auth";
 import { logoutUser } from "@shared/api/auth/authApi";
+import { getCurrentUser } from "@shared/api/user/usersApi";
+import type { User } from "@shared/types/User";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   
   const isRestoringSession = useRef(false);
@@ -27,13 +30,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const restoreSession = async () => {
       try {
+        // Attempt to refresh token
         const response = await api.post("/auth/refresh");
         const accessToken = response.data.access_token;
 
         setAccessToken(accessToken);
+
+        // Fetch current user
+        const userData = await getCurrentUser();
+        setUser(userData);
         setIsAuthenticated(true);
       } catch (error) {
+        console.error("Failed to restore session:", error);
         setAccessToken(null);
+        setUser(null);
         setIsAuthenticated(false);
       } finally {
         setLoading(false);
@@ -44,9 +54,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     restoreSession();
   }, []);
 
-  const login = (accessToken: string) => {
+  const login = async (accessToken: string) => {
     setAccessToken(accessToken);
-    setIsAuthenticated(true);
+
+    try {
+      // Fetch user data after login
+      const fetchUser = await getCurrentUser();
+      setUser(fetchUser);      
+      setIsAuthenticated(true);
+      } catch (error) {
+      console.error("Failed to fetch user after login:", error);
+      // Even if user fetch fails, we're authenticated
+      setIsAuthenticated(true);
+    }
   };
 
   const logout = async () => {
@@ -56,6 +76,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error("Logout error:", error);
     } finally {
       setAccessToken(null);
+      setUser(null);
       setIsAuthenticated(false);
       hasAttemptedRestore.current = false;
     }
@@ -66,6 +87,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       value={{
         isAuthenticated,
         loading,
+        user,
         login,
         logout
       }}

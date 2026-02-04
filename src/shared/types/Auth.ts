@@ -2,6 +2,8 @@
  * Authentication Types
  */
 
+import type { User } from "@shared/types/User";
+
 export interface LoginCredentials {
     email: string;
     password: string;
@@ -34,6 +36,7 @@ export interface RegisterResponse {
 export interface AuthContextType {
     isAuthenticated: boolean;
     loading: boolean;
+    user: User | null;
     login: (accessToken: string) => void;
     logout: () => Promise<void>;
 }

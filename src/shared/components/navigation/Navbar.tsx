@@ -1,10 +1,13 @@
+// Example: User App Navbar with Organizer Link
+// src/shared/components/navigation/Navbar.tsx
+
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
-import { Calendar, Menu, X, LogOut, User } from 'lucide-react';
+import { Calendar, Menu, X, LogOut, User, Briefcase, Shield } from 'lucide-react';
 
 const Navbar: React.FC = () => {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
@@ -32,10 +35,13 @@ const Navbar: React.FC = () => {
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/my-tickets', label: 'My Tickets' },
     { path: '/my-events', label: 'My Events' },
-    { path: '/help', label: 'Help' },
-    { path: '/contact', label: 'Contact' },
-    { path: '/faq', label: 'FAQ' },
+    { path: '/help', label: 'Help Center' },
   ];
+
+  // Get organizer/admin dashboard URLs from env based on environment
+  const organizerUrl = import.meta.env.VITE_ORGANIZER_DOMAIN;
+
+  const adminUrl = import.meta.env.VITE_ADMIN_DOMAIN;
 
   return (
     <nav className="bg-white shadow-sm border-b border-orange-100 fixed top-0 left-0 right-0 z-50">
@@ -68,6 +74,29 @@ const Navbar: React.FC = () => {
 
           {/* Desktop User Actions */}
           <div className="hidden md:flex items-center space-x-4">
+            {/* Context Switcher - Show if user has organizer or admin role */}
+            {user?.role === 'organizer' && (
+              <a
+                href={`${organizerUrl}/dashboard`}
+                className="flex items-center space-x-2 px-3 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 font-medium transition-colors"
+                title="Switch to Organizer Dashboard"
+              >
+                <Briefcase className="w-4 h-4" />
+                <span>Organizer Dashboard</span>
+              </a>
+            )}
+
+            {user?.role === 'admin' && (
+              <a
+                href={`${adminUrl}/dashboard`}
+                className="flex items-center space-x-2 px-3 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 font-medium transition-colors"
+                title="Switch to Admin Panel"
+              >
+                <Shield className="w-4 h-4" />
+                <span>Admin Panel</span>
+              </a>
+            )}
+
             <Link
               to="/profile"
               className="flex items-center space-x-2 text-gray-600 hover:text-orange-600 font-medium transition-colors"
@@ -75,6 +104,7 @@ const Navbar: React.FC = () => {
               <User className="w-5 h-5" />
               <span>Profile</span>
             </Link>
+            
             <button
               onClick={handleLogout}
               className="flex items-center space-x-2 text-gray-600 hover:text-orange-600 font-medium transition-colors px-3 py-2 rounded-lg hover:bg-orange-50"
@@ -113,7 +143,29 @@ const Navbar: React.FC = () => {
                   {link.label}
                 </Link>
               ))}
+              
               <div className="border-t border-gray-200 pt-3 mt-3 space-y-3">
+                {/* Context Switcher - Mobile */}
+                {user?.role === 'organizer' && (
+                  <a
+                    href={`${organizerUrl}/dashboard`}
+                    className="flex items-center space-x-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 font-medium"
+                  >
+                    <Briefcase className="w-4 h-4" />
+                    <span>Organizer Dashboard</span>
+                  </a>
+                )}
+
+                {user?.role === 'admin' && (
+                  <a
+                    href={`${adminUrl}/dashboard`}
+                    className="flex items-center space-x-2 px-3 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 font-medium"
+                  >
+                    <Shield className="w-4 h-4" />
+                    <span>Admin Panel</span>
+                  </a>
+                )}
+
                 <Link
                   to="/profile"
                   onClick={() => setIsMobileMenuOpen(false)}
@@ -122,6 +174,7 @@ const Navbar: React.FC = () => {
                   <User className="w-5 h-5" />
                   <span>Profile</span>
                 </Link>
+                
                 <button
                   onClick={() => {
                     handleLogout();
@@ -140,5 +193,6 @@ const Navbar: React.FC = () => {
     </nav>
   );
 }
+
 
 export default Navbar;

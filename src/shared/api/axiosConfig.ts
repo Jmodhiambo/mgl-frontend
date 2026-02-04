@@ -10,7 +10,7 @@ import type {
 } from "axios";
 
 // Base API URL from environment variables or default to localhost
-const BASE_URL: string = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1";
+const BASE_URL: string = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
 
 // In-memory storage for access token
 let accessToken: string | null = null;

@@ -22,7 +22,7 @@ export default defineConfig({
   },
   server: {
     port: 3001,
-    host: true,
+    host: true, // Allow external access for testing subdomains locally
     proxy: {
       "/api": {
         target: process.env.VITE_API_URL || "http://localhost:8000",
