@@ -25,3 +25,8 @@ dist-ssr
 
 # Environment variable
 .env*
+
+# TLS certificates
+certs/*.pem
+certs/*.key
+certs/*-key.pem

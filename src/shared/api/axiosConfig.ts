@@ -10,7 +10,7 @@ import type {
 } from "axios";
 
 // Base API URL from environment variables or default to localhost
-const BASE_URL: string = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
+const BASE_URL: string = import.meta.env.VITE_API_URL;
 
 // In-memory storage for access token
 let accessToken: string | null = null;
@@ -77,15 +77,9 @@ const refreshAccessToken = async (): Promise<string> => {
         // Refresh failed - clear token and redirect to login
         setAccessToken(null);
 
-        // Redirect based on subdomain
-        const currentDomain = window.location.hostname;
-        if (currentDomain.includes('organizer')) {
-            window.location.href = 'https://organizer.mgltickets.com/login';
-        } else if (currentDomain.includes('admin')) {
-            window.location.href = 'https://admin.mgltickets.com/login';
-        } else {
-            window.location.href = 'https://mgltickets.com/login';
-        }
+        // // Redirect to main app for logging in
+        window.location.href = import.meta.env.VITE_USER_DOMAIN + "/login";  
+        
         throw error;
     }
 };

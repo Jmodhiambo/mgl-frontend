@@ -25,9 +25,6 @@ import { NotFoundPage } from '@shared/pages';
  * Port: 3001
  */
 
-// Check if we're in development mode
-const isDev = import.meta.env.DEV;
-
 export const router = createBrowserRouter([
   // Root redirect to dashboard
   {
@@ -39,9 +36,7 @@ export const router = createBrowserRouter([
   {
     // Remove ProtectedRoute wrapper in development for easier testing
     path: '/',
-    element: isDev ? ( 
-      <OrganizerLayout /> 
-    ) : (
+    element: (
       <ProtectedRoute>
         <OrganizerLayout />
       </ProtectedRoute>
@@ -103,10 +98,4 @@ export const router = createBrowserRouter([
     path: '*',
     element: <NotFoundPage />,
   },
-],
-// {
-//   // basename: import.meta.env.VITE_ORGANIZER_BAiSE_PATH || '/',
-// //   basename: import.meta.env.PROD ? '/' : '/organizer', // Same as the above line. For local dev use /organizer and for prod use /
-// }
-
-);
+]);

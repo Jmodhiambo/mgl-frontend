@@ -1,5 +1,3 @@
-// src/shared/routing/ProtectedRoute.tsx
-
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
@@ -9,21 +7,10 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
-/**
- * Unified ProtectedRoute that works across all apps (user, organizer, admin)
- * 
- * IMPORTANT: This does NOT auto-redirect based on role.
- * Users can access any app they want and manually switch between contexts.
- * 
- * Only blocks access if:
- * 1. User is not authenticated
- * 2. User lacks required permissions (e.g., non-admin accessing admin panel)
- */
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated, loading, user } = useAuth();
   const location = useLocation();
 
-  // Show loading spinner while checking authentication
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center">
@@ -32,29 +19,18 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  // Not authenticated - redirect to login
   if (!isAuthenticated) {
-    const isDev = import.meta.env.DEV;
-    const currentPath = window.location.pathname;
-    
-    if (isDev) {
-      // Development: Redirect to /login on same origin
-      return <Navigate to={`/login?redirect=${encodeURIComponent(currentPath)}`} replace />;
-    } else {
-      // Production: Redirect to user app subdomain
-      if (APP_TYPE !== 'user') {
-        const userDomain = import.meta.env.VITE_USER_DOMAIN;
-        window.location.href = `${userDomain}/login?redirect=${encodeURIComponent(window.location.href)}`;
-        return null;
-      }
-      return <Navigate to={`/login?redirect=${encodeURIComponent(currentPath)}`} replace />;
+    // Always redirect to user app login
+    if (APP_TYPE !== 'user') {
+      const userDomain = import.meta.env.VITE_USER_DOMAIN;
+      window.location.href = `${userDomain}/login?redirect=${encodeURIComponent(window.location.href)}`;
+      return null;
     }
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Check role-based access
   const userRole = user?.role;
 
-  // Organizer app - requires organizer role
   if (APP_TYPE === 'organizer' && userRole !== 'organizer') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center p-4">
@@ -69,7 +45,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
             You need an organizer account to access this area.
           </p>
           <a
-            href="/"
+            href={import.meta.env.VITE_USER_DOMAIN}
             className="inline-block px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all"
           >
             Go to Main Site
@@ -79,7 +55,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  // Admin app - requires admin role
   if (APP_TYPE === 'admin' && userRole !== 'admin') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center p-4">
@@ -94,7 +69,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
             You need administrator privileges to access this area.
           </p>
           <a
-            href="/"
+            href={import.meta.env.VITE_USER_DOMAIN}
             className="inline-block px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all"
           >
             Go to Main Site
@@ -104,7 +79,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  // User has access - render children
   return <>{children}</>;
 };
 

@@ -13,7 +13,7 @@ const OrganizerLayout: React.FC = () => {
   const { logout } = useAuth();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const userAppUrl = import.meta.env.VITE_USER_DOMAIN || 'http://localhost:3000';
+  const userAppUrl = import.meta.env.VITE_USER_DOMAIN;
 
   const navItems: NavItem[] = [
     { path: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
@@ -72,7 +72,7 @@ const OrganizerLayout: React.FC = () => {
             <div className="flex items-center space-x-4">
               {/* Context Switcher - Browse Events */}
               <a
-                href={import.meta.env.VITE_USER_DOMAIN}
+                href={`${userAppUrl}/browse-events`}
                 className="hidden sm:flex items-center space-x-2 px-3 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 font-medium transition-colors text-sm"
                 title="Browse Events as User"
               >

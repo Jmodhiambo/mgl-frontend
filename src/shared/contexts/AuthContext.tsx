@@ -2,6 +2,7 @@
  * Authentication Context Module
  */
 
+import axios from "axios";
 import { createContext, useContext, useEffect, useState, useRef } from "react";
 import type { ReactNode } from "react";
 import api, { setAccessToken } from "@shared/api/axiosConfig";
@@ -30,8 +31,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const restoreSession = async () => {
       try {
+        console.log('🔄 Attempting to restore session...');
+        console.log('🍪 Cookies:', document.cookie);  // See all cookies
+        
         // Attempt to refresh token
         const response = await api.post("/auth/refresh");
+        console.log('✅ Refresh successful:', response.data);
+
+
         const accessToken = response.data.access_token;
 
         setAccessToken(accessToken);
@@ -42,6 +49,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsAuthenticated(true);
       } catch (error) {
         console.error("Failed to restore session:", error);
+        console.log('🍪 Cookies after failure:', document.cookie);
+
+        // Proper axios error handling
+        if (axios.isAxiosError(error)) {
+          const statusCode = error.response?.status;
+          const detail = error.response?.data?.detail || error.response?.data?.message;
+  
+          if (statusCode === 401) {
+            // Unauthorized error
+            console.log('🚫 Exact unauthorized error from backend:', detail);
+            // Log out user and clear session
+            setAccessToken(null);
+            setUser(null);
+            setIsAuthenticated(false);
+          }
+        }
         setAccessToken(null);
         setUser(null);
         setIsAuthenticated(false);

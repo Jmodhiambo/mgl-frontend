@@ -1,15 +1,14 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import fs from "fs";
 
 export default defineConfig(({ mode }) => {
-  // Load env from project root (3 levels up from src/apps/admin)
   const env = loadEnv(mode, path.resolve(__dirname, "../../../"), '');
 
   return {
-    // Tell Vite where to look for .env files (project root)
+    root: path.resolve(__dirname),
     envDir: path.resolve(__dirname, "../../../"),
-
     cacheDir: "../../../node_modules/.vite",
     
     plugins: [
@@ -30,17 +29,21 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3002,
       host: true,
+      https: {
+        key: fs.readFileSync(path.resolve(__dirname, "../../../certs/key.pem")),
+        cert: fs.readFileSync(path.resolve(__dirname, "../../../certs/cert.pem")),
+      },
+      allowedHosts: ['.local'],
       proxy: {
-        // Backend API proxy
         "/api": {
-          target: env.VITE_API_URL || "http://localhost:8000/api/v1",
+          target: env.VITE_API_URL || "https://api.mgltickets.local:8000",
           changeOrigin: true,
+          secure: false,
         },
       },
     },
     
-    // Base path from env
-    base: env.VITE_ADMIN_BASE_PATH || '/',
+    base: '/',
     
     build: {
       outDir: path.resolve(__dirname, "../../../dist/admin"),

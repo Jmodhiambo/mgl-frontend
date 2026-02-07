@@ -1,37 +1,53 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import fs from "fs";
 
-export default defineConfig({
-  // Tell Vite where to look for .env files (project root)
-  envDir: path.resolve(__dirname, "../../../"),
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, path.resolve(__dirname, "../../../"), '');
 
-  cacheDir: "../../../node_modules/.vite",
-  plugins: [
-    react({
-      babel: {
-        plugins: [["babel-plugin-react-compiler"]],
-      },
-    }),
-  ],
-  resolve: {
-    alias: {
-      "@shared": path.resolve(__dirname, "../../shared"),
-      "@organizer": path.resolve(__dirname, "."),
-    },
-  },
-  server: {
-    port: 3001,
-    host: true, // Allow external access for testing subdomains locally
-    proxy: {
-      "/api": {
-        target: process.env.VITE_API_URL || "http://localhost:8000",
-        changeOrigin: true,
+  return {
+    root: path.resolve(__dirname),
+    envDir: path.resolve(__dirname, "../../../"),
+    cacheDir: "../../../node_modules/.vite",
+    
+    plugins: [
+      react({
+        babel: {
+          plugins: [["babel-plugin-react-compiler"]],
+        },
+      }),
+    ],
+    
+    resolve: {
+      alias: {
+        "@shared": path.resolve(__dirname, "../../shared"),
+        "@organizer": path.resolve(__dirname, "./"),
       },
     },
-  },
-  build: {
-    outDir: "../../../dist/organizer",
-    emptyOutDir: true,
-  },
+    
+    server: {
+      port: 3001,
+      host: true,
+      https: {
+        key: fs.readFileSync(path.resolve(__dirname, "../../../certs/key.pem")),
+        cert: fs.readFileSync(path.resolve(__dirname, "../../../certs/cert.pem")),
+      },
+      allowedHosts: ['.local'],
+      proxy: {
+        "/api": {
+          target: env.VITE_API_URL || "https://api.mgltickets.local:8000",
+          changeOrigin: true,
+          secure: false,
+        },
+      },
+    },
+    
+    base: '/',
+    
+    build: {
+      outDir: path.resolve(__dirname, "../../../dist/organizer"),
+      emptyOutDir: true,
+    },
+  };
 });
