@@ -6,6 +6,9 @@ import { articleRegistry, getAllCategories, searchArticles } from '@shared/data/
 import api from '@shared/api/axiosConfig';
 
 const HelpCenterPage: React.FC = () => {
+
+  document.title = 'Help Center - MGLTickets';
+
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<typeof articleRegistry>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -86,7 +89,7 @@ const HelpCenterPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full mb-4">

@@ -78,7 +78,7 @@ const Navbar: React.FC = () => {
             {user?.role === 'organizer' && (
               <a
                 href={`${organizerUrl}/dashboard`}
-                className="flex items-center space-x-2 px-3 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 font-medium transition-colors"
+                className="flex items-center space-x-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 font-medium transition-colors"
                 title="Switch to Organizer Dashboard"
               >
                 <Briefcase className="w-4 h-4" />

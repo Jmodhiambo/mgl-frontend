@@ -62,7 +62,7 @@ const OrganizerLayout: React.FC = () => {
                   <Calendar className="w-6 h-6 text-white" />
                 </div>
                 <div className="hidden sm:block">
-                  <span className="text-2xl font-bold text-orange-600">MGLTickets</span>
+                  <span className="text-2xl font-bold text-blue-600">MGLTickets</span>
                   <span className="block text-xs text-gray-500 -mt-1">Organizer Portal</span>
                 </div>
               </Link>
@@ -81,8 +81,8 @@ const OrganizerLayout: React.FC = () => {
               </a>
               
               <div className="hidden sm:flex items-center space-x-2 text-sm">
-                <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                  <User className="w-4 h-4 text-orange-600" />
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <User className="w-4 h-4 text-blue-600" />
                 </div>
                 <div>
                   <p className="font-semibold text-gray-800">John Organizer</p>

@@ -94,7 +94,7 @@ export const router = createBrowserRouter([
   // Legal routes (accessible without authentication)
   {
     path: '/',
-    element: <LegalLayout />,
+    element: <ProtectedLayout />,
     children: [
       {
         path: 'terms',
