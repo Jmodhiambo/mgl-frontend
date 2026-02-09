@@ -200,14 +200,14 @@ const OrganizerProfile: React.FC = () => {
 
   if (loading && !profile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent"></div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -218,7 +218,7 @@ const OrganizerProfile: React.FC = () => {
           {!editing && (
             <button
               onClick={() => setEditing(true)}
-              className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md flex items-center"
+              className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md flex items-center"
             >
               <Edit className="w-5 h-5 mr-2" />
               Edit Profile
@@ -264,7 +264,7 @@ const OrganizerProfile: React.FC = () => {
                 />
                 <label
                   htmlFor="profilePicture"
-                  className="cursor-pointer inline-flex items-center px-4 py-2 border-2 border-orange-500 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors font-medium"
+                  className="cursor-pointer inline-flex items-center px-4 py-2 border-2 border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium"
                 >
                   <Upload className="w-4 h-4 mr-2" />
                   Upload New Picture
@@ -292,7 +292,7 @@ const OrganizerProfile: React.FC = () => {
                 disabled={!editing}
                 className={`w-full px-4 py-3 border ${
                   errors.name ? 'border-red-500' : 'border-gray-300'
-                } rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600`}
+                } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600`}
               />
               {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
             </div>
@@ -318,7 +318,7 @@ const OrganizerProfile: React.FC = () => {
                 disabled={!editing}
                 className={`w-full px-4 py-3 border ${
                   errors.phone_number ? 'border-red-500' : 'border-gray-300'
-                } rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600`}
+                } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600`}
               />
               {errors.phone_number && <p className="mt-1 text-sm text-red-600">{errors.phone_number}</p>}
             </div>
@@ -331,7 +331,7 @@ const OrganizerProfile: React.FC = () => {
                 value={formData.organization_name}
                 onChange={handleInputChange}
                 disabled={!editing}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600"
               />
             </div>
 
@@ -344,7 +344,7 @@ const OrganizerProfile: React.FC = () => {
                 onChange={handleInputChange}
                 disabled={!editing}
                 placeholder="https://example.com"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600"
               />
             </div>
 
@@ -357,7 +357,7 @@ const OrganizerProfile: React.FC = () => {
                 disabled={!editing}
                 rows={4}
                 placeholder="Tell us about yourself and your organization..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600 resize-none"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600 resize-none"
               />
             </div>
           </div>
@@ -375,7 +375,7 @@ const OrganizerProfile: React.FC = () => {
                   onChange={(e) => handleArrayInputChange(index, e.target.value, 'social_media_links')}
                   disabled={!editing}
                   placeholder="https://twitter.com/yourhandle"
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600"
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600"
                 />
                 {editing && formData.social_media_links.length > 1 && (
                   <button
@@ -392,7 +392,7 @@ const OrganizerProfile: React.FC = () => {
               <button
                 type="button"
                 onClick={() => addArrayField('social_media_links')}
-                className="text-orange-600 hover:text-orange-700 font-medium text-sm flex items-center"
+                className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center"
               >
                 + Add Social Media Link
               </button>
@@ -412,7 +412,7 @@ const OrganizerProfile: React.FC = () => {
                   onChange={(e) => handleArrayInputChange(index, e.target.value, 'area_of_expertise')}
                   disabled={!editing}
                   placeholder="e.g., Music Festivals, Corporate Events"
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600"
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600"
                 />
                 {editing && formData.area_of_expertise.length > 1 && (
                   <button
@@ -429,7 +429,7 @@ const OrganizerProfile: React.FC = () => {
               <button
                 type="button"
                 onClick={() => addArrayField('area_of_expertise')}
-                className="text-orange-600 hover:text-orange-700 font-medium text-sm flex items-center"
+                className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center"
               >
                 + Add Area of Expertise
               </button>
@@ -454,7 +454,7 @@ const OrganizerProfile: React.FC = () => {
               type="button"
               onClick={handleSubmit}
               disabled={loading}
-              className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md flex items-center justify-center disabled:opacity-50"
+              className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md flex items-center justify-center disabled:opacity-50"
             >
               {loading ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />

@@ -168,7 +168,7 @@ const EventDetails: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
       </div>
     );
   }
@@ -179,7 +179,7 @@ const EventDetails: React.FC = () => {
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Event Not Found</h2>
         <button
           onClick={() => navigate('/events')}
-          className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all"
+          className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all"
         >
           Back to Events
         </button>
@@ -192,7 +192,7 @@ const EventDetails: React.FC = () => {
       {/* Back Button */}
       <button
         onClick={() => navigate('/events')}
-        className="flex items-center text-gray-600 hover:text-orange-600 transition-colors mb-6"
+        className="flex items-center text-gray-600 hover:text-blue-600 transition-colors mb-6"
       >
         <ArrowLeft className="w-5 h-5 mr-1" />
         Back to Events
@@ -217,7 +217,7 @@ const EventDetails: React.FC = () => {
               <div className="flex gap-2 ml-4">
                 <button
                   onClick={() => navigate(`/events/${event.slug}/edit`)}
-                  className="p-2 border-2 border-orange-500 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors"
+                  className="p-2 border-2 border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
                 >
                   <Edit className="w-5 h-5" />
                 </button>
@@ -232,11 +232,11 @@ const EventDetails: React.FC = () => {
 
             <div className="space-y-3 mb-6">
               <div className="flex items-center text-gray-600">
-                <Calendar className="w-5 h-5 mr-3 text-orange-500" />
+                <Calendar className="w-5 h-5 mr-3 text-blue-500" />
                 <span>{formatDate(event.start_time)}</span>
               </div>
               <div className="flex items-center text-gray-600">
-                <MapPin className="w-5 h-5 mr-3 text-orange-500" />
+                <MapPin className="w-5 h-5 mr-3 text-blue-500" />
                 <span>{event.venue}</span>
               </div>
             </div>
@@ -246,14 +246,14 @@ const EventDetails: React.FC = () => {
             <div className="flex gap-3">
               <button
                 onClick={() => navigate(`/events/${event.id}/tickets`)}
-                className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all flex items-center justify-center"
+                className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center"
               >
                 <Ticket className="w-5 h-5 mr-2" />
                 Manage Tickets
               </button>
               <button
                 onClick={() => navigate(`/events/${event.id}/bookings`)}
-                className="flex-1 border-2 border-orange-500 text-orange-600 py-3 rounded-lg font-semibold hover:bg-orange-50 transition-colors flex items-center justify-center"
+                className="flex-1 border-2 border-blue-500 text-blue-600 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center justify-center"
               >
                 <Eye className="w-5 h-5 mr-2" />
                 View Bookings
@@ -267,7 +267,7 @@ const EventDetails: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white rounded-xl shadow-md p-6">
           <div className="flex items-center justify-between mb-2">
-            <Ticket className="w-8 h-8 text-orange-500" />
+            <Ticket className="w-8 h-8 text-blue-500" />
             <TrendingUp className="w-4 h-4 text-green-500" />
           </div>
           <p className="text-gray-600 text-sm mb-1">Total Bookings</p>
@@ -307,7 +307,7 @@ const EventDetails: React.FC = () => {
             <h2 className="text-xl font-bold text-gray-800">Ticket Types</h2>
             <button
               onClick={() => navigate(`/events/${event.id}/tickets`)}
-              className="text-orange-600 hover:text-orange-700 font-medium text-sm flex items-center"
+              className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center"
             >
               <Plus className="w-4 h-4 mr-1" />
               Add Type
@@ -322,7 +322,7 @@ const EventDetails: React.FC = () => {
                     <h3 className="font-semibold text-gray-800">{ticket.name}</h3>
                     <p className="text-sm text-gray-600">{ticket.description}</p>
                   </div>
-                  <span className="text-lg font-bold text-orange-600">
+                  <span className="text-lg font-bold text-blue-600">
                     KES {ticket.price.toLocaleString()}
                   </span>
                 </div>
@@ -343,7 +343,7 @@ const EventDetails: React.FC = () => {
             <h2 className="text-xl font-bold text-gray-800">Recent Bookings</h2>
             <button
               onClick={() => navigate(`/events/${event.id}/bookings`)}
-              className="text-orange-600 hover:text-orange-700 font-medium text-sm"
+              className="text-blue-600 hover:text-blue-700 font-medium text-sm"
             >
               View All
             </button>

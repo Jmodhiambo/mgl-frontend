@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calendar, MapPin, Clock, Edit, Trash2, Users, DollarSign, Eye, Plus, Search, Filter, MoreVertical, XCircle, CheckCircle } from 'lucide-react';
 
 interface Event {
@@ -19,6 +20,7 @@ interface Event {
 }
 
 const EventsList: React.FC = () => {
+  const navigate = useNavigate();
   const [events, setEvents] = useState<Event[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(false);
@@ -192,32 +194,72 @@ const EventsList: React.FC = () => {
     }
   };
 
+  // Navigation handlers
+  const handleCreateEvent = () => {
+    navigate('/events/create');
+  };
+
+  const handleViewEvent = (eventSlug: string) => {
+    navigate(`/events/${eventSlug}`);
+  };
+
+  const handleEditEvent = (eventSlug: string) => {
+    navigate(`/events/${eventSlug}/edit`);
+  };
+
+  // Event action handlers
   const handleDeleteEvent = async (eventId: number) => {
-    // TODO: API call to delete event
-    // await updateEventStatus(eventId, 'deleted');
-    setEvents(events.filter(e => e.id !== eventId));
+    try {
+      // TODO: API call to delete event
+      // await deleteEvent(eventId);
+      setEvents(events.filter(e => e.id !== eventId));
+      setShowDeleteModal(false);
+      setSelectedEvent(null);
+      
+      // Show success message (you can use a toast library)
+      console.log('Event deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete event:', error);
+      alert('Failed to delete event. Please try again.');
+    }
+  };
+
+  const handleCancelEvent = async (eventId: number) => {
+    try {
+      // TODO: API call to cancel event
+      // await updateEventStatus(eventId, 'cancelled');
+      setEvents(events.map(e => 
+        e.id === eventId ? { ...e, status: 'cancelled' } : e
+      ));
+      
+      // Show success message
+      console.log('Event cancelled successfully');
+    } catch (error) {
+      console.error('Failed to cancel event:', error);
+      alert('Failed to cancel event. Please try again.');
+    }
+  };
+
+  const openDeleteModal = (event: Event) => {
+    setSelectedEvent(event);
+    setShowDeleteModal(true);
+  };
+
+  const closeDeleteModal = () => {
     setShowDeleteModal(false);
     setSelectedEvent(null);
   };
 
-  const handleCancelEvent = async (eventId: number) => {
-    // TODO: API call to cancel event
-    // await updateEventStatus(eventId, 'cancelled');
-    setEvents(events.map(e => 
-      e.id === eventId ? { ...e, status: 'cancelled' } : e
-    ));
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent"></div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -225,7 +267,10 @@ const EventsList: React.FC = () => {
             <h1 className="text-3xl font-bold text-gray-800 mb-2">My Events</h1>
             <p className="text-gray-600">Manage and track all your events</p>
           </div>
-          <button className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md flex items-center">
+          <button 
+            onClick={handleCreateEvent}
+            className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md flex items-center"
+          >
             <Plus className="w-5 h-5 mr-2" />
             Create Event
           </button>
@@ -241,7 +286,7 @@ const EventsList: React.FC = () => {
                 placeholder="Search events by title or venue..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
@@ -249,7 +294,7 @@ const EventsList: React.FC = () => {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+                className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
               >
                 <option value="all">All Status</option>
                 <option value="upcoming">Upcoming</option>
@@ -272,7 +317,10 @@ const EventsList: React.FC = () => {
                 : 'Get started by creating your first event'}
             </p>
             {!searchQuery && statusFilter === 'all' && (
-              <button className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all">
+              <button 
+                onClick={handleCreateEvent}
+                className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all"
+              >
                 Create Your First Event
               </button>
             )}
@@ -304,15 +352,15 @@ const EventsList: React.FC = () => {
 
                   <div className="space-y-2 mb-4">
                     <div className="flex items-center text-gray-600 text-sm">
-                      <Calendar size={16} className="mr-2 text-orange-500 flex-shrink-0" />
+                      <Calendar size={16} className="mr-2 text-blue-500 flex-shrink-0" />
                       <span>{formatDate(event.start_time)}</span>
                     </div>
                     <div className="flex items-center text-gray-600 text-sm">
-                      <Clock size={16} className="mr-2 text-orange-500 flex-shrink-0" />
+                      <Clock size={16} className="mr-2 text-blue-500 flex-shrink-0" />
                       <span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
                     </div>
                     <div className="flex items-center text-gray-600 text-sm">
-                      <MapPin size={16} className="mr-2 text-orange-500 flex-shrink-0" />
+                      <MapPin size={16} className="mr-2 text-blue-500 flex-shrink-0" />
                       <span className="line-clamp-1">{event.venue}</span>
                     </div>
                   </div>
@@ -339,11 +387,18 @@ const EventsList: React.FC = () => {
 
                   {/* Actions */}
                   <div className="flex gap-2">
-                    <button className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white py-2 rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all flex items-center justify-center text-sm font-medium">
+                    <button 
+                      onClick={() => handleViewEvent(event.slug)}
+                      className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center text-sm font-medium"
+                    >
                       <Eye className="w-4 h-4 mr-1" />
                       View
                     </button>
-                    <button className="px-3 py-2 border-2 border-orange-500 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors">
+                    <button 
+                      onClick={() => handleEditEvent(event.slug)}
+                      className="px-3 py-2 border-2 border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                      title="Edit Event"
+                    >
                       <Edit className="w-4 h-4" />
                     </button>
                     <div className="relative group/menu">
@@ -361,10 +416,7 @@ const EventsList: React.FC = () => {
                           </button>
                         )}
                         <button 
-                          onClick={() => {
-                            setSelectedEvent(event);
-                            setShowDeleteModal(true);
-                          }}
+                          onClick={() => openDeleteModal(event)}
                           className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center"
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
@@ -395,10 +447,7 @@ const EventsList: React.FC = () => {
             </p>
             <div className="flex gap-3">
               <button
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setSelectedEvent(null);
-                }}
+                onClick={closeDeleteModal}
                 className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
               >
                 Cancel

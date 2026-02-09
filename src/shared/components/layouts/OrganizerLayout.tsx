@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { useNavigate, Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
 import { Calendar, LayoutDashboard, Ticket, Users, User, LogOut, Menu, X, ChevronRight } from 'lucide-react';
 
@@ -11,6 +11,7 @@ interface NavItem {
 
 const OrganizerLayout: React.FC = () => {
   const { logout } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const userAppUrl = import.meta.env.VITE_USER_DOMAIN;
@@ -41,9 +42,9 @@ const OrganizerLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       {/* Top Navbar */}
-      <nav className="bg-white shadow-sm border-b border-orange-100 fixed top-0 left-0 right-0 z-50">
+      <nav className="bg-white shadow-sm border-b border-blue-100 fixed top-0 left-0 right-0 z-50">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             {/* Logo and Mobile Menu Button */}
@@ -51,14 +52,14 @@ const OrganizerLayout: React.FC = () => {
               {/* Mobile Menu Button */}
               <button
                 onClick={toggleSidebar}
-                className="mr-4 p-2 rounded-lg text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors lg:hidden"
+                className="mr-4 p-2 rounded-lg text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors lg:hidden"
               >
                 {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
 
               {/* Logo */}
               <Link to="/organizer/dashboard" className="flex items-center space-x-2">
-                <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
                   <Calendar className="w-6 h-6 text-white" />
                 </div>
                 <div className="hidden sm:block">
@@ -73,7 +74,7 @@ const OrganizerLayout: React.FC = () => {
               {/* Context Switcher - Browse Events */}
               <a
                 href={`${userAppUrl}/browse-events`}
-                className="hidden sm:flex items-center space-x-2 px-3 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 font-medium transition-colors text-sm"
+                className="hidden sm:flex items-center space-x-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 font-medium transition-colors text-sm"
                 title="Browse Events as User"
               >
                 <Calendar className="w-4 h-4" />
@@ -91,7 +92,7 @@ const OrganizerLayout: React.FC = () => {
               </div>
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-2 text-gray-600 hover:text-orange-600 font-medium transition-colors px-3 py-2 rounded-lg hover:bg-orange-50"
+                className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 font-medium transition-colors px-3 py-2 rounded-lg hover:bg-blue-50"
               >
                 <LogOut className="w-5 h-5" />
                 <span className="hidden sm:inline">Logout</span>
@@ -115,8 +116,8 @@ const OrganizerLayout: React.FC = () => {
               onClick={() => setIsSidebarOpen(false)}
               className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
                 isActive(item.path)
-                  ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md'
-                  : 'text-gray-700 hover:bg-orange-50 hover:text-orange-600'
+                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
+                  : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
               }`}
             >
               {item.icon}
@@ -127,10 +128,12 @@ const OrganizerLayout: React.FC = () => {
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-gradient-to-r from-orange-50 to-orange-100">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100">
           <div className="text-center">
-            <p className="text-sm font-semibold text-orange-800 mb-1">Need Help?</p>
-            <button className="text-xs text-orange-600 hover:text-orange-700 font-medium">
+            <p className="text-sm font-semibold text-blue-800 mb-1">Need Help?</p>
+            <button 
+              onClick={() => navigate('/contact')}
+              className="text-xs text-blue-600 hover:text-blue-700 font-medium">
               Contact Support
             </button>
           </div>

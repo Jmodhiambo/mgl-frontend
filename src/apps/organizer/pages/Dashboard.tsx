@@ -147,14 +147,14 @@ const OrganizerDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent"></div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -165,10 +165,10 @@ const OrganizerDashboard: React.FC = () => {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* Total Events */}
-          <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-orange-500 hover:shadow-lg transition-shadow">
+          <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-orange-100 rounded-lg">
-                <Calendar className="w-6 h-6 text-orange-600" />
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <Calendar className="w-6 h-6 text-blue-600" />
               </div>
               <div className="flex items-center text-green-600 text-sm font-medium">
                 <ArrowUpRight className="w-4 h-4 mr-1" />
@@ -226,9 +226,9 @@ const OrganizerDashboard: React.FC = () => {
           <div className="bg-white rounded-xl shadow-md p-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold text-gray-800">Active Events</h3>
-              <Clock className="w-5 h-5 text-orange-500" />
+              <Clock className="w-5 h-5 text-blue-500" />
             </div>
-            <div className="text-3xl font-bold text-orange-600 mb-1">
+            <div className="text-3xl font-bold text-blue-600 mb-1">
               {stats.activeEvents}
             </div>
             <p className="text-sm text-gray-600">Currently ongoing</p>
@@ -264,7 +264,7 @@ const OrganizerDashboard: React.FC = () => {
             <div className="bg-white rounded-xl shadow-md p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold text-gray-800">Recent Bookings</h3>
-                <button className="text-orange-600 hover:text-orange-700 font-medium text-sm flex items-center">
+                <button className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center">
                   View All
                   <ArrowUpRight className="w-4 h-4 ml-1" />
                 </button>
@@ -274,7 +274,7 @@ const OrganizerDashboard: React.FC = () => {
                 {recentBookings.map((booking) => (
                   <div 
                     key={booking.id}
-                    className="border border-gray-200 rounded-xl p-4 hover:border-orange-300 hover:shadow-md transition-all"
+                    className="border border-gray-200 rounded-xl p-4 hover:border-blue-300 hover:shadow-md transition-all"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
@@ -315,15 +315,15 @@ const OrganizerDashboard: React.FC = () => {
             <div className="bg-white rounded-xl shadow-md p-6 mb-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold text-gray-800">Top Events</h3>
-                <BarChart3 className="w-5 h-5 text-orange-500" />
+                <BarChart3 className="w-5 h-5 text-blue-500" />
               </div>
 
               <div className="space-y-4">
                 {topEvents.map((event, index) => (
                   <div key={event.id} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
                     <div className="flex items-start mb-2">
-                      <div className="flex-shrink-0 w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
-                        <span className="text-orange-600 font-bold text-sm">#{index + 1}</span>
+                      <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                        <span className="text-blue-600 font-bold text-sm">#{index + 1}</span>
                       </div>
                       <div className="flex-1">
                         <h4 className="font-semibold text-gray-800 text-sm mb-2">
@@ -353,18 +353,18 @@ const OrganizerDashboard: React.FC = () => {
             </div>
 
             {/* Quick Actions */}
-            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-md p-6 text-white">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-md p-6 text-white">
               <h3 className="text-lg font-bold mb-4">Quick Actions</h3>
               <div className="space-y-3">
-                <button className="w-full bg-white text-orange-600 py-3 rounded-lg font-semibold hover:bg-orange-50 transition-colors flex items-center justify-center">
+                <button className="w-full bg-white text-blue-600 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center justify-center">
                   <Calendar className="w-4 h-4 mr-2" />
                   Create New Event
                 </button>
-                <button className="w-full bg-orange-700 text-white py-3 rounded-lg font-semibold hover:bg-orange-800 transition-colors flex items-center justify-center">
+                <button className="w-full bg-blue-700 text-white py-3 rounded-lg font-semibold hover:bg-blue-800 transition-colors flex items-center justify-center">
                   <Eye className="w-4 h-4 mr-2" />
                   View All Events
                 </button>
-                <button className="w-full bg-orange-700 text-white py-3 rounded-lg font-semibold hover:bg-orange-800 transition-colors flex items-center justify-center">
+                <button className="w-full bg-blue-700 text-white py-3 rounded-lg font-semibold hover:bg-blue-800 transition-colors flex items-center justify-center">
                   <BarChart3 className="w-4 h-4 mr-2" />
                   Analytics
                 </button>

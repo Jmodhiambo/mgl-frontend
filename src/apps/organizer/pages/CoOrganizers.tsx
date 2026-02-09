@@ -166,14 +166,14 @@ const CoOrganizerManagement: React.FC = () => {
 
   if (loading && coOrganizers.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent"></div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -183,7 +183,7 @@ const CoOrganizerManagement: React.FC = () => {
           </div>
           <button
             onClick={() => setShowInviteModal(true)}
-            className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md flex items-center"
+            className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md flex items-center"
           >
             <UserPlus className="w-5 h-5 mr-2" />
             Invite Co-Organizer
@@ -210,7 +210,7 @@ const CoOrganizerManagement: React.FC = () => {
             <p className="text-gray-500 mb-6">Invite team members to help you manage events</p>
             <button
               onClick={() => setShowInviteModal(true)}
-              className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all"
+              className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all"
             >
               Invite Your First Co-Organizer
             </button>
@@ -246,8 +246,8 @@ const CoOrganizerManagement: React.FC = () => {
                     <tr key={coOrganizer.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center">
-                          <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center mr-3">
-                            <span className="text-orange-600 font-semibold text-sm">
+                          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                            <span className="text-blue-600 font-semibold text-sm">
                               {coOrganizer.name.split(' ').map(n => n[0]).join('')}
                             </span>
                           </div>
@@ -323,7 +323,7 @@ const CoOrganizerManagement: React.FC = () => {
                     placeholder="colleague@example.com"
                     className={`w-full pl-10 pr-4 py-3 border ${
                       errors.email ? 'border-red-500' : 'border-gray-300'
-                    } rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent`}
+                    } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                   />
                 </div>
                 {errors.email && (
@@ -341,7 +341,7 @@ const CoOrganizerManagement: React.FC = () => {
                   onChange={handleInputChange}
                   className={`w-full px-4 py-3 border ${
                     errors.eventId ? 'border-red-500' : 'border-gray-300'
-                  } rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white`}
+                  } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white`}
                 >
                   <option value="">Choose an event...</option>
                   {events.map(event => (
@@ -377,7 +377,7 @@ const CoOrganizerManagement: React.FC = () => {
               <button
                 onClick={handleInvite}
                 disabled={loading}
-                className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md flex items-center justify-center disabled:opacity-50"
+                className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md flex items-center justify-center disabled:opacity-50"
               >
                 {loading ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />

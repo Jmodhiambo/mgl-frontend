@@ -164,11 +164,11 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <button className="flex items-center text-gray-600 hover:text-orange-600 transition-colors mb-4">
+          <button className="flex items-center text-gray-600 hover:text-blue-600 transition-colors mb-4">
             <ArrowLeft className="w-5 h-5 mr-1" />
             Back to Events
           </button>
@@ -197,7 +197,7 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
               placeholder="e.g., Summer Music Festival 2025"
               className={`w-full px-4 py-3 border ${
                 errors.title ? 'border-red-500' : 'border-gray-300'
-              } rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent`}
+              } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
             />
             {errors.title && (
               <p className="mt-2 text-sm text-red-600">{errors.title}</p>
@@ -215,7 +215,7 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
               onChange={handleInputChange}
               rows={5}
               placeholder="Tell people about your event..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
             />
             <p className="mt-2 text-sm text-gray-500">
               {formData.description.length} / 1000 characters
@@ -237,7 +237,7 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
                 placeholder="e.g., Kasarani Stadium, Nairobi"
                 className={`w-full pl-10 pr-4 py-3 border ${
                   errors.venue ? 'border-red-500' : 'border-gray-300'
-                } rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent`}
+                } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
               />
             </div>
             {errors.venue && (
@@ -260,7 +260,7 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
                   onChange={handleInputChange}
                   className={`w-full px-4 py-3 border ${
                     errors.start_time ? 'border-red-500' : 'border-gray-300'
-                  } rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent`}
+                  } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                 />
                 {errors.start_time && (
                   <p className="mt-2 text-sm text-red-600">{errors.start_time}</p>
@@ -278,7 +278,7 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
                   onChange={handleInputChange}
                   className={`w-full px-4 py-3 border ${
                     errors.end_time ? 'border-red-500' : 'border-gray-300'
-                  } rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent`}
+                  } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                 />
                 {errors.end_time && (
                   <p className="mt-2 text-sm text-red-600">{errors.end_time}</p>
@@ -309,7 +309,7 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
                 </button>
               </div>
             ) : (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-orange-500 transition-colors">
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors">
                 <input
                   type="file"
                   id="flyer"
@@ -321,8 +321,8 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
                   htmlFor="flyer"
                   className="cursor-pointer flex flex-col items-center"
                 >
-                  <div className="p-4 bg-orange-100 rounded-full mb-4">
-                    <Upload className="w-8 h-8 text-orange-600" />
+                  <div className="p-4 bg-blue-100 rounded-full mb-4">
+                    <Upload className="w-8 h-8 text-blue-600" />
                   </div>
                   <p className="text-gray-700 font-medium mb-2">
                     Click to upload event flyer
@@ -351,7 +351,7 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
               type="button"
               onClick={handleSubmit}
               disabled={loading}
-              className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />

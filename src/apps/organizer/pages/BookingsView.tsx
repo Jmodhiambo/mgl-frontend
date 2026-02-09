@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Search, Filter, Calendar, Ticket, User, DollarSign, Download, Eye, CheckCircle, Clock, XCircle } from 'lucide-react';
 
 interface Booking {
@@ -19,12 +19,15 @@ interface Booking {
 
 const BookingsView: React.FC = () => {
   const { eventId } = useParams<{ eventId?: string }>();
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [showBookingDetails, setShowBookingDetails] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
   useEffect(() => {
     loadBookings();
@@ -190,21 +193,82 @@ const BookingsView: React.FC = () => {
 
   const stats = getTotalStats();
 
+  // View booking details handler
+  const handleViewBooking = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setShowBookingDetails(true);
+  };
+
+  const closeBookingDetails = () => {
+    setShowBookingDetails(false);
+    setSelectedBooking(null);
+  };
+
+  // Export to CSV handler
   const exportToCSV = () => {
-    // TODO: Implement CSV export
-    alert('CSV export functionality would be implemented here');
+    try {
+      // Prepare CSV headers
+      const headers = [
+        'Booking ID',
+        'Customer Name',
+        'Customer Email',
+        'Event Title',
+        'Ticket Type',
+        'Quantity',
+        'Total Price (KES)',
+        'Status',
+        'Booking Date'
+      ];
+
+      // Prepare CSV rows
+      const rows = filteredBookings.map(booking => [
+        booking.id,
+        booking.customer_name || 'N/A',
+        booking.customer_email || 'N/A',
+        booking.event_title || 'N/A',
+        booking.ticket_type_name || 'N/A',
+        booking.quantity,
+        booking.total_price,
+        booking.status,
+        new Date(booking.created_at).toLocaleDateString('en-US')
+      ]);
+
+      // Combine headers and rows
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.join(','))
+      ].join('\n');
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `bookings_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      console.log('CSV exported successfully');
+    } catch (error) {
+      console.error('Failed to export CSV:', error);
+      alert('Failed to export data. Please try again.');
+    }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent"></div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -226,8 +290,8 @@ const BookingsView: React.FC = () => {
                 <p className="text-gray-600 text-sm mb-1">Total Bookings</p>
                 <p className="text-3xl font-bold text-gray-800">{stats.totalBookings}</p>
               </div>
-              <div className="p-3 bg-orange-100 rounded-lg">
-                <Ticket className="w-6 h-6 text-orange-600" />
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <Ticket className="w-6 h-6 text-blue-600" />
               </div>
             </div>
           </div>
@@ -269,7 +333,7 @@ const BookingsView: React.FC = () => {
                 placeholder="Search by customer name, email, or ticket type..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
@@ -277,7 +341,7 @@ const BookingsView: React.FC = () => {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+                className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
               >
                 <option value="all">All Status</option>
                 <option value="confirmed">Confirmed</option>
@@ -287,7 +351,8 @@ const BookingsView: React.FC = () => {
 
               <button
                 onClick={exportToCSV}
-                className="px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all flex items-center font-medium"
+                className="px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all flex items-center font-medium"
+                title="Export bookings to CSV"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Export
@@ -303,7 +368,7 @@ const BookingsView: React.FC = () => {
                 type="date"
                 value={dateRange.start}
                 onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             <div>
@@ -312,7 +377,7 @@ const BookingsView: React.FC = () => {
                 type="date"
                 value={dateRange.end}
                 onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -391,7 +456,10 @@ const BookingsView: React.FC = () => {
                         <span className="text-sm text-gray-600">{formatDate(booking.created_at)}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <button className="text-orange-600 hover:text-orange-700 font-medium text-sm flex items-center">
+                        <button 
+                          onClick={() => handleViewBooking(booking)}
+                          className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center"
+                        >
                           <Eye className="w-4 h-4 mr-1" />
                           View
                         </button>
@@ -404,6 +472,109 @@ const BookingsView: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Booking Details Modal */}
+      {showBookingDetails && selectedBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+              <div>
+                <h3 className="text-2xl font-bold text-gray-800">
+                  Booking Details
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">Booking ID: #{selectedBooking.id}</p>
+              </div>
+              <button
+                onClick={closeBookingDetails}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Booking Status */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm font-medium text-gray-600">Status</span>
+                {getStatusBadge(selectedBooking.status)}
+              </div>
+            </div>
+
+            {/* Customer Information */}
+            <div className="mb-6">
+              <h4 className="text-lg font-semibold text-gray-800 mb-4">Customer Information</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Name</p>
+                  <p className="text-sm font-medium text-gray-800">{selectedBooking.customer_name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Email</p>
+                  <p className="text-sm font-medium text-gray-800">{selectedBooking.customer_email}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Event & Ticket Information */}
+            <div className="mb-6">
+              <h4 className="text-lg font-semibold text-gray-800 mb-4">Event & Ticket Details</h4>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Event</p>
+                  <p className="text-sm font-medium text-gray-800">{selectedBooking.event_title}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Ticket Type</p>
+                  <p className="text-sm font-medium text-gray-800">{selectedBooking.ticket_type_name}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Quantity</p>
+                    <p className="text-sm font-medium text-gray-800">{selectedBooking.quantity}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">Total Price</p>
+                    <p className="text-sm font-bold text-green-600">
+                      KES {selectedBooking.total_price.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Booking Dates */}
+            <div className="mb-6">
+              <h4 className="text-lg font-semibold text-gray-800 mb-4">Booking Timeline</h4>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Booked On</p>
+                  <p className="text-sm font-medium text-gray-800">{formatDate(selectedBooking.created_at)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Last Updated</p>
+                  <p className="text-sm font-medium text-gray-800">{formatDate(selectedBooking.updated_at)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4 border-t border-gray-200">
+              <button
+                onClick={closeBookingDetails}
+                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all"
+              >
+                Send Email
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

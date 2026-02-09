@@ -224,7 +224,7 @@ const TicketTypesManagement: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -234,7 +234,7 @@ const TicketTypesManagement: React.FC = () => {
           </div>
           <button
             onClick={openCreateModal}
-            className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md flex items-center"
+            className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md flex items-center"
           >
             <Plus className="w-5 h-5 mr-2" />
             Add Ticket Type
@@ -249,7 +249,7 @@ const TicketTypesManagement: React.FC = () => {
             <p className="text-gray-500 mb-6">Create ticket types to start selling tickets</p>
             <button
               onClick={openCreateModal}
-              className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all"
+              className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all"
             >
               Create First Ticket Type
             </button>
@@ -284,7 +284,7 @@ const TicketTypesManagement: React.FC = () => {
 
                   <div className="mb-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-2xl font-bold text-orange-600">
+                      <span className="text-2xl font-bold text-blue-600">
                         KES {ticket.price.toLocaleString()}
                       </span>
                       <button
@@ -320,7 +320,7 @@ const TicketTypesManagement: React.FC = () => {
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
                         className={`h-2 rounded-full transition-all ${
-                          soldPercentage >= 90 ? 'bg-red-500' : soldPercentage >= 70 ? 'bg-orange-500' : 'bg-green-500'
+                          soldPercentage >= 90 ? 'bg-red-500' : soldPercentage >= 70 ? 'bg-blue-500' : 'bg-green-500'
                         }`}
                         style={{ width: `${soldPercentage}%` }}
                       />
@@ -338,7 +338,7 @@ const TicketTypesManagement: React.FC = () => {
                   <div className="flex gap-2 pt-4 border-t border-gray-100">
                     <button
                       onClick={() => openEditModal(ticket)}
-                      className="flex-1 px-4 py-2 border-2 border-orange-500 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors font-medium flex items-center justify-center"
+                      className="flex-1 px-4 py-2 border-2 border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium flex items-center justify-center"
                     >
                       <Edit className="w-4 h-4 mr-1" />
                       Edit
@@ -389,7 +389,7 @@ const TicketTypesManagement: React.FC = () => {
                   placeholder="e.g., VIP Pass, Regular Admission"
                   className={`w-full px-4 py-3 border ${
                     errors.name ? 'border-red-500' : 'border-gray-300'
-                  } rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent`}
+                  } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                 />
                 {errors.name && (
                   <p className="mt-1 text-sm text-red-600">{errors.name}</p>
@@ -406,7 +406,7 @@ const TicketTypesManagement: React.FC = () => {
                   onChange={handleInputChange}
                   rows={3}
                   placeholder="Describe what's included with this ticket..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                 />
               </div>
 
@@ -425,7 +425,7 @@ const TicketTypesManagement: React.FC = () => {
                       placeholder="5000"
                       className={`w-full pl-10 pr-4 py-3 border ${
                         errors.price ? 'border-red-500' : 'border-gray-300'
-                      } rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent`}
+                      } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                     />
                   </div>
                   {errors.price && (
@@ -447,7 +447,7 @@ const TicketTypesManagement: React.FC = () => {
                       placeholder="100"
                       className={`w-full pl-10 pr-4 py-3 border ${
                         errors.quantity_available ? 'border-red-500' : 'border-gray-300'
-                      } rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent`}
+                      } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                     />
                   </div>
                   {errors.quantity_available && (
@@ -467,7 +467,7 @@ const TicketTypesManagement: React.FC = () => {
               <button
                 onClick={handleSubmit}
                 disabled={loading}
-                className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all shadow-md flex items-center justify-center disabled:opacity-50"
+                className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md flex items-center justify-center disabled:opacity-50"
               >
                 {loading ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
