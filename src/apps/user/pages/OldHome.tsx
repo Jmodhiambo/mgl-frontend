@@ -176,10 +176,43 @@ const formatTimeRange = (startTime: string, endTime: string): string => {
     <>
       <HomeSEO />
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
-        {/* Navbar is now provided by PublicLayout - removed duplicate header */}
+        {/* Header/Navbar */}
+        <header className="bg-white shadow-sm border-b border-orange-100 sticky top-0 z-50">
+          <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
+                  <Calendar className="w-6 h-6 text-white" />
+                </div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-orange">
+                  MGLTickets
+                </h1>
+              </div>
+              <nav className="hidden md:flex space-x-6">
+                <a href="#events" className="text-gray-600 hover:text-orange-600 font-medium">Events</a>
+                <a href="#how-it-works" className="text-gray-600 hover:text-orange-600 font-medium">How It Works</a>
+                <a href="#features" className="text-gray-600 hover:text-orange-600 font-medium">Features</a>
+              </nav>
+              <div className="flex items-center space-x-3">
+                <button 
+                  onClick={handleLogin}
+                  className="text-gray-600 hover:text-orange-600 font-medium transition-colors"
+                >
+                  Sign In
+                </button>
+                <button 
+                  onClick={handleGetStarted}
+                  className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-2 rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all shadow-sm"
+                >
+                  Get Started
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
 
         {/* Events Section */}
-        <div id="events" className="py-20 pt-24">
+        <div id="events" className="py-20 pt-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <h3 className="text-3xl font-bold text-gray-800 mb-4">Featured Events</h3>

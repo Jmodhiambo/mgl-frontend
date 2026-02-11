@@ -3,23 +3,22 @@ import ProtectedRoute from '@shared/routing/ProtectedRoute';
 import PublicRoute from '@shared/routing/PublicRoute';
 import ProtectedLayout from '@shared/components/layouts/ProtectedLayout';
 import PublicLayout from '@shared/components/layouts/PublicLayout';
-import LegalLayout from '@shared/components/layouts/LegalLayout';
-import Home from './pages/Home';
-import Dashboard from './pages/Dashboard';
-import Events from './pages/Events';
-import BrowseEvents from './pages/BrowseEvents';
-import Checkout from './pages/Checkout';
-import MyTickets from './pages/MyTickets';
-import Profile from './pages/Profile';
-import EventDetails from './pages/EventDetails';
-import BrowseEventDetails from './pages/BrowseEventDetails';
-import MyEvents from './pages/MyEvents';
-import OrganizerProfileSetup from './pages/OrganizerProfileSetup';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ReactivateAccount from './pages/ReactivateAccount';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
+import Home from '@user/pages/Home';
+import Dashboard from '@user/pages/Dashboard';
+import Events from '@user/pages/Events';
+import BrowseEvents from '@user/pages/BrowseEvents';
+import Checkout from '@user/pages/Checkout';
+import MyTickets from '@user/pages/MyTickets';
+import Profile from '@user/pages/Profile';
+import EventDetails from '@user/pages/EventDetails';
+import BrowseEventDetails from '@user/pages/BrowseEventDetails';
+import MyEvents from '@user/pages/MyEvents';
+import OrganizerProfileSetup from '@user/pages/OrganizerProfileSetup';
+import Login from '@user/pages/Login';
+import Register from '@user/pages/Register';
+import ReactivateAccount from '@user/pages/ReactivateAccount';
+import ForgotPassword from '@user/pages/ForgotPassword';
+import ResetPassword from '@user/pages/ResetPassword';
 import EmailVerification from '@user/pages/EmailVerification';
 import AcceptCoOrganizerInvitation from '@user/pages/CoOrganizerInvitation';
 import { TermsOfService, PrivacyPolicy, RefundPolicy, AboutUs, ContactPage, FAQPage, OldHelpCenterPage } from '@shared/pages';
@@ -30,15 +29,19 @@ import { helpRoutes } from '@shared/routing/HelpRoutes';
  * Router configuration for MGLTickets
  * 
  * Route Structure:
- * - Public routes: Base paths (/, /events, /events/:id) - No navbar
- * - Protected routes: Enhanced experience with navbar (/browse-events, /dashboard, etc.)
+ * - Standalone auth routes: No layout (login, register, etc.)
+ * - PublicLayout routes: All public pages WITH navbar (Home, Events, Legal pages)
+ * - ProtectedLayout routes: Authenticated pages with navbar (Dashboard, My Tickets, etc.)
+ * 
+ * Key Changes:
+ * - Consolidated PublicLayout and LegalLayout into single PublicLayout
+ * - Home page now uses PublicLayout (navbar provided by layout, not page)
+ * - All public pages share consistent navigation experience
  */
 export const router = createBrowserRouter([
-  // Standalone auth routes (no layout)
-  {
-    path: '/login',
-    element: <Login />,
-  },
+  // ============================================================================
+  // STANDALONE AUTH ROUTES (No layout - full page auth forms)
+  // ============================================================================
   {
     path: '/register',
     element: <Register />,
@@ -55,7 +58,6 @@ export const router = createBrowserRouter([
     path: '/reset-password',
     element: <ResetPassword />,
   },
-
   {
     path: '/verify-email',
     element: <EmailVerification />,
@@ -64,14 +66,15 @@ export const router = createBrowserRouter([
     path: '/co-organizer-invitation',
     element: <AcceptCoOrganizerInvitation />,
   },
-  
-  // Public routes (accessible without authentication - No navbar)
-  // Note: We don't use PublicRoute wrapper for events because we want authenticated
-  // users to be able to view them too (they just get redirected to browse-events version)
+
+  // ============================================================================
+  // PUBLIC LAYOUT ROUTES (Has navbar + footer, no auth required)
+  // ============================================================================
   {
     path: '/',
     element: <PublicLayout />,
     children: [
+      // Landing page
       {
         index: true,
         element: (
@@ -80,6 +83,13 @@ export const router = createBrowserRouter([
           </PublicRoute>
         ),
       },
+      // The login page is a bit of an odd case - it has the navbar for easy access navigation since loggout redirects here and the user might want to go home.
+      {
+      path: 'login',
+      element: <Login />,
+      },
+
+      // Public event browsing (no auth required)
       {
         path: 'events',
         element: <Events />,
@@ -88,14 +98,8 @@ export const router = createBrowserRouter([
         path: 'events/:eventId',
         element: <EventDetails />,
       },
-    ],
-  },
 
-  // Legal routes (accessible without authentication)
-  {
-    path: '/',
-    element: <ProtectedLayout />,
-    children: [
+      // Legal & static pages
       {
         path: 'terms',
         element: <TermsOfService />,
@@ -108,6 +112,8 @@ export const router = createBrowserRouter([
         path: 'refund',
         element: <RefundPolicy />,
       },
+
+      // Company pages
       {
         path: 'about',
         element: <AboutUs />,
@@ -121,10 +127,6 @@ export const router = createBrowserRouter([
         element: <FAQPage />,
       },
       {
-        path: 'help-old',
-        element: <OldHelpCenterPage />,
-      },
-      {
         path: 'press',
         element: <PressAndMedia />,
       },
@@ -133,11 +135,20 @@ export const router = createBrowserRouter([
         element: <CareersPage />,
       },
 
+      // Help center (old version)
+      {
+        path: 'help-old',
+        element: <OldHelpCenterPage />,
+      },
+
+      // Help routes (new version)
       ...helpRoutes,
     ],
   },
-  
-  // Protected routes (require authentication - Has navbar)
+
+  // ============================================================================
+  // PROTECTED LAYOUT ROUTES (Has navbar + footer, requires authentication)
+  // ============================================================================
   {
     path: '/',
     element: (
@@ -174,23 +185,18 @@ export const router = createBrowserRouter([
         path: 'my-events',
         element: <MyEvents />,
       },
-
       {
         path: 'setup-organizer-profile',
         element: <OrganizerProfileSetup />,
       },
     ],
   },
-  
-  // Fallback - redirect to NotFoundPage for any unmatched routes
+
+  // ============================================================================
+  // FALLBACK - 404 Page
+  // ============================================================================
   {
     path: '*',
-    element: <NotFoundPage /> ,
-  }
-],
-
-// {
-//   basename: import.meta.env.VITE_USER_BASE_PATH || '/',
-// }
-
-);
+    element: <NotFoundPage />,
+  },
+]);

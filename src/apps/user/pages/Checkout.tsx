@@ -235,7 +235,7 @@ const CheckoutBookingPage: React.FC = () => {
                 View My Tickets
               </button>
               <button 
-                onClick={() => navigate('/events')}
+                onClick={() => navigate('/browse-events')}
                 className="w-full border-2 border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-all"
               >
                 Back to Events

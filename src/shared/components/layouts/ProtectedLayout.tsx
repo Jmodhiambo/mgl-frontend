@@ -1,11 +1,28 @@
+// src/shared/layouts/ProtectedLayout.tsx
 import { Outlet } from 'react-router-dom';
 import Navbar from '@shared/components/navigation/Navbar';
 import Footer from '@shared/components/navigation/Footer';
 
-export default function ProtectedLayout() {
+/**
+ * ProtectedLayout
+ * 
+ * Used for all authenticated pages that require login:
+ * - Dashboard
+ * - My Tickets
+ * - My Events
+ * - Profile
+ * - Checkout
+ * - Browse Events (authenticated version)
+ * 
+ * Features:
+ * - Same unified navbar (but shows authenticated state)
+ * - Requires authentication (enforced by ProtectedRoute wrapper in routes)
+ * - Consistent footer
+ */
+const ProtectedLayout: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      {/* Navigation */}
+      {/* Unified Navigation - shows authenticated state */}
       <Navbar />
 
       {/* Main Content Area */}
@@ -18,3 +35,5 @@ export default function ProtectedLayout() {
     </div>
   );
 }
+
+export default ProtectedLayout;

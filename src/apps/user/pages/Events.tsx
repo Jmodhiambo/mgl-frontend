@@ -333,13 +333,6 @@ const EventsPage: React.FC = () => {
               </div>
               <p className="text-gray-600">Find and book tickets for amazing events happening near you</p>
             </div>
-            <button
-              onClick={() => navigate('/')}
-              className="flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-orange-500 text-orange-600 rounded-lg font-semibold hover:bg-orange-50 transition-all shadow-sm whitespace-nowrap"
-            >
-              <HomeIcon className="w-5 h-5" />
-              <span>Back to Home</span>
-            </button>
           </div>
 
           {/* Search and Filter Bar */}
