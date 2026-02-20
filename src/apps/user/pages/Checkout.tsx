@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, Clock, CreditCard, ShieldCheck, Ticket, Phone, CheckCircle, AlertCircle, ChevronLeft } from 'lucide-react';
+import { Calendar, MapPin, Clock, CreditCard, ShieldCheck, Ticket, Phone, CheckCircle, AlertCircle, ChevronLeft, X, FileText, RefreshCw } from 'lucide-react';
 import { CheckoutSEO, BookingSEO } from '@shared/components/SEO';
+import { TermsContent, RefundContent } from '@shared/pages';
 
 interface Event {
   id: number;
@@ -50,6 +51,7 @@ const CheckoutBookingPage: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [bookingComplete, setBookingComplete] = useState<boolean>(false);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [modalContent, setModalContent] = useState<'terms' | 'refund' | null>(null);
 
   useEffect(() => {
     document.title = 'Checkout - MGLTickets';
@@ -393,37 +395,7 @@ const CheckoutBookingPage: React.FC = () => {
                 )}
               </div>
 
-              {/* Terms and Conditions */}
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <div className="flex items-start">
-                  <input
-                    type="checkbox"
-                    id="terms"
-                    checked={agreedToTerms}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      setAgreedToTerms(e.target.checked);
-                      setErrors({ ...errors, terms: undefined });
-                    }}
-                    className="mt-1 w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
-                  />
-                  <label htmlFor="terms" className="ml-3 text-sm text-gray-700">
-                    I agree to the{' '}
-                    <a href="#" className="text-orange-600 hover:text-orange-700 font-medium">
-                      Terms and Conditions
-                    </a>{' '}
-                    and{' '}
-                    <a href="#" className="text-orange-600 hover:text-orange-700 font-medium">
-                      Refund Policy
-                    </a>
-                  </label>
-                </div>
-                {errors.terms && (
-                  <p className="mt-2 text-sm text-red-600 flex items-center ml-8">
-                    <AlertCircle className="w-4 h-4 mr-1" />
-                    {errors.terms}
-                  </p>
-                )}
-              </div>
+              {/* Terms and Conditions - REMOVED from here, now below button in order summary */}
 
               {errors.general && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start">
@@ -521,7 +493,47 @@ const CheckoutBookingPage: React.FC = () => {
                   )}
                 </button>
 
-                <div className="mt-4 flex items-center justify-center text-xs text-gray-500">
+                {/* Terms Checkbox - right below the button for easy visibility */}
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      id="terms"
+                      checked={agreedToTerms}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                        setAgreedToTerms(e.target.checked);
+                        setErrors({ ...errors, terms: undefined });
+                      }}
+                      className="mt-0.5 w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500 cursor-pointer flex-shrink-0"
+                    />
+                    <label htmlFor="terms" className="text-xs text-gray-600 leading-relaxed cursor-pointer">
+                      I agree to the{' '}
+                      <button
+                        type="button"
+                        onClick={() => setModalContent('terms')}
+                        className="text-orange-600 hover:text-orange-700 font-medium underline underline-offset-2"
+                      >
+                        Terms &amp; Conditions
+                      </button>
+                      {' '}and{' '}
+                      <button
+                        type="button"
+                        onClick={() => setModalContent('refund')}
+                        className="text-orange-600 hover:text-orange-700 font-medium underline underline-offset-2"
+                      >
+                        Refund Policy
+                      </button>
+                    </label>
+                  </div>
+                  {errors.terms && (
+                    <p className="mt-2 text-xs text-red-600 flex items-center gap-1 pl-7">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      {errors.terms}
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-3 flex items-center justify-center text-xs text-gray-500">
                   <ShieldCheck className="w-4 h-4 mr-1" />
                   Secure payment powered by MGLTickets
                 </div>
@@ -530,6 +542,75 @@ const CheckoutBookingPage: React.FC = () => {
           </div>
         </main>
       </div>
+
+      {/* Legal Modal */}
+      {modalContent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={() => setModalContent(null)}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+
+          {/* Modal Panel */}
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                  {modalContent === 'terms'
+                    ? <FileText className="w-4 h-4 text-orange-600" />
+                    : <RefreshCw className="w-4 h-4 text-orange-600" />
+                  }
+                </div>
+                <h2 className="text-lg font-bold text-gray-900">
+                  {modalContent === 'terms' ? 'Terms & Conditions' : 'Refund Policy'}
+                </h2>
+              </div>
+              <button
+                onClick={() => setModalContent(null)}
+                className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="overflow-y-auto flex-1">
+              {modalContent === 'terms' ? <TermsContent /> : <RefundContent />}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 flex-shrink-0 flex items-center justify-between gap-3">
+              <p className="text-xs text-gray-500">
+                Read the full policy before agreeing
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setModalContent(null)}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    setAgreedToTerms(true);
+                    setErrors({ ...errors, terms: undefined });
+                    setModalContent(null);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all"
+                >
+                  I Agree
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

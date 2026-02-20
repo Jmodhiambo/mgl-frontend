@@ -1,6 +1,8 @@
 export { default as TermsOfService } from './TermsOfService';
+export { default as TermsContent } from './TermsContent';
 export { default as PrivacyPolicy } from './PrivacyPolicy';
 export { default as RefundPolicy } from './RefundPolicy';
+export { default as RefundContent } from './RefundContent';
 export { default as AboutUs } from './AboutUs';
 export { default as ContactPage } from './ContactUs';
 export { default as FAQPage } from './FAQ';
