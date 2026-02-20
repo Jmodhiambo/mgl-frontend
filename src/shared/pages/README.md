@@ -84,7 +84,10 @@ src/
         ├── TermsContent.tsx       ← Edit for terms copy changes
         ├── TermsOfService.tsx     ← Page wrapper (SEO + chrome only)
         ├── RefundContent.tsx      ← Edit for refund policy changes
-        └── RefundPolicy.tsx       ← Page wrapper (SEO + chrome only)
+        ├── RefundPolicy.tsx       ← Page wrapper (SEO + chrome only)
+        ├── CookieContent.tsx      ← Edit for cookie policy changes
+        └── CookiePolicy.tsx       ← Page wrapper (SEO + chrome only)
+
 
 src/
 └── user/

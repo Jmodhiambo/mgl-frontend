@@ -1,6 +1,6 @@
 import React from 'react';
 import { RefundSEO } from '@shared/components/SEO';
-import RefundContent from './RefundContent';
+import { RefundContent } from '@shared/pages';
 
 /**
  * RefundPolicy — full page wrapper.

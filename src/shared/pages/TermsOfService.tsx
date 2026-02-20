@@ -1,6 +1,6 @@
 import React from 'react';
 import { TermsSEO } from '@shared/components/SEO';
-import TermsContent from './TermsContent';
+import { TermsContent } from '@shared/pages';
 
 /**
  * TermsOfService — full page wrapper.

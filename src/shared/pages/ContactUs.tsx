@@ -431,6 +431,9 @@ const ContactPage: React.FC = () => {
                   <a href="/terms" className="block text-orange-600 hover:text-orange-700 font-medium">
                     → Terms of Service
                   </a>
+                  <a href="/cookies" className="block text-orange-600 hover:text-orange-700 font-medium">
+                    → Cookie Policy
+                  </a>
                 </div>
               </div>
 

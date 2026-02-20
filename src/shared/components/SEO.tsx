@@ -289,6 +289,14 @@ export const NotFoundSEO: React.FC = () => (
   />
 );
 
+export const CookieSEO: React.FC = () => (
+  <SEO
+    title="Cookie Policy"
+    description="Read MGLTickets cookie policy. Understand how we use cookies to enhance your experience."
+    noindex={true}
+  />
+);
+
 export const LoginSEO: React.FC = () => (
   <SEO
     title="Login to MGLTickets"

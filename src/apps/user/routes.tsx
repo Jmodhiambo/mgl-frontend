@@ -21,7 +21,7 @@ import ForgotPassword from '@user/pages/ForgotPassword';
 import ResetPassword from '@user/pages/ResetPassword';
 import EmailVerification from '@user/pages/EmailVerification';
 import AcceptCoOrganizerInvitation from '@user/pages/CoOrganizerInvitation';
-import { TermsOfService, PrivacyPolicy, RefundPolicy, AboutUs, ContactPage, FAQPage, OldHelpCenterPage } from '@shared/pages';
+import { TermsOfService, PrivacyPolicy, RefundPolicy, AboutUs, ContactPage, FAQPage, OldHelpCenterPage, CookiePolicy } from '@shared/pages';
 import { PressAndMedia, CareersPage, NotFoundPage } from '@shared/pages';
 import { helpRoutes } from '@shared/routing/HelpRoutes';
 
@@ -111,6 +111,10 @@ export const router = createBrowserRouter([
       {
         path: 'refund',
         element: <RefundPolicy />,
+      },
+      {
+        path: 'cookies',
+        element: <CookiePolicy />,
       },
 
       // Company pages

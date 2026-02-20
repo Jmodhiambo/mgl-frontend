@@ -78,6 +78,11 @@ const Footer: React.FC = () => {
                   Refund Policy
                 </Link>
               </li>
+              <li>
+                <Link to="/cookies" className="hover:text-orange-500 transition-colors">
+                  Cookie Policy
+                </Link>
+              </li>
             </ul>
           </div>
 
