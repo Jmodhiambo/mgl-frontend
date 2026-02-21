@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calendar, Ticket, Users, TrendingUp, DollarSign, Clock, CheckCircle, Eye, BarChart3, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 interface DashboardStats {
@@ -31,6 +32,7 @@ interface TopEvent {
 }
 
 const OrganizerDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({
     totalEvents: 12,
     totalBookings: 245,
@@ -356,17 +358,26 @@ const OrganizerDashboard: React.FC = () => {
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-md p-6 text-white">
               <h3 className="text-lg font-bold mb-4">Quick Actions</h3>
               <div className="space-y-3">
-                <button className="w-full bg-white text-blue-600 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center justify-center">
+                <button 
+                  onClick={() => navigate('/events/create')}
+                  className="w-full bg-white text-blue-600 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center justify-center"
+                >
                   <Calendar className="w-4 h-4 mr-2" />
                   Create New Event
                 </button>
-                <button className="w-full bg-blue-700 text-white py-3 rounded-lg font-semibold hover:bg-blue-800 transition-colors flex items-center justify-center">
+                <button
+                  onClick={() => navigate('/events')}
+                  className="w-full bg-blue-700 text-white py-3 rounded-lg font-semibold hover:bg-blue-800 transition-colors flex items-center justify-center"
+                >
                   <Eye className="w-4 h-4 mr-2" />
                   View All Events
                 </button>
-                <button className="w-full bg-blue-700 text-white py-3 rounded-lg font-semibold hover:bg-blue-800 transition-colors flex items-center justify-center">
+                <button
+                  onClick={() => navigate('/bookings')}
+                  className="w-full bg-blue-700 text-white py-3 rounded-lg font-semibold hover:bg-blue-800 transition-colors flex items-center justify-center"
+                  >
                   <BarChart3 className="w-4 h-4 mr-2" />
-                  Analytics
+                  View Bookings
                 </button>
               </div>
             </div>

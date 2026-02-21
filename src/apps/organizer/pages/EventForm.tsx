@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Calendar, MapPin, FileText, Upload, X, Save, ArrowLeft } from 'lucide-react';
 
 interface EventFormData {
@@ -11,11 +12,13 @@ interface EventFormData {
 }
 
 interface EventFormProps {
-  eventId?: number;
-  mode: 'create' | 'edit';
+  mode?: 'create' | 'edit';
 }
 
-const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
+const EventForm: React.FC<EventFormProps> = ({ mode = 'create' }) => {
+  const navigate = useNavigate();
+  const { id: eventId } = useParams<{ id: string }>();
+  
   const [formData, setFormData] = useState<EventFormData>({
     title: '',
     description: '',
@@ -27,6 +30,7 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
 
   const [flyerPreview, setFlyerPreview] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [loadingEvent, setLoadingEvent] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
@@ -36,17 +40,38 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
   }, [eventId, mode]);
 
   const loadEventData = async () => {
-    // TODO: Fetch event data for editing
-    // const event = await getEventById(eventId);
-    // setFormData({
-    //   title: event.title,
-    //   description: event.description || '',
-    //   venue: event.venue,
-    //   start_time: event.start_time,
-    //   end_time: event.end_time,
-    //   flyer: null
-    // });
-    // setFlyerPreview(event.flyer_url);
+    setLoadingEvent(true);
+    try {
+      // TODO: Replace with actual API call
+      // const event = await getEventById(eventId);
+      
+      // Mock data for demonstration
+      const mockEvent = {
+        id: parseInt(eventId || '1'),
+        title: 'Summer Music Festival 2025',
+        description: 'The biggest music festival of the year featuring top artists from around the world.',
+        venue: 'Kasarani Stadium, Nairobi',
+        start_time: '2025-07-15T14:00',
+        end_time: '2025-07-15T23:00',
+        flyer_url: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400'
+      };
+
+      setFormData({
+        title: mockEvent.title,
+        description: mockEvent.description || '',
+        venue: mockEvent.venue,
+        start_time: mockEvent.start_time,
+        end_time: mockEvent.end_time,
+        flyer: null
+      });
+      
+      setFlyerPreview(mockEvent.flyer_url);
+    } catch (error) {
+      console.error('Failed to load event:', error);
+      alert('Failed to load event data. Please try again.');
+    } finally {
+      setLoadingEvent(false);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -117,7 +142,7 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
       }
     }
 
-    if (mode === 'create' && !formData.flyer) {
+    if (mode === 'create' && !formData.flyer && !flyerPreview) {
       newErrors.flyer = 'Event flyer is required';
     }
 
@@ -143,18 +168,11 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
         formDataToSend.append('flyer', formData.flyer);
       }
 
-      // TODO: API call to create/update event
-      // if (mode === 'create') {
-      //   await createEvent(formDataToSend);
-      // } else {
-      //   await updateEvent(eventId, formDataToSend);
-      // }
+      // TODO: API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Navigate back to events list
-      // navigate('/events');
-      
-      console.log('Form submitted:', formData);
       alert(`Event ${mode === 'create' ? 'created' : 'updated'} successfully!`);
+      navigate('/events');
     } catch (error) {
       console.error('Error submitting form:', error);
       alert('Failed to submit form. Please try again.');
@@ -163,12 +181,35 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
     }
   };
 
+  const handleBack = () => {
+    navigate('/events');
+  };
+
+  const handleCancel = () => {
+    if (confirm('Are you sure you want to cancel? Any unsaved changes will be lost.')) {
+      navigate('/events');
+    }
+  };
+
+  if (loadingEvent) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading event data...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
         <div className="mb-8">
-          <button className="flex items-center text-gray-600 hover:text-blue-600 transition-colors mb-4">
+          <button 
+            onClick={handleBack}
+            className="flex items-center text-gray-600 hover:text-blue-600 transition-colors mb-4"
+          >
             <ArrowLeft className="w-5 h-5 mr-1" />
             Back to Events
           </button>
@@ -182,9 +223,7 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
           </p>
         </div>
 
-        {/* Form */}
         <div className="space-y-6">
-          {/* Event Title */}
           <div className="bg-white rounded-xl shadow-md p-6">
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Event Title *
@@ -204,7 +243,6 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
             )}
           </div>
 
-          {/* Description */}
           <div className="bg-white rounded-xl shadow-md p-6">
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Description
@@ -222,7 +260,6 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
             </p>
           </div>
 
-          {/* Venue */}
           <div className="bg-white rounded-xl shadow-md p-6">
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Venue *
@@ -245,7 +282,6 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
             )}
           </div>
 
-          {/* Date and Time */}
           <div className="bg-white rounded-xl shadow-md p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Event Schedule</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -287,7 +323,6 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
             </div>
           </div>
 
-          {/* Event Flyer */}
           <div className="bg-white rounded-xl shadow-md p-6">
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Event Flyer {mode === 'create' && '*'}
@@ -307,6 +342,10 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
                 >
                   <X size={20} />
                 </button>
+                <p className="mt-2 text-sm text-gray-600">
+                  {mode === 'edit' && !formData.flyer && 'Current flyer. Upload a new image to replace it.'}
+                  {formData.flyer && 'New flyer selected. Click the X to remove.'}
+                </p>
               </div>
             ) : (
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors">
@@ -339,10 +378,10 @@ const EventForm: React.FC<EventFormProps> = ({ eventId, mode = 'create' }) => {
             )}
           </div>
 
-          {/* Submit Buttons */}
           <div className="flex gap-4">
             <button
               type="button"
+              onClick={handleCancel}
               className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
             >
               Cancel

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Search, Filter, Calendar, Ticket, User, DollarSign, Download, Eye, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { Search, Filter, Calendar, Ticket, User, DollarSign, Download, Eye, CheckCircle, Clock, XCircle, Mail, Send } from 'lucide-react';
 
 interface Booking {
   id: number;
@@ -17,6 +17,13 @@ interface Booking {
   ticket_type_name?: string;
 }
 
+interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+}
+
 const BookingsView: React.FC = () => {
   const { eventId } = useParams<{ eventId?: string }>();
   const navigate = useNavigate();
@@ -28,6 +35,68 @@ const BookingsView: React.FC = () => {
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [showBookingDetails, setShowBookingDetails] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailData, setEmailData] = useState({
+    template: 'custom',
+    subject: '',
+    message: ''
+  });
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  const emailTemplates: EmailTemplate[] = [
+    {
+      id: 'reminder',
+      name: 'Event Reminder',
+      subject: 'Reminder: Your Event is Coming Up!',
+      body: `Dear {{customer_name}},
+
+This is a friendly reminder that {{event_title}} is coming up soon!
+
+Event Details:
+- Ticket Type: {{ticket_type}}
+- Quantity: {{quantity}} ticket(s)
+- Booking ID: #{{booking_id}}
+
+We look forward to seeing you at the event!
+
+Best regards,
+The Event Team`
+    },
+    {
+      id: 'update',
+      name: 'Event Update',
+      subject: 'Important Update: {{event_title}}',
+      body: `Dear {{customer_name}},
+
+We have an important update regarding {{event_title}}.
+
+[Please provide the update details here]
+
+If you have any questions, please don't hesitate to contact us.
+
+Best regards,
+The Event Team`
+    },
+    {
+      id: 'thank_you',
+      name: 'Thank You',
+      subject: 'Thank You for Attending {{event_title}}',
+      body: `Dear {{customer_name}},
+
+Thank you for attending {{event_title}}! We hope you had a wonderful experience.
+
+We'd love to hear your feedback and see you at our future events.
+
+Best regards,
+The Event Team`
+    },
+    {
+      id: 'custom',
+      name: 'Custom Message',
+      subject: '',
+      body: ''
+    }
+  ];
 
   useEffect(() => {
     loadBookings();
@@ -40,11 +109,6 @@ const BookingsView: React.FC = () => {
   const loadBookings = async () => {
     setLoading(true);
     // TODO: Replace with actual API call
-    // if (eventId) {
-    //   const response = await getBookingsByEvent(eventId);
-    // } else {
-    //   const response = await getAllOrganizerBookings();
-    // }
     
     const mockBookings: Booking[] = [
       {
@@ -193,7 +257,6 @@ const BookingsView: React.FC = () => {
 
   const stats = getTotalStats();
 
-  // View booking details handler
   const handleViewBooking = (booking: Booking) => {
     setSelectedBooking(booking);
     setShowBookingDetails(true);
@@ -204,10 +267,78 @@ const BookingsView: React.FC = () => {
     setSelectedBooking(null);
   };
 
-  // Export to CSV handler
+  const openEmailModal = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setShowEmailModal(true);
+    setEmailData({
+      template: 'custom',
+      subject: '',
+      message: ''
+    });
+  };
+
+  const closeEmailModal = () => {
+    setShowEmailModal(false);
+    setSelectedBooking(null);
+    setEmailData({
+      template: 'custom',
+      subject: '',
+      message: ''
+    });
+  };
+
+  const handleTemplateChange = (templateId: string) => {
+    const template = emailTemplates.find(t => t.id === templateId);
+    if (template && selectedBooking) {
+      const subject = template.subject
+        .replace('{{event_title}}', selectedBooking.event_title || '')
+        .replace('{{customer_name}}', selectedBooking.customer_name || '');
+      
+      const body = template.body
+        .replace('{{customer_name}}', selectedBooking.customer_name || '')
+        .replace('{{event_title}}', selectedBooking.event_title || '')
+        .replace('{{ticket_type}}', selectedBooking.ticket_type_name || '')
+        .replace('{{quantity}}', selectedBooking.quantity.toString())
+        .replace('{{booking_id}}', selectedBooking.id.toString());
+
+      setEmailData({
+        template: templateId,
+        subject: subject,
+        message: body
+      });
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!selectedBooking || !emailData.subject || !emailData.message) {
+      alert('Please fill in both subject and message');
+      return;
+    }
+
+    setSendingEmail(true);
+    try {
+      // TODO: Replace with actual API call
+      // await sendBookingEmail(selectedBooking.id, {
+      //   to: selectedBooking.customer_email,
+      //   subject: emailData.subject,
+      //   message: emailData.message
+      // });
+
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      alert(`Email sent successfully to ${selectedBooking.customer_email}`);
+      closeEmailModal();
+    } catch (error) {
+      console.error('Failed to send email:', error);
+      alert('Failed to send email. Please try again.');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   const exportToCSV = () => {
     try {
-      // Prepare CSV headers
       const headers = [
         'Booking ID',
         'Customer Name',
@@ -220,7 +351,6 @@ const BookingsView: React.FC = () => {
         'Booking Date'
       ];
 
-      // Prepare CSV rows
       const rows = filteredBookings.map(booking => [
         booking.id,
         booking.customer_name || 'N/A',
@@ -233,13 +363,11 @@ const BookingsView: React.FC = () => {
         new Date(booking.created_at).toLocaleDateString('en-US')
       ]);
 
-      // Combine headers and rows
       const csvContent = [
         headers.join(','),
         ...rows.map(row => row.join(','))
       ].join('\n');
 
-      // Create blob and download
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
@@ -456,13 +584,24 @@ const BookingsView: React.FC = () => {
                         <span className="text-sm text-gray-600">{formatDate(booking.created_at)}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <button 
-                          onClick={() => handleViewBooking(booking)}
-                          className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center"
-                        >
-                          <Eye className="w-4 h-4 mr-1" />
-                          View
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => handleViewBooking(booking)}
+                            className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            View
+                          </button>
+                          <button 
+                            onClick={() => openEmailModal(booking)}
+                            className="text-green-600 hover:text-green-700 font-medium text-sm flex items-center"
+                            title="Send Email"
+                          >
+                            <Mail className="w-4 h-4 mr-1" />
+                            Email
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -477,12 +616,9 @@ const BookingsView: React.FC = () => {
       {showBookingDetails && selectedBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
               <div>
-                <h3 className="text-2xl font-bold text-gray-800">
-                  Booking Details
-                </h3>
+                <h3 className="text-2xl font-bold text-gray-800">Booking Details</h3>
                 <p className="text-sm text-gray-500 mt-1">Booking ID: #{selectedBooking.id}</p>
               </div>
               <button
@@ -493,7 +629,6 @@ const BookingsView: React.FC = () => {
               </button>
             </div>
 
-            {/* Booking Status */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-sm font-medium text-gray-600">Status</span>
@@ -501,7 +636,6 @@ const BookingsView: React.FC = () => {
               </div>
             </div>
 
-            {/* Customer Information */}
             <div className="mb-6">
               <h4 className="text-lg font-semibold text-gray-800 mb-4">Customer Information</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -516,7 +650,6 @@ const BookingsView: React.FC = () => {
               </div>
             </div>
 
-            {/* Event & Ticket Information */}
             <div className="mb-6">
               <h4 className="text-lg font-semibold text-gray-800 mb-4">Event & Ticket Details</h4>
               <div className="space-y-3">
@@ -543,7 +676,6 @@ const BookingsView: React.FC = () => {
               </div>
             </div>
 
-            {/* Booking Dates */}
             <div className="mb-6">
               <h4 className="text-lg font-semibold text-gray-800 mb-4">Booking Timeline</h4>
               <div className="space-y-3">
@@ -558,7 +690,6 @@ const BookingsView: React.FC = () => {
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex gap-3 pt-4 border-t border-gray-200">
               <button
                 onClick={closeBookingDetails}
@@ -567,9 +698,110 @@ const BookingsView: React.FC = () => {
                 Close
               </button>
               <button
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all"
+                onClick={() => {
+                  closeBookingDetails();
+                  openEmailModal(selectedBooking);
+                }}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center"
               >
+                <Mail className="w-4 h-4 mr-2" />
                 Send Email
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Modal */}
+      {showEmailModal && selectedBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+              <div>
+                <h3 className="text-2xl font-bold text-gray-800">Send Email</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  To: {selectedBooking.customer_name} ({selectedBooking.customer_email})
+                </p>
+              </div>
+              <button
+                onClick={closeEmailModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              {/* Template Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Template
+                </label>
+                <select
+                  value={emailData.template}
+                  onChange={(e) => handleTemplateChange(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {emailTemplates.map(template => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Subject */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Subject *
+                </label>
+                <input
+                  type="text"
+                  value={emailData.subject}
+                  onChange={(e) => setEmailData({ ...emailData, subject: e.target.value })}
+                  placeholder="Enter email subject"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Message */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Message *
+                </label>
+                <textarea
+                  value={emailData.message}
+                  onChange={(e) => setEmailData({ ...emailData, message: e.target.value })}
+                  rows={12}
+                  placeholder="Enter your message here..."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-4 border-t border-gray-200">
+              <button
+                onClick={closeEmailModal}
+                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendEmail}
+                disabled={sendingEmail || !emailData.subject || !emailData.message}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold hover:from-green-600 hover:to-green-700 transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sendingEmail ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Send Email
+                  </>
+                )}
               </button>
             </div>
           </div>

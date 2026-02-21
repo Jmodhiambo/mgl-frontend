@@ -15,6 +15,8 @@ interface ContactFormData {
 }
 
 const ContactPage: React.FC = () => {
+  const whatsAppUrl = import.meta.env.VITE_WHATSAPP_URL;
+  const supportPhoneNumber = import.meta.env.VITE_SUPPORT_PHONE_NUMBER;
   const [formData, setFormData] = useState<ContactFormData>({
     name: '',
     email: '',
@@ -168,8 +170,8 @@ const ContactPage: React.FC = () => {
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Call Us</h3>
               <p className="text-gray-600 text-sm mb-3">Mon-Fri, 9:00 AM - 6:00 PM EAT</p>
-              <a href="tel:+254700000000" className="text-orange-600 hover:text-orange-700 font-medium">
-                +254 700 000 000
+              <a href={`tel:${supportPhoneNumber}`} className="text-orange-600 hover:text-orange-700 font-medium">
+                {supportPhoneNumber}
               </a>
             </div>
 
@@ -180,7 +182,7 @@ const ContactPage: React.FC = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-2">WhatsApp</h3>
               <p className="text-gray-600 text-sm mb-3">Quick response, available 24/7</p>
               <a 
-                href="https://wa.me/254799602055" 
+                href={whatsAppUrl}
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-orange-600 hover:text-orange-700 font-medium"

@@ -12,7 +12,7 @@ import TicketTypes from '@organizer/pages/TicketTypes';
 import BookingsView from '@organizer/pages/BookingsView';
 import Profile from '@organizer/pages/Profile';
 import CoOrganizers from '@organizer/pages/CoOrganizers';
-import { ContactPage } from '@shared/pages';
+import OrganizerContact from './pages/OrganizerContact';
 import { NotFoundPage } from '@shared/pages';
 
 /**
@@ -93,7 +93,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'contact',
-        element: <ContactPage />,
+        element: <OrganizerContact />,
       },
     ],
   },
