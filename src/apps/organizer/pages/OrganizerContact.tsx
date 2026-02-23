@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Phone, MessageSquare, Send, AlertCircle, CheckCircle, Clock, HelpCircle } from 'lucide-react';
 import { executeRecaptcha, loadRecaptchaScript, RECAPTCHA_CONFIG } from '@shared/config/recaptcha';
+import { WHATSAPP_URL, SUPPORT_PHONE_NUMBER, ORGANIZER_EMAIL } from '@shared/components/ENV';
 
 interface ContactFormData {
   name: string;
@@ -14,8 +15,6 @@ interface ContactFormData {
 }
 
 const OrganizerContact: React.FC = () => {
-  const whatsAppUrl = import.meta.env.VITE_WHATSAPP_URL;
-  const supportPhoneNumber = import.meta.env.VITE_SUPPORT_PHONE_NUMBER;
   const [formData, setFormData] = useState<ContactFormData>({
     name: '',
     email: '',
@@ -156,8 +155,8 @@ const OrganizerContact: React.FC = () => {
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Email Support</h3>
             <p className="text-gray-600 text-sm mb-3">Our team typically responds within 4 hours</p>
-            <a href="mailto:organizers@mgltickets.com" className="text-blue-600 hover:text-blue-700 font-medium">
-              organizers@mgltickets.com
+            <a href={`mailto:${ORGANIZER_EMAIL}`} className="text-blue-600 hover:text-blue-700 font-medium">
+              {ORGANIZER_EMAIL}
             </a>
           </div>
 
@@ -167,8 +166,8 @@ const OrganizerContact: React.FC = () => {
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Phone Support</h3>
             <p className="text-gray-600 text-sm mb-3">Mon-Fri, 9:00 AM - 6:00 PM EAT</p>
-            <a href={`tel:${supportPhoneNumber}`} className="text-blue-600 hover:text-blue-700 font-medium">
-                {supportPhoneNumber}
+            <a href={`tel:${SUPPORT_PHONE_NUMBER}`} className="text-blue-600 hover:text-blue-700 font-medium">
+              {SUPPORT_PHONE_NUMBER}
             </a>
           </div>
 
@@ -179,7 +178,7 @@ const OrganizerContact: React.FC = () => {
             <h3 className="text-lg font-semibold text-gray-900 mb-2">WhatsApp</h3>
             <p className="text-gray-600 text-sm mb-3">Priority support for organizers</p>
             <a 
-              href={whatsAppUrl} 
+              href={WHATSAPP_URL} 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-blue-600 hover:text-blue-700 font-medium"

@@ -1,6 +1,11 @@
+// src/organizer/pages/BookingsView.tsx
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Search, Filter, Calendar, Ticket, User, DollarSign, Download, Eye, CheckCircle, Clock, XCircle, Mail, Send } from 'lucide-react';
+import { useParams } from 'react-router-dom';
+import { Search, Calendar, Ticket, User, DollarSign, Download, CheckCircle, Clock, XCircle } from 'lucide-react';
+import BookingDetailsModal from '@organizer/components/BookingViewPage/BookingDetailsModal';
+import EmailModal from '@organizer/components/BookingViewPage/EmailModal';
+import BulkActionBar from '@organizer/components/BookingViewPage/BulkActionBar';
+import BookingsTable from '@organizer/components/BookingViewPage/BookingsTable';
 
 interface Booking {
   id: number;
@@ -26,16 +31,27 @@ interface EmailTemplate {
 
 const BookingsView: React.FC = () => {
   const { eventId } = useParams<{ eventId?: string }>();
-  const navigate = useNavigate();
+  
+  // Booking data state
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  
+  // Selection state (for bulk email)
+  const [selectedBookings, setSelectedBookings] = useState<number[]>([]);
+  const [selectAll, setSelectAll] = useState(false);
+  
+  // Modal state
   const [showBookingDetails, setShowBookingDetails] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showEmailModal, setShowEmailModal] = useState(false);
+  
+  // Email state
   const [emailData, setEmailData] = useState({
     template: 'custom',
     subject: '',
@@ -105,6 +121,14 @@ The Event Team`
   useEffect(() => {
     filterBookings();
   }, [bookings, searchQuery, statusFilter, dateRange]);
+
+  useEffect(() => {
+    // Auto-check selectAll when all filtered bookings are selected
+    if (filteredBookings.length > 0) {
+      const allSelected = filteredBookings.every(b => selectedBookings.includes(b.id));
+      setSelectAll(allSelected);
+    }
+  }, [selectedBookings, filteredBookings]);
 
   const loadBookings = async () => {
     setLoading(true);
@@ -255,8 +279,30 @@ The Event Team`
     return { totalRevenue, totalTickets, totalBookings: filteredBookings.length };
   };
 
-  const stats = getTotalStats();
+  // Selection handlers
+  const toggleBookingSelection = (bookingId: number) => {
+    setSelectedBookings(prev =>
+      prev.includes(bookingId)
+        ? prev.filter(id => id !== bookingId)
+        : [...prev, bookingId]
+    );
+  };
 
+  const toggleSelectAll = () => {
+    if (selectAll) {
+      setSelectedBookings([]);
+    } else {
+      setSelectedBookings(filteredBookings.map(b => b.id));
+    }
+    setSelectAll(!selectAll);
+  };
+
+  const clearSelection = () => {
+    setSelectedBookings([]);
+    setSelectAll(false);
+  };
+
+  // Modal handlers
   const handleViewBooking = (booking: Booking) => {
     setSelectedBooking(booking);
     setShowBookingDetails(true);
@@ -268,7 +314,24 @@ The Event Team`
   };
 
   const openEmailModal = (booking: Booking) => {
+    setSelectedBookings([booking.id]);
     setSelectedBooking(booking);
+    setShowEmailModal(true);
+    setEmailData({
+      template: 'custom',
+      subject: '',
+      message: ''
+    });
+  };
+
+  const openBulkEmailModal = () => {
+    if (selectedBookings.length === 0) {
+      alert('Please select at least one booking');
+      return;
+    }
+    
+    const firstSelected = bookings.find(b => selectedBookings.includes(b.id));
+    setSelectedBooking(firstSelected || null);
     setShowEmailModal(true);
     setEmailData({
       template: 'custom',
@@ -279,7 +342,6 @@ The Event Team`
 
   const closeEmailModal = () => {
     setShowEmailModal(false);
-    setSelectedBooking(null);
     setEmailData({
       template: 'custom',
       subject: '',
@@ -310,25 +372,28 @@ The Event Team`
   };
 
   const handleSendEmail = async () => {
-    if (!selectedBooking || !emailData.subject || !emailData.message) {
+    if (!emailData.subject || !emailData.message) {
       alert('Please fill in both subject and message');
       return;
     }
 
     setSendingEmail(true);
     try {
+      const recipientBookings = bookings.filter(b => selectedBookings.includes(b.id));
+
       // TODO: Replace with actual API call
-      // await sendBookingEmail(selectedBooking.id, {
-      //   to: selectedBooking.customer_email,
+      // await sendBulkEmail({
+      //   booking_ids: selectedBookings,
       //   subject: emailData.subject,
-      //   message: emailData.message
+      //   message: emailData.message,
+      //   template_used: emailData.template
       // });
 
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      alert(`Email sent successfully to ${selectedBooking.customer_email}`);
+      alert(`Email sent successfully to ${recipientBookings.length} recipient(s)`);
       closeEmailModal();
+      clearSelection();
     } catch (error) {
       console.error('Failed to send email:', error);
       alert('Failed to send email. Please try again.');
@@ -386,6 +451,8 @@ The Event Team`
       alert('Failed to export data. Please try again.');
     }
   };
+
+  const stats = getTotalStats();
 
   if (loading) {
     return (
@@ -511,6 +578,13 @@ The Event Team`
           </div>
         </div>
 
+        {/* Bulk Action Bar */}
+        <BulkActionBar
+          selectedCount={selectedBookings.length}
+          onClearSelection={clearSelection}
+          onBulkEmail={openBulkEmailModal}
+        />
+
         {/* Bookings Table */}
         {filteredBookings.length === 0 ? (
           <div className="bg-white rounded-xl shadow-md p-12 text-center">
@@ -523,289 +597,46 @@ The Event Team`
             </p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl shadow-md overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Booking ID
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Customer
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Ticket Type
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Quantity
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Total
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredBookings.map((booking) => (
-                    <tr key={booking.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-medium text-gray-800">#{booking.id}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="text-sm font-medium text-gray-800">{booking.customer_name}</div>
-                          <div className="text-sm text-gray-500">{booking.customer_email}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-gray-800">{booking.ticket_type_name}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-semibold text-gray-800">{booking.quantity}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-bold text-green-600">
-                          KES {booking.total_price.toLocaleString()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(booking.status)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-600">{formatDate(booking.created_at)}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <button 
-                            onClick={() => handleViewBooking(booking)}
-                            className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center"
-                            title="View Details"
-                          >
-                            <Eye className="w-4 h-4 mr-1" />
-                            View
-                          </button>
-                          <button 
-                            onClick={() => openEmailModal(booking)}
-                            className="text-green-600 hover:text-green-700 font-medium text-sm flex items-center"
-                            title="Send Email"
-                          >
-                            <Mail className="w-4 h-4 mr-1" />
-                            Email
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <BookingsTable
+            bookings={filteredBookings}
+            selectedBookings={selectedBookings}
+            selectAll={selectAll}
+            onToggleSelectAll={toggleSelectAll}
+            onToggleBooking={toggleBookingSelection}
+            onViewBooking={handleViewBooking}
+            onEmailBooking={openEmailModal}
+            getStatusBadge={getStatusBadge}
+            formatDate={formatDate}
+          />
         )}
       </div>
 
       {/* Booking Details Modal */}
       {showBookingDetails && selectedBooking && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
-              <div>
-                <h3 className="text-2xl font-bold text-gray-800">Booking Details</h3>
-                <p className="text-sm text-gray-500 mt-1">Booking ID: #{selectedBooking.id}</p>
-              </div>
-              <button
-                onClick={closeBookingDetails}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <XCircle className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-sm font-medium text-gray-600">Status</span>
-                {getStatusBadge(selectedBooking.status)}
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <h4 className="text-lg font-semibold text-gray-800 mb-4">Customer Information</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Name</p>
-                  <p className="text-sm font-medium text-gray-800">{selectedBooking.customer_name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Email</p>
-                  <p className="text-sm font-medium text-gray-800">{selectedBooking.customer_email}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <h4 className="text-lg font-semibold text-gray-800 mb-4">Event & Ticket Details</h4>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Event</p>
-                  <p className="text-sm font-medium text-gray-800">{selectedBooking.event_title}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Ticket Type</p>
-                  <p className="text-sm font-medium text-gray-800">{selectedBooking.ticket_type_name}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Quantity</p>
-                    <p className="text-sm font-medium text-gray-800">{selectedBooking.quantity}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Total Price</p>
-                    <p className="text-sm font-bold text-green-600">
-                      KES {selectedBooking.total_price.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <h4 className="text-lg font-semibold text-gray-800 mb-4">Booking Timeline</h4>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Booked On</p>
-                  <p className="text-sm font-medium text-gray-800">{formatDate(selectedBooking.created_at)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Last Updated</p>
-                  <p className="text-sm font-medium text-gray-800">{formatDate(selectedBooking.updated_at)}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-4 border-t border-gray-200">
-              <button
-                onClick={closeBookingDetails}
-                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => {
-                  closeBookingDetails();
-                  openEmailModal(selectedBooking);
-                }}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center"
-              >
-                <Mail className="w-4 h-4 mr-2" />
-                Send Email
-              </button>
-            </div>
-          </div>
-        </div>
+        <BookingDetailsModal
+          booking={selectedBooking}
+          onClose={closeBookingDetails}
+          onSendEmail={() => {
+            closeBookingDetails();
+            openEmailModal(selectedBooking);
+          }}
+          getStatusBadge={getStatusBadge}
+          formatDate={formatDate}
+        />
       )}
 
       {/* Email Modal */}
-      {showEmailModal && selectedBooking && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
-              <div>
-                <h3 className="text-2xl font-bold text-gray-800">Send Email</h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  To: {selectedBooking.customer_name} ({selectedBooking.customer_email})
-                </p>
-              </div>
-              <button
-                onClick={closeEmailModal}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <XCircle className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="space-y-4 mb-6">
-              {/* Template Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Template
-                </label>
-                <select
-                  value={emailData.template}
-                  onChange={(e) => handleTemplateChange(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {emailTemplates.map(template => (
-                    <option key={template.id} value={template.id}>
-                      {template.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Subject */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Subject *
-                </label>
-                <input
-                  type="text"
-                  value={emailData.subject}
-                  onChange={(e) => setEmailData({ ...emailData, subject: e.target.value })}
-                  placeholder="Enter email subject"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              {/* Message */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Message *
-                </label>
-                <textarea
-                  value={emailData.message}
-                  onChange={(e) => setEmailData({ ...emailData, message: e.target.value })}
-                  rows={12}
-                  placeholder="Enter your message here..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-4 border-t border-gray-200">
-              <button
-                onClick={closeEmailModal}
-                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSendEmail}
-                disabled={sendingEmail || !emailData.subject || !emailData.message}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg font-semibold hover:from-green-600 hover:to-green-700 transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {sendingEmail ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4 mr-2" />
-                    Send Email
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+      {showEmailModal && (
+        <EmailModal
+          selectedBookings={bookings.filter(b => selectedBookings.includes(b.id))}
+          emailData={emailData}
+          emailTemplates={emailTemplates}
+          sendingEmail={sendingEmail}
+          onClose={closeEmailModal}
+          onTemplateChange={handleTemplateChange}
+          onEmailDataChange={(data) => setEmailData(prev => ({ ...prev, ...data }))}
+          onSend={handleSendEmail}
+        />
       )}
     </div>
   );

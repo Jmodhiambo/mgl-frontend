@@ -4,6 +4,7 @@ import { Mail, Phone, MapPin, Clock, Send, MessageSquare, User, AlertCircle, Che
 import { ContactSEO } from '@shared/components/SEO';
 import { submitContactMessage, ContactMessageCreate } from '@shared/api/user/contactApi';
 import { executeRecaptcha, loadRecaptchaScript, RECAPTCHA_CONFIG } from '@shared/config/recaptcha';
+import { WHATSAPP_URL, SUPPORT_PHONE_NUMBER, SUPPORT_EMAIL } from '@shared/components/ENV';
 
 interface ContactFormData {
   name: string;
@@ -15,8 +16,6 @@ interface ContactFormData {
 }
 
 const ContactPage: React.FC = () => {
-  const whatsAppUrl = import.meta.env.VITE_WHATSAPP_URL;
-  const supportPhoneNumber = import.meta.env.VITE_SUPPORT_PHONE_NUMBER;
   const [formData, setFormData] = useState<ContactFormData>({
     name: '',
     email: '',
@@ -152,15 +151,16 @@ const ContactPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid lg:grid-cols-4 gap-6 mb-12">
+          {/* Change the grid to 4 when the "Visit Us" section is added back */}
+          <div className="grid lg:grid-cols-3 gap-6 mb-12">
             <div className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow">
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
                 <Mail className="w-6 h-6 text-blue-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Email Us</h3>
               <p className="text-gray-600 text-sm mb-3">Our team typically responds within 24 hours</p>
-              <a href="mailto:support@mgltickets.com" className="text-orange-600 hover:text-orange-700 font-medium">
-                support@mgltickets.com
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="text-orange-600 hover:text-orange-700 font-medium">
+                {SUPPORT_EMAIL}
               </a>
             </div>
 
@@ -170,8 +170,8 @@ const ContactPage: React.FC = () => {
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Call Us</h3>
               <p className="text-gray-600 text-sm mb-3">Mon-Fri, 9:00 AM - 6:00 PM EAT</p>
-              <a href={`tel:${supportPhoneNumber}`} className="text-orange-600 hover:text-orange-700 font-medium">
-                {supportPhoneNumber}
+              <a href={`tel:${SUPPORT_PHONE_NUMBER}`} className="text-orange-600 hover:text-orange-700 font-medium">
+                {SUPPORT_PHONE_NUMBER}
               </a>
             </div>
 
@@ -182,7 +182,7 @@ const ContactPage: React.FC = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-2">WhatsApp</h3>
               <p className="text-gray-600 text-sm mb-3">Quick response, available 24/7</p>
               <a 
-                href={whatsAppUrl}
+                href={WHATSAPP_URL}
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-orange-600 hover:text-orange-700 font-medium"
@@ -191,7 +191,7 @@ const ContactPage: React.FC = () => {
               </a>
             </div>
 
-            <div className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow">
+            {/* <div className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow">
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
                 <MapPin className="w-6 h-6 text-purple-600" />
               </div>
@@ -200,7 +200,7 @@ const ContactPage: React.FC = () => {
               <p className="text-orange-600 font-medium">
                 Nairobi, Kenya
               </p>
-            </div>
+            </div> */}
           </div>
 
           <div className="grid lg:grid-cols-2 gap-8">
