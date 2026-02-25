@@ -1,4 +1,4 @@
-// src/apps/organizer/components/BookingViewPage/BookingsTable.tsx
+// src/organizer/components/BookingsTable.tsx
 import React from 'react';
 import { Eye, Mail } from 'lucide-react';
 
@@ -21,6 +21,7 @@ interface BookingsTableProps {
   bookings: Booking[];
   selectedBookings: number[];
   selectAll: boolean;
+  isBulkMode: boolean;
   onToggleSelectAll: () => void;
   onToggleBooking: (bookingId: number) => void;
   onViewBooking: (booking: Booking) => void;
@@ -33,6 +34,7 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
   bookings,
   selectedBookings,
   selectAll,
+  isBulkMode,
   onToggleSelectAll,
   onToggleBooking,
   onViewBooking,
@@ -46,14 +48,16 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="px-6 py-4 text-left">
-                <input
-                  type="checkbox"
-                  checked={selectAll}
-                  onChange={onToggleSelectAll}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
-                />
-              </th>
+              {isBulkMode && (
+                <th className="px-6 py-4 text-left">
+                  <input
+                    type="checkbox"
+                    checked={selectAll}
+                    onChange={onToggleSelectAll}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                  />
+                </th>
+              )}
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Booking ID
               </th>
@@ -85,17 +89,19 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
               <tr 
                 key={booking.id} 
                 className={`hover:bg-gray-50 transition-colors ${
-                  selectedBookings.includes(booking.id) ? 'bg-blue-50' : ''
+                  isBulkMode && selectedBookings.includes(booking.id) ? 'bg-blue-50' : ''
                 }`}
               >
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <input
-                    type="checkbox"
-                    checked={selectedBookings.includes(booking.id)}
-                    onChange={() => onToggleBooking(booking.id)}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
-                  />
-                </td>
+                {isBulkMode && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={selectedBookings.includes(booking.id)}
+                      onChange={() => onToggleBooking(booking.id)}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                    />
+                  </td>
+                )}
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className="text-sm font-medium text-gray-800">#{booking.id}</span>
                 </td>
@@ -132,14 +138,16 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
                       <Eye className="w-4 h-4 mr-1" />
                       View
                     </button>
-                    <button 
-                      onClick={() => onEmailBooking(booking)}
-                      className="text-green-600 hover:text-green-700 font-medium text-sm flex items-center transition-colors"
-                      title="Send Email"
-                    >
-                      <Mail className="w-4 h-4 mr-1" />
-                      Email
-                    </button>
+                    {!isBulkMode && (
+                      <button 
+                        onClick={() => onEmailBooking(booking)}
+                        className="text-green-600 hover:text-green-700 font-medium text-sm flex items-center transition-colors"
+                        title="Send Email"
+                      >
+                        <Mail className="w-4 h-4 mr-1" />
+                        Email
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

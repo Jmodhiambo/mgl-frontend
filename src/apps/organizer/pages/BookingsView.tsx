@@ -43,6 +43,7 @@ const BookingsView: React.FC = () => {
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   
   // Selection state (for bulk email)
+  const [isBulkMode, setIsBulkMode] = useState(false);
   const [selectedBookings, setSelectedBookings] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   
@@ -298,6 +299,13 @@ The Event Team`
   };
 
   const clearSelection = () => {
+    setSelectedBookings([]);
+    setSelectAll(false);
+    setIsBulkMode(false);
+  };
+
+  const enterBulkMode = () => {
+    setIsBulkMode(true);
     setSelectedBookings([]);
     setSelectAll(false);
   };
@@ -581,6 +589,8 @@ The Event Team`
         {/* Bulk Action Bar */}
         <BulkActionBar
           selectedCount={selectedBookings.length}
+          isBulkMode={isBulkMode}
+          onEnterBulkMode={enterBulkMode}
           onClearSelection={clearSelection}
           onBulkEmail={openBulkEmailModal}
         />
@@ -601,6 +611,7 @@ The Event Team`
             bookings={filteredBookings}
             selectedBookings={selectedBookings}
             selectAll={selectAll}
+            isBulkMode={isBulkMode}
             onToggleSelectAll={toggleSelectAll}
             onToggleBooking={toggleBookingSelection}
             onViewBooking={handleViewBooking}
