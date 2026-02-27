@@ -1,8 +1,8 @@
 // src/shared/components/navigation/ImprovedNavbar.tsx
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
-import { Calendar, Menu, X, LogOut, User, Briefcase, Shield } from 'lucide-react';
+import { Calendar, Menu, X, LogOut, User, Briefcase, Shield, UserPlus } from 'lucide-react';
 
 const Navbar: React.FC = () => {
   const { logout, user, isAuthenticated } = useAuth();
@@ -52,6 +52,7 @@ const Navbar: React.FC = () => {
   // Get organizer/admin dashboard URLs from env
   const organizerUrl = import.meta.env.VITE_ORGANIZER_DOMAIN;
   const adminUrl = import.meta.env.VITE_ADMIN_DOMAIN;
+  const userUrl = import.meta.env.VITE_USER_DOMAIN;
 
   return (
     <nav className="bg-white shadow-sm border-b border-orange-100 sticky top-0 z-50">
@@ -86,7 +87,19 @@ const Navbar: React.FC = () => {
           <div className="hidden md:flex items-center space-x-4">
             {isAuthenticated ? (
               <>
-                {/* Context Switcher - Show if user has organizer or admin role */}
+                {/* Context Switcher - Show if user has organizer or admin role. Offer option tto become an organizer to users */}
+                {user?.role === 'user' && (
+                  <Link
+                    to="/setup-organizer-profile"
+                    className="flex items-center space-x-2 px-3 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 font-medium transition-colors text-sm"
+                    title="Create an Organizer Profile to manage your events and tickets"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Become an Organizer</span>
+                  </Link>
+                  
+                )}
+                
                 {user?.role === 'organizer' && (
                   <a
                     href={`${organizerUrl}/dashboard`}

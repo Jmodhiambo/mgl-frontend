@@ -266,7 +266,9 @@ const OrganizerDashboard: React.FC = () => {
             <div className="bg-white rounded-xl shadow-md p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold text-gray-800">Recent Bookings</h3>
-                <button className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center">
+                <button 
+                  onClick={() => navigate('/bookings')}
+                  className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center">
                   View All
                   <ArrowUpRight className="w-4 h-4 ml-1" />
                 </button>
@@ -317,7 +319,12 @@ const OrganizerDashboard: React.FC = () => {
             <div className="bg-white rounded-xl shadow-md p-6 mb-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold text-gray-800">Top Events</h3>
-                <BarChart3 className="w-5 h-5 text-blue-500" />
+                <button 
+                    onClick={() => navigate('/events')}
+                    className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center"
+                >
+                  <BarChart3 className="w-5 h-5 text-blue-500" />
+                </button>
               </div>
 
               <div className="space-y-4">
