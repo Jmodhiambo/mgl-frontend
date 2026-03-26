@@ -15,6 +15,8 @@ interface Booking {
   customer_email?: string;
   event_title?: string;
   ticket_type_name?: string;
+  venue?: string;
+  event_date?: string;
 }
 
 interface BookingDetailsModalProps {
@@ -30,24 +32,24 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
   onClose,
   onSendEmail,
   getStatusBadge,
-  formatDate
+  formatDate,
 }) => {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+
+        {/* Header */}
         <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
           <div>
             <h3 className="text-2xl font-bold text-gray-800">Booking Details</h3>
             <p className="text-sm text-gray-500 mt-1">Booking ID: #{booking.id}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
             <XCircle className="w-6 h-6" />
           </button>
         </div>
 
+        {/* Status */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium text-gray-600">Status</span>
@@ -55,6 +57,7 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
           </div>
         </div>
 
+        {/* Customer */}
         <div className="mb-6">
           <h4 className="text-lg font-semibold text-gray-800 mb-4">Customer Information</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -69,6 +72,7 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
           </div>
         </div>
 
+        {/* Event & Ticket */}
         <div className="mb-6">
           <h4 className="text-lg font-semibold text-gray-800 mb-4">Event & Ticket Details</h4>
           <div className="space-y-3">
@@ -76,6 +80,18 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
               <p className="text-sm text-gray-600 mb-1">Event</p>
               <p className="text-sm font-medium text-gray-800">{booking.event_title}</p>
             </div>
+            {booking.venue && (
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Venue</p>
+                <p className="text-sm font-medium text-gray-800">{booking.venue}</p>
+              </div>
+            )}
+            {booking.event_date && (
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Date & Time</p>
+                <p className="text-sm font-medium text-gray-800">{booking.event_date}</p>
+              </div>
+            )}
             <div>
               <p className="text-sm text-gray-600 mb-1">Ticket Type</p>
               <p className="text-sm font-medium text-gray-800">{booking.ticket_type_name}</p>
@@ -95,6 +111,7 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
           </div>
         </div>
 
+        {/* Timeline */}
         <div className="mb-6">
           <h4 className="text-lg font-semibold text-gray-800 mb-4">Booking Timeline</h4>
           <div className="space-y-3">
@@ -109,6 +126,7 @@ const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
           </div>
         </div>
 
+        {/* Actions */}
         <div className="flex gap-3 pt-4 border-t border-gray-200">
           <button
             onClick={onClose}
