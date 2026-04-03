@@ -1,6 +1,7 @@
 // src/organizer/pages/BookingsView.tsx
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { useAuth } from '@shared/contexts/AuthContext';
 import { Search, Ticket, User, DollarSign, Download, CheckCircle, Clock, XCircle } from 'lucide-react';
 import BookingDetailsModal from '@organizer/components/BookingViewPage/BookingDetailsModal';
 import EmailModal from '@organizer/components/BookingViewPage/EmailModal';
@@ -47,8 +48,8 @@ export interface EmailTemplate {
  *              from the booking object.
  *   {{key}}  — left visible in the preview if the value must be typed by
  *              the organizer (extra fields). It updates live as they type.
- *   {{organizer_name}} — always left as-is; filled server-side from the
- *              authenticated organizer's profile.
+ *   {{organizer_name}} — filled from the authenticated organizer's profile
+ *              via useAuth().
  */
 const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
@@ -208,7 +209,10 @@ Best regards,
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 /** Build the booking-level replacement map from a Booking object. */
-const bookingReplacements = (ref: Booking | null): Record<string, string> => ({
+const bookingReplacements = (
+  ref: Booking | null,
+  organizerName: string,
+): Record<string, string> => ({
   customer_name:  ref?.customer_name        ?? '',
   event_title:    ref?.event_title          ?? '',
   ticket_type:    ref?.ticket_type_name     ?? '',
@@ -217,8 +221,7 @@ const bookingReplacements = (ref: Booking | null): Record<string, string> => ({
   total_price:    ref?.total_price?.toLocaleString() ?? '',
   venue:          ref?.venue                ?? '',
   event_date:     ref?.event_date           ?? '',
-  // organizer_name is always left as the token — substituted server-side
-  organizer_name: '{{organizer_name}}',
+  organizer_name: organizerName,
 });
 
 /**
@@ -238,6 +241,8 @@ const fillTokens = (
 
 const BookingsView: React.FC = () => {
   const { eventId } = useParams<{ eventId?: string }>();
+  const { user } = useAuth();
+  const organizerName = user ? user?.name.split(' ')[0] : 'Organizer';
 
   const [bookings, setBookings]               = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
@@ -287,7 +292,7 @@ const BookingsView: React.FC = () => {
    */
   useEffect(() => {
     if (!emailData.rawBody) return;
-    const merged = { ...bookingReplacements(selectedBooking), ...emailData.extraValues };
+    const merged = { ...bookingReplacements(selectedBooking, organizerName), ...emailData.extraValues };
     setEmailData(prev => ({ ...prev, message: fillTokens(prev.rawBody, merged) }));
   }, [emailData.extraValues]);
 
@@ -436,7 +441,7 @@ const BookingsView: React.FC = () => {
     const tpl = EMAIL_TEMPLATES.find(t => t.id === templateId);
     if (!tpl) return;
 
-    const base = bookingReplacements(selectedBooking);
+    const base = bookingReplacements(selectedBooking, organizerName);
 
     setEmailData({
       template:    templateId,

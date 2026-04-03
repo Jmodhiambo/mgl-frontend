@@ -156,10 +156,7 @@ const EmailModal: React.FC<EmailModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-sm font-medium text-gray-700">Message *</label>
-              <span className="text-xs text-gray-400 flex items-center gap-1">
-                <Info className="w-3 h-3" />
-                Tokens like <code className="bg-gray-100 px-1 rounded">{'{{customer_name}}'}</code> are personalised per attendee when sent
-              </span>
+              <span className="text-xs text-gray-400">{emailData.message.length} characters</span>
             </div>
             <textarea
               value={emailData.message}
