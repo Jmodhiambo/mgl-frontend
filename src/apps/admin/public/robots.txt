@@ -1,3 +1,0 @@
-# Block all search engines
-User-agent: *
-Disallow: /

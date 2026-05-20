@@ -1,0 +1,238 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── CSS Custom Properties ──────────────────────────────────────────────── */
+:root {
+  --sidebar-width: 260px;
+  --header-height: 64px;
+  --sidebar-bg: #120e1a;
+  --sidebar-border: rgba(168, 85, 247, 0.12);
+}
+
+/* ─── Base ───────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--header-height);
+}
+body {
+  font-family: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  background-color: #f8f7fc;
+  color: #1a1523;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Focus ──────────────────────────────────────────────────────────────── */
+*:focus { outline: none; }
+*:focus-visible {
+  outline: 2px solid #a855f7;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid #a855f7;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.15);
+}
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #a855f7;
+  outline-offset: 0;
+  border-color: #a855f7;
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.12);
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d8b4fe; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #a855f7; }
+
+/* ─── Skip link (accessibility) ─────────────────────────────────────────── */
+.skip-to-main {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: #9333ea;
+  color: white;
+  padding: 8px 16px;
+  text-decoration: none;
+  z-index: 100;
+  border-radius: 0 0 6px 0;
+}
+.skip-to-main:focus { top: 0; }
+
+/* ─── Component Layer ────────────────────────────────────────────────────── */
+@layer components {
+
+  /* ── Buttons ── */
+  .btn-primary {
+    @apply bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700
+           transition-all font-medium shadow-sm active:scale-95
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply bg-white text-purple-700 border border-purple-200 px-4 py-2 rounded-lg
+           hover:bg-purple-50 transition-all font-medium active:scale-95;
+  }
+  .btn-danger {
+    @apply bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700
+           transition-all font-medium active:scale-95 disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-100
+           transition-all font-medium;
+  }
+  .btn-sm  { @apply px-3 py-1.5 text-sm; }
+  .btn-xs  { @apply px-2.5 py-1 text-xs; }
+  .btn-icon {
+    @apply p-2 rounded-lg hover:bg-gray-100 transition-colors
+           text-gray-500 hover:text-gray-700;
+  }
+
+  /* ── Cards ── */
+  .card     { @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6; }
+  .card-sm  { @apply bg-white rounded-xl shadow-sm border border-gray-100 p-4; }
+  .card-hover {
+    @apply card hover:shadow-md hover:border-purple-100
+           transition-all cursor-pointer;
+  }
+
+  /* ── Form ── */
+  .input-field {
+    @apply w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm
+           focus:ring-2 focus:ring-purple-400 focus:border-purple-400
+           bg-white transition-colors placeholder-gray-400;
+  }
+  .select-field { @apply input-field; }
+  .label { @apply block text-sm font-medium text-gray-700 mb-1.5; }
+
+  /* ── Badges ── */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full
+           text-xs font-semibold;
+  }
+  .badge-success { @apply badge bg-emerald-100 text-emerald-700; }
+  .badge-warning { @apply badge bg-amber-100 text-amber-700; }
+  .badge-danger  { @apply badge bg-red-100 text-red-700; }
+  .badge-info    { @apply badge bg-sky-100 text-sky-700; }
+  .badge-purple  { @apply badge bg-purple-100 text-purple-700; }
+  .badge-gray    { @apply badge bg-gray-100 text-gray-600; }
+  .badge-orange  { @apply badge bg-orange-100 text-orange-700; }
+
+  /* ── Tables ── */
+  .table-wrapper {
+    @apply overflow-x-auto rounded-xl border border-gray-100 bg-white;
+  }
+  .admin-table { @apply w-full text-sm; }
+  .admin-table thead tr { @apply bg-gray-50 border-b border-gray-100; }
+  .admin-table thead th {
+    @apply px-4 py-3.5 text-left text-xs font-semibold text-gray-500
+           uppercase tracking-wider whitespace-nowrap;
+  }
+  .admin-table tbody tr {
+    @apply border-b border-gray-50 hover:bg-purple-50/40 transition-colors;
+  }
+  .admin-table tbody tr:last-child { @apply border-0; }
+  .admin-table tbody td { @apply px-4 py-3.5 text-gray-700; }
+
+  /* ── Page structure ── */
+  .page-container { @apply p-6 max-w-screen-2xl mx-auto; }
+  .page-header {
+    @apply mb-6 flex items-start justify-between flex-wrap gap-4;
+  }
+  .page-title    { @apply text-2xl font-bold text-gray-900; }
+  .page-subtitle { @apply text-sm text-gray-500 mt-0.5; }
+
+  /* ── Stat cards ── */
+  .stat-card  { @apply card flex items-start gap-4; }
+  .stat-icon  {
+    @apply w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0;
+  }
+  .stat-value { @apply text-2xl font-bold text-gray-900 leading-tight; }
+  .stat-label { @apply text-sm text-gray-500 font-medium; }
+  .stat-delta      { @apply text-xs font-semibold mt-1; }
+  .stat-delta-up   { @apply stat-delta text-emerald-600; }
+  .stat-delta-down { @apply stat-delta text-red-500; }
+
+  /* ── Sidebar nav ── */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+           transition-all cursor-pointer select-none;
+  }
+  .nav-item-active   { @apply bg-purple-600 text-white shadow-sm; }
+  .nav-item-inactive {
+    @apply text-gray-400 hover:text-white;
+  }
+  .nav-section-label {
+    @apply text-xs font-semibold text-gray-500 uppercase tracking-widest
+           px-3 mb-1 mt-5;
+  }
+
+  /* ── Modals ── */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center
+           justify-center z-50 p-4 animate-fade-in;
+  }
+  .modal-panel {
+    @apply bg-white rounded-2xl shadow-2xl w-full max-h-[90vh]
+           overflow-y-auto animate-slide-up;
+  }
+
+  /* ── Misc ── */
+  .divider       { @apply border-t border-gray-100 my-5; }
+  .empty-state   { @apply flex flex-col items-center justify-center py-16 text-center; }
+  .skeleton      { @apply bg-gray-200 rounded-lg animate-pulse; }
+  .section-title { @apply text-base font-semibold text-gray-800; }
+}
+
+/* ─── Sidebar background ─────────────────────────────────────────────────── */
+.sidebar {
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+}
+
+/* Sidebar hover - not expressible in Tailwind without a plugin */
+.hover\:bg-white\/8:hover { background-color: rgba(255, 255, 255, 0.08); }
+
+/* ─── Gradients ──────────────────────────────────────────────────────────── */
+.purple-gradient {
+  background: linear-gradient(135deg, #6b21a8 0%, #9333ea 50%, #a855f7 100%);
+}
+.purple-gradient-soft {
+  background: linear-gradient(135deg, #f3e8ff 0%, #faf5ff 100%);
+}
+
+/* ─── Animations ─────────────────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fade-in      { animation: fadeIn 0.2s ease both; }
+.animate-slide-up     { animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-slide-in-left { animation: slideInLeft 0.2s ease both; }
+
+/* Stagger children */
+.stagger > * { animation: fadeIn 0.25s ease both; }
+.stagger > *:nth-child(1) { animation-delay: 0.04s; }
+.stagger > *:nth-child(2) { animation-delay: 0.08s; }
+.stagger > *:nth-child(3) { animation-delay: 0.12s; }
+.stagger > *:nth-child(4) { animation-delay: 0.16s; }
+.stagger > *:nth-child(5) { animation-delay: 0.20s; }
+.stagger > *:nth-child(6) { animation-delay: 0.24s; }
+.stagger > *:nth-child(7) { animation-delay: 0.28s; }
+.stagger > *:nth-child(8) { animation-delay: 0.32s; }

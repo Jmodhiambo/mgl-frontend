@@ -10,12 +10,11 @@
     "jsx": "react-jsx",
     "types": ["vite/client"],
 
-    "baseUrl": ".",
     "paths": {
-      "@shared/*": ["src/shared/*"],
-      "@user/*": ["src/apps/user/*"],
-      "@organizer/*": ["src/apps/organizer/*"],
-      "@admin/*": ["src/apps/admin/*"]
+      "@shared/*": ["./src/shared/*"],
+      "@user/*": ["./src/apps/user/*"],
+      "@organizer/*": ["./src/apps/organizer/*"],
+      "@admin/*": ["./src/apps/admin/*"]
     }
   },
   "include": ["src"],

@@ -28,7 +28,7 @@ const Login: React.FC = () => {
       const response = await loginUser({ email, password });
       
       // Update auth context with the access token
-      login(response.access_token);
+      await login(response.access_token);
 
       // Redirect to original URL or default
       if (redirectUrl) {

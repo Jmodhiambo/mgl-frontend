@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
   return {
     root: path.resolve(__dirname),
     envDir: path.resolve(__dirname, "../../../"),
-    cacheDir: "../../../node_modules/.vite",
+    cacheDir: "../../../node_modules/.vite-admin",
     
     plugins: [
       react({
