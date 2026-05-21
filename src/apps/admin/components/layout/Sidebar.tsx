@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, Calendar, Ticket, CreditCard,
   MessageSquare, BarChart3, FileText, Settings, Shield,
   ClipboardList, ChevronRight, Zap, UserCog, LogOut,
-  Bell, Tag,
+  Bell, Tag, X,
 } from 'lucide-react';
 
 interface NavSection {
@@ -21,6 +21,7 @@ interface NavItem {
 
 interface SidebarProps {
   onLogout?: () => void;
+  onClose?: () => void;
   pendingApprovals?: number;
   openMessages?: number;
 }
@@ -64,8 +65,9 @@ const navSections: NavSection[] = [
   },
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({ onLogout, pendingApprovals = 0, openMessages = 0 }) => {
+const Sidebar: React.FC<SidebarProps> = ({ onLogout, onClose, pendingApprovals = 0, openMessages = 0 }) => {
   const location = useLocation();
+  const userUrl = import.meta.env.VITE_USER_DOMAIN;
 
   // Inject dynamic badges
   const withBadges = navSections.map(section => ({
@@ -86,10 +88,19 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, pendingApprovals = 0, openM
         <div className="w-9 h-9 rounded-xl purple-gradient flex items-center justify-center flex-shrink-0 shadow-lg">
           <Shield className="w-5 h-5 text-white" />
         </div>
-        <div>
+        <div className="flex-1">
           <p className="text-white font-bold text-sm leading-tight">MGLTickets</p>
           <p className="text-purple-400 text-xs font-medium">Admin Console</p>
         </div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="lg:hidden flex items-center justify-center w-8 h-8 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Close sidebar"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* ── Navigation ── */}
@@ -125,6 +136,16 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, pendingApprovals = 0, openM
 
       {/* ── Bottom strip ── */}
       <div className="px-3 py-3 border-t border-white/8 space-y-0.5">
+        {/* Browse Events — back to user app */}
+        <a
+          href={userUrl}
+          rel="noopener noreferrer"
+          className="nav-item nav-item-inactive w-full text-left text-purple-300 hover:bg-purple-500/15 hover:text-purple-200"
+        >
+          <Calendar className="w-4 h-4" />
+          <span className="flex-1">Browse Events</span>
+        </a>
+        <div className="border-t border-white/8 my-1.5" />
         {/* Quick actions */}
         <button className="nav-item nav-item-inactive w-full text-left">
           <Bell className="w-4 h-4" />

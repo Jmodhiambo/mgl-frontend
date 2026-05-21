@@ -1,5 +1,5 @@
 // src/apps/admin/pages/Messages.tsx
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { MessageSquare, X, Mail, Clock, CheckCircle, AlertTriangle, Trash2 } from 'lucide-react';
 import {
   FilterBar, StatusBadge, ConfirmDialog, SectionCard,
@@ -236,15 +236,27 @@ const MessageActionsMenu: React.FC<{
   onAction: (a: QuickAction) => void;
 }> = ({ message, onView, onAction }) => {
   const [open, setOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  const handleOpen = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setOpenUpward(window.innerHeight - rect.bottom < 200);
+    }
+    setOpen(o => !o);
+  };
+
   return (
     <div className="relative">
-      <button onClick={() => setOpen(o => !o)} className="btn-icon">
+      <button ref={triggerRef} onClick={handleOpen} className="btn-icon">
         <span className="text-xs font-medium text-gray-500">•••</span>
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-8 z-20 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 text-sm animate-slide-up">
+          <div className={`absolute right-0 z-20 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 text-sm animate-slide-up
+            ${openUpward ? 'bottom-full mb-1' : 'top-8'}`}>
             <button onClick={() => { onView(); setOpen(false); }}
               className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-gray-50 text-gray-700">
               <MessageSquare className="w-4 h-4 text-gray-400" /> Read Message

@@ -36,7 +36,18 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
   return Promise.resolve(dummyDashboardStats);
 };
 
-// ─── Charts ───────────────────────────────────────────────────────────────────
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+// ⚠️  NEW ENDPOINT NEEDED: GET /admin/analytics/dashboard
+//     Should return DashboardStats object with aggregated platform metrics
+// ⚠️  NEW ENDPOINT NEEDED: GET /admin/analytics/revenue?period=monthly
+//     Should return array of { label, value } for revenue chart
+// ⚠️  NEW ENDPOINT NEEDED: GET /admin/analytics/user-growth?period=monthly
+//     Should return array of { label, value } for user growth chart
+// ⚠️  NEW ENDPOINT NEEDED: GET /admin/analytics/events-by-category
+//     Should return array of { label, value } for category distribution
+// ⚠️  NEW ENDPOINT NEEDED: GET /admin/analytics/count (and /admin/analytics/count/:role)
+//     Should return total user count, or count filtered by role
 
 export const getRevenueChart = async (): Promise<{ label: string; value: number }[]> => {
   // return (await api.get('/admin/analytics/revenue')).data;
@@ -121,6 +132,12 @@ export const searchUsersByName = async (name: string): Promise<AdminUser[]> => {
       `${u.first_name} ${u.last_name}`.toLowerCase().includes(name.toLowerCase())
     )
   );
+};
+
+export const countUsersByRole = async (role?: string): Promise<number> => {
+  // return (await api.get(`/admin/analytics/count${role ? `/${role}` : ''}`)).data;
+  if (!role) return Promise.resolve(dummyUsers.length);
+  return Promise.resolve(dummyUsers.filter(u => u.role === role).length);
 };
 
 // ─── Events ───────────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 // src/apps/admin/components/layout/Header.tsx
 import { useState } from 'react';
-import { Search, Bell, Menu, X, ChevronDown } from 'lucide-react';
+import { Search, Bell, Menu, X, ChevronDown, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
@@ -18,6 +18,8 @@ const Header: React.FC<HeaderProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
+
+  const userUrl = import.meta.env.VITE_USER_DOMAIN;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +55,18 @@ const Header: React.FC<HeaderProps> = ({
       </form>
 
       <div className="flex-1" />
+
+      {/* Browse Events — back to user app */}
+      <a
+        href={userUrl}
+        rel="noopener noreferrer"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-purple-200 bg-purple-50
+                   text-purple-700 text-sm font-medium hover:bg-purple-100 hover:border-purple-300 transition-all"
+        title="Browse Events"
+      >
+        <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+        <span className="hidden sm:inline">Browse Events</span>
+      </a>
 
       {/* Notifications */}
       <button className="relative btn-icon">

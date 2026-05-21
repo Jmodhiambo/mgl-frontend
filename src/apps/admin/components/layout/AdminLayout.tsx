@@ -56,6 +56,7 @@ const AdminLayout: React.FC = () => {
               pendingApprovals={dummyDashboardStats.pending_approvals}
               openMessages={dummyDashboardStats.open_messages}
               onLogout={logout}
+              onClose={() => setSidebarOpen(false)}
             />
           </div>
         </div>
