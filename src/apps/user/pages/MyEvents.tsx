@@ -1,5 +1,10 @@
+// src/apps/user/pages/MyEvents.tsx
 import React, { useState, useEffect } from 'react';
-import { Calendar, MapPin, Clock, Search, Heart, Users, ExternalLink, TrendingUp, AlertCircle, X, DollarSign, Ticket, Eye, BarChart3 } from 'lucide-react';
+import {
+  Calendar, MapPin, Clock, Search, Heart, Users, ExternalLink,
+  TrendingUp, X, DollarSign, Ticket, Eye, BarChart3,
+  AlertTriangle, CheckCircle, Lock,
+} from 'lucide-react';
 import { MyEventsSEO } from '@shared/components/SEO';
 
 interface Event {
@@ -34,6 +39,10 @@ interface User {
   name: string;
   email: string;
   role: string;
+  // Added: tracks whether the organizer has finished their profile setup.
+  // False when the account was created by an admin; true when self-created
+  // or when the organizer completes the setup flow.
+  organizer_profile_completed?: boolean;
   organizer_info?: {
     bio?: string;
     organization_name?: string;
@@ -44,140 +53,150 @@ interface User {
   };
 }
 
+// Steps shown in the "complete your profile" nudge inside the modal
+const PROFILE_SETUP_STEPS = [
+  'Add your organization name',
+  'Write a short bio',
+  'Upload a profile picture',
+  'Add your area of expertise',
+  'Link your social media (optional)',
+];
+
 const MyEventsPage: React.FC = () => {
   const organizerBaseURL = import.meta.env.VITE_ORGANIZER_DOMAIN;
-  const [favoriteEvents, setFavoriteEvents] = useState<Event[]>([]);
-  const [organizingEvents, setOrganizingEvents] = useState<OrganizerEvent[]>([]);
+
+  const [favoriteEvents, setFavoriteEvents]       = useState<Event[]>([]);
+  const [organizingEvents, setOrganizingEvents]   = useState<OrganizerEvent[]>([]);
   const [coOrganizingEvents, setCoOrganizingEvents] = useState<OrganizerEvent[]>([]);
-  const [filteredEvents, setFilteredEvents] = useState<(Event | OrganizerEvent)[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [filterType, setFilterType] = useState<string>('all');
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [user, setUser] = useState<User | null>(null);
+  const [filteredEvents, setFilteredEvents]       = useState<(Event | OrganizerEvent)[]>([]);
+  const [loading, setLoading]                     = useState<boolean>(true);
+  const [filterType, setFilterType]               = useState<string>('all');
+  const [searchTerm, setSearchTerm]               = useState<string>('');
+  const [user, setUser]                           = useState<User | null>(null);
   const [showOrganizerPrompt, setShowOrganizerPrompt] = useState<boolean>(false);
-  const [selectedEvent, setSelectedEvent] = useState<OrganizerEvent | null>(null);
+  const [selectedEvent, setSelectedEvent]         = useState<OrganizerEvent | null>(null);
   const [selectedEventType, setSelectedEventType] = useState<'organizer' | 'co-organizer' | null>(null);
 
   useEffect(() => {
     document.title = 'My Events - MGLTickets';
-    
+
     const fetchUserAndEvents = async (): Promise<void> => {
       try {
-        // Fetch current user data
-        // const userResponse = await fetch('/api/users/me');
-        // const userData = await userResponse.json();
-        
+        // TODO: Replace with real API calls
+        // const userRes = await fetch('/api/users/me');
+        // const userData = await userRes.json();
+
         const mockUser: User = {
           id: 1,
-          name: "John Doe",
-          email: "john@example.com",
-          role: "user",
-          // Toggle this to test different scenarios
+          name: 'John Doe',
+          email: 'john@example.com',
+          role: 'organizer',
+          // ← Toggle to test both states:
+          //   true  = profile complete  → "View Full Dashboard" works
+          //   false = profile incomplete → dashboard button is greyed/locked
+          organizer_profile_completed: false,
           organizer_info: {
-            bio: "Experienced event organizer",
-            organization_name: "MGLTickets Events"
-          }
+            bio: '',
+            organization_name: '',
+          },
         };
         setUser(mockUser);
 
-        // GET /api/users/me/favorites
         const mockFavorites: Event[] = [
           {
             id: 2,
-            title: "Tech Conference 2025",
-            slug: "tech-conference-2025",
-            description: "Annual technology and innovation conference",
-            venue: "KICC, Nairobi",
-            start_time: "2025-08-20T09:00:00Z",
-            end_time: "2025-08-20T18:00:00Z",
-            flyer_url: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400",
-            status: "upcoming"
+            title: 'Tech Conference 2025',
+            slug: 'tech-conference-2025',
+            description: 'Annual technology and innovation conference',
+            venue: 'KICC, Nairobi',
+            start_time: '2025-08-20T09:00:00Z',
+            end_time: '2025-08-20T18:00:00Z',
+            flyer_url: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400',
+            status: 'upcoming',
           },
           {
             id: 5,
-            title: "Charity Marathon 2025",
-            slug: "charity-marathon-2025",
-            description: "Run for a cause",
-            venue: "Uhuru Park, Nairobi",
-            start_time: "2025-06-05T06:00:00Z",
-            end_time: "2025-06-05T12:00:00Z",
-            flyer_url: "https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=400",
-            status: "upcoming"
-          }
+            title: 'Charity Marathon 2025',
+            slug: 'charity-marathon-2025',
+            description: 'Run for a cause',
+            venue: 'Uhuru Park, Nairobi',
+            start_time: '2025-06-05T06:00:00Z',
+            end_time: '2025-06-05T12:00:00Z',
+            flyer_url: 'https://images.unsplash.com/photo-1452626038306-9aae5e071dd3?w=400',
+            status: 'upcoming',
+          },
         ];
         setFavoriteEvents(mockFavorites);
 
-        // GET /api/users/me/events/organizing
         const mockOrganizing: OrganizerEvent[] = [
           {
             id: 1,
-            title: "Summer Music Festival 2025",
-            slug: "summer-music-festival-2025",
-            description: "The biggest music festival of the year",
-            venue: "Kasarani Stadium, Nairobi",
-            start_time: "2025-07-15T14:00:00Z",
-            end_time: "2025-07-15T23:00:00Z",
-            flyer_url: "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400",
-            status: "upcoming",
+            title: 'Summer Music Festival 2025',
+            slug: 'summer-music-festival-2025',
+            description: 'The biggest music festival of the year',
+            venue: 'Kasarani Stadium, Nairobi',
+            start_time: '2025-07-15T14:00:00Z',
+            end_time: '2025-07-15T23:00:00Z',
+            flyer_url: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400',
+            status: 'upcoming',
             total_tickets: 5000,
             sold_tickets: 3200,
             revenue: 16000000,
             views: 12500,
-            bookings: 850
+            bookings: 850,
           },
           {
             id: 4,
-            title: "Art Gallery Opening",
-            slug: "art-gallery-opening",
-            description: "Contemporary art exhibition",
-            venue: "National Museum, Nairobi",
-            start_time: "2024-12-05T18:00:00Z",
-            end_time: "2024-12-05T21:00:00Z",
-            flyer_url: "https://images.unsplash.com/photo-1531058020387-3be344556be6?w=400",
-            status: "completed",
+            title: 'Art Gallery Opening',
+            slug: 'art-gallery-opening',
+            description: 'Contemporary art exhibition',
+            venue: 'National Museum, Nairobi',
+            start_time: '2024-12-05T18:00:00Z',
+            end_time: '2024-12-05T21:00:00Z',
+            flyer_url: 'https://images.unsplash.com/photo-1531058020387-3be344556be6?w=400',
+            status: 'completed',
             total_tickets: 200,
             sold_tickets: 200,
             revenue: 800000,
             views: 3200,
-            bookings: 200
-          }
+            bookings: 200,
+          },
         ];
         setOrganizingEvents(mockOrganizing);
 
-        // GET /api/users/me/events/co-organizing
         const mockCoOrganizing: OrganizerEvent[] = [
           {
             id: 3,
-            title: "Food & Wine Expo",
-            slug: "food-and-wine-expo",
-            description: "Culinary excellence showcase",
-            venue: "Villa Rosa Kempinski, Nairobi",
-            start_time: "2025-09-10T12:00:00Z",
-            end_time: "2025-09-10T20:00:00Z",
-            flyer_url: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400",
-            status: "upcoming",
+            title: 'Food & Wine Expo',
+            slug: 'food-and-wine-expo',
+            description: 'Culinary excellence showcase',
+            venue: 'Villa Rosa Kempinski, Nairobi',
+            start_time: '2025-09-10T12:00:00Z',
+            end_time: '2025-09-10T20:00:00Z',
+            flyer_url: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400',
+            status: 'upcoming',
             total_tickets: 1000,
             sold_tickets: 750,
             revenue: 3000000,
             views: 5800,
-            bookings: 320
+            bookings: 320,
           },
           {
             id: 6,
-            title: "Jazz Night Live",
-            slug: "jazz-night-live",
-            description: "An evening of smooth jazz",
-            venue: "Alliance Française, Nairobi",
-            start_time: "2025-07-22T19:00:00Z",
-            end_time: "2025-07-22T23:00:00Z",
-            flyer_url: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400",
-            status: "upcoming",
+            title: 'Jazz Night Live',
+            slug: 'jazz-night-live',
+            description: 'An evening of smooth jazz',
+            venue: 'Alliance Française, Nairobi',
+            start_time: '2025-07-22T19:00:00Z',
+            end_time: '2025-07-22T23:00:00Z',
+            flyer_url: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400',
+            status: 'upcoming',
             total_tickets: 300,
             sold_tickets: 180,
             revenue: 900000,
             views: 2100,
-            bookings: 85
-          }
+            bookings: 85,
+          },
         ];
         setCoOrganizingEvents(mockCoOrganizing);
 
@@ -194,108 +213,66 @@ const MyEventsPage: React.FC = () => {
 
   useEffect(() => {
     let filtered: (Event | OrganizerEvent)[] = [];
-
-    if (filterType === 'all') {
-      filtered = [...favoriteEvents, ...organizingEvents, ...coOrganizingEvents];
-    } else if (filterType === 'favorites') {
-      filtered = favoriteEvents;
-    } else if (filterType === 'organizing') {
-      filtered = organizingEvents;
-    } else if (filterType === 'co-organizing') {
-      filtered = coOrganizingEvents;
-    }
+    if (filterType === 'all')             filtered = [...favoriteEvents, ...organizingEvents, ...coOrganizingEvents];
+    else if (filterType === 'favorites')  filtered = favoriteEvents;
+    else if (filterType === 'organizing') filtered = organizingEvents;
+    else if (filterType === 'co-organizing') filtered = coOrganizingEvents;
 
     if (searchTerm) {
-      filtered = filtered.filter((event) =>
-        event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        event.venue.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(e =>
+        e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        e.venue.toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
-
     setFilteredEvents(filtered);
   }, [filterType, searchTerm, favoriteEvents, organizingEvents, coOrganizingEvents]);
 
   const getEventType = (eventId: number): 'favorite' | 'organizer' | 'co-organizer' => {
-    if (favoriteEvents.some(e => e.id === eventId)) return 'favorite';
-    if (organizingEvents.some(e => e.id === eventId)) return 'organizer';
+    if (favoriteEvents.some(e => e.id === eventId))    return 'favorite';
+    if (organizingEvents.some(e => e.id === eventId))  return 'organizer';
     return 'co-organizer';
   };
 
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
-  };
+  const formatDate = (ds: string): string =>
+    new Date(ds).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-  const formatTime = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
-  };
+  const formatTime = (ds: string): string =>
+    new Date(ds).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
   const getStatusColor = (status: string): string => {
     switch (status) {
-      case 'upcoming':
-        return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'ongoing':
-        return 'bg-green-100 text-green-700 border-green-200';
-      case 'completed':
-        return 'bg-gray-100 text-gray-700 border-gray-200';
-      case 'cancelled':
-        return 'bg-red-100 text-red-700 border-red-200';
-      default:
-        return 'bg-gray-100 text-gray-700 border-gray-200';
+      case 'upcoming':  return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'ongoing':   return 'bg-green-100 text-green-700 border-green-200';
+      case 'completed': return 'bg-gray-100 text-gray-700 border-gray-200';
+      case 'cancelled': return 'bg-red-100 text-red-700 border-red-200';
+      default:          return 'bg-gray-100 text-gray-700 border-gray-200';
     }
   };
 
   const getTypeIcon = (type: string): React.ReactNode => {
-    switch (type) {
-      case 'favorite':
-        return <Heart className="w-4 h-4 fill-current" />;
-      case 'organizer':
-        return <Users className="w-4 h-4" />;
-      case 'co-organizer':
-        return <Users className="w-4 h-4" />;
-      default:
-        return null;
-    }
+    if (type === 'favorite') return <Heart className="w-4 h-4 fill-current" />;
+    return <Users className="w-4 h-4" />;
   };
 
   const getTypeLabel = (type: string): string => {
-    switch (type) {
-      case 'favorite':
-        return 'Favorite';
-      case 'organizer':
-        return 'Organizer';
-      case 'co-organizer':
-        return 'Co-Organizer';
-      default:
-        return '';
-    }
+    if (type === 'favorite')     return 'Favorite';
+    if (type === 'organizer')    return 'Organizer';
+    if (type === 'co-organizer') return 'Co-Organizer';
+    return '';
   };
 
   const handleEventClick = (event: Event | OrganizerEvent): void => {
     const eventType = getEventType(event.id);
-    
     if (eventType === 'favorite') {
-      // Navigate to public event details page
       window.location.href = `/events/${event.slug}`;
     } else if (eventType === 'organizer') {
-      // User is THE organizer of this event - show stats modal with dashboard access
       setSelectedEvent(event as OrganizerEvent);
       setSelectedEventType('organizer');
-    } else if (eventType === 'co-organizer') {
-      // User is a co-organizer of this event
+    } else {
+      // co-organizer
       if (!user?.organizer_info) {
-        // Co-organizer doesn't have organizer profile - prompt to create one
         setShowOrganizerPrompt(true);
       } else {
-        // Co-organizer has organizer profile - show limited stats modal (no dashboard access)
         setSelectedEvent(event as OrganizerEvent);
         setSelectedEventType('co-organizer');
       }
@@ -304,7 +281,6 @@ const MyEventsPage: React.FC = () => {
 
   const handleViewFullDashboard = (): void => {
     if (selectedEvent) {
-      // Only organizers (not co-organizers) can access the full dashboard
       window.location.href = `${organizerBaseURL}/events/${selectedEvent.slug}`;
     }
   };
@@ -313,21 +289,22 @@ const MyEventsPage: React.FC = () => {
     window.location.href = '/setup-organizer-profile';
   };
 
+  const profileCompleted = user?.organizer_profile_completed === true;
+
   const eventCounts: EventCounts = {
     all: favoriteEvents.length + organizingEvents.length + coOrganizingEvents.length,
     favorites: favoriteEvents.length,
     organizing: organizingEvents.length,
-    coOrganizing: coOrganizingEvents.length
+    coOrganizing: coOrganizingEvents.length,
   };
 
-  const isOrganizerEvent = (event: Event | OrganizerEvent): event is OrganizerEvent => {
-    return 'total_tickets' in event;
-  };
+  const isOrganizerEvent = (e: Event | OrganizerEvent): e is OrganizerEvent =>
+    'total_tickets' in e;
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-16 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent" />
       </div>
     );
   }
@@ -337,79 +314,80 @@ const MyEventsPage: React.FC = () => {
       <MyEventsSEO />
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
         <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+          {/* ── Incomplete profile banner ── */}
+          {user?.role === 'organizer' && !profileCompleted && (
+            <div className="mb-6 flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
+              <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-red-700">Your organizer profile is incomplete</p>
+                <p className="text-sm text-red-600 mt-0.5">
+                  Complete your profile to unlock your organizer dashboard and start managing events.
+                </p>
+              </div>
+              <button
+                onClick={handleSetupProfile}
+                className="flex-shrink-0 text-sm font-semibold text-red-700 bg-red-100 hover:bg-red-200 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Complete Now
+              </button>
+            </div>
+          )}
+
           <div className="mb-8">
             <h2 className="text-3xl font-bold text-gray-800 mb-2">My Events</h2>
-            <p className="text-gray-600">Manage your favorite events and organized events</p>
+            <p className="text-gray-600">Manage your favourite events and organised events</p>
           </div>
 
+          {/* Filter tabs */}
           <div className="bg-white rounded-xl shadow-md p-2 mb-6 flex flex-wrap gap-2">
-            <button
-              onClick={() => setFilterType('all')}
-              className={`px-6 py-2 rounded-lg font-medium transition-all ${
-                filterType === 'all'
-                  ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
-                  : 'text-gray-600 hover:bg-orange-50'
-              }`}
-            >
-              All Events ({eventCounts.all})
-            </button>
-            <button
-              onClick={() => setFilterType('favorites')}
-              className={`px-6 py-2 rounded-lg font-medium transition-all ${
-                filterType === 'favorites'
-                  ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
-                  : 'text-gray-600 hover:bg-orange-50'
-              }`}
-            >
-              Favorites ({eventCounts.favorites})
-            </button>
-            <button
-              onClick={() => setFilterType('organizing')}
-              className={`px-6 py-2 rounded-lg font-medium transition-all ${
-                filterType === 'organizing'
-                  ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
-                  : 'text-gray-600 hover:bg-orange-50'
-              }`}
-            >
-              Organizing ({eventCounts.organizing})
-            </button>
-            <button
-              onClick={() => setFilterType('co-organizing')}
-              className={`px-6 py-2 rounded-lg font-medium transition-all ${
-                filterType === 'co-organizing'
-                  ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
-                  : 'text-gray-600 hover:bg-orange-50'
-              }`}
-            >
-              Co-Organizing ({eventCounts.coOrganizing})
-            </button>
+            {[
+              { key: 'all',           label: `All Events (${eventCounts.all})` },
+              { key: 'favorites',     label: `Favorites (${eventCounts.favorites})` },
+              { key: 'organizing',    label: `Organizing (${eventCounts.organizing})` },
+              { key: 'co-organizing', label: `Co-Organizing (${eventCounts.coOrganizing})` },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setFilterType(tab.key)}
+                className={`px-6 py-2 rounded-lg font-medium transition-all ${
+                  filterType === tab.key
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
+                    : 'text-gray-600 hover:bg-orange-50'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
+          {/* Search */}
           <div className="bg-white rounded-xl shadow-md p-4 mb-6">
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
                 placeholder="Search events by name or venue..."
                 value={searchTerm}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+                onChange={e => setSearchTerm(e.target.value)}
                 className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
               />
             </div>
           </div>
 
+          {/* Event grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredEvents.map((event) => {
+            {filteredEvents.map(event => {
               const eventType = getEventType(event.id);
               const showStats = isOrganizerEvent(event) && (eventType === 'organizer' || eventType === 'co-organizer');
-              
+
               return (
                 <div
                   key={event.id}
                   onClick={() => handleEventClick(event)}
                   className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all cursor-pointer group"
                 >
-                  <div className="relative h-48 bg-gradient-to-br from-orange-400 to-orange-600 overflow-hidden">
+                  <div className="relative h-48 overflow-hidden">
                     <img
                       src={event.flyer_url}
                       alt={event.title}
@@ -435,7 +413,6 @@ const MyEventsPage: React.FC = () => {
                     <h3 className="text-lg font-bold text-gray-800 mb-2 line-clamp-2 group-hover:text-orange-600 transition-colors">
                       {event.title}
                     </h3>
-                    
                     <div className="space-y-2 mb-4">
                       <div className="flex items-center text-gray-600 text-sm">
                         <Calendar className="w-4 h-4 mr-2 text-orange-500 flex-shrink-0" />
@@ -443,7 +420,7 @@ const MyEventsPage: React.FC = () => {
                       </div>
                       <div className="flex items-center text-gray-600 text-sm">
                         <Clock className="w-4 h-4 mr-2 text-orange-500 flex-shrink-0" />
-                        <span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
+                        <span>{formatTime(event.start_time)} – {formatTime(event.end_time)}</span>
                       </div>
                       <div className="flex items-center text-gray-600 text-sm">
                         <MapPin className="w-4 h-4 mr-2 text-orange-500 flex-shrink-0" />
@@ -463,7 +440,7 @@ const MyEventsPage: React.FC = () => {
                               <div
                                 className="bg-gradient-to-r from-orange-500 to-orange-600 h-1.5 rounded-full"
                                 style={{ width: `${((event.sold_tickets || 0) / event.total_tickets) * 100}%` }}
-                              ></div>
+                              />
                             </div>
                           </div>
                           <div>
@@ -489,9 +466,9 @@ const MyEventsPage: React.FC = () => {
               <p className="text-gray-500 mb-6">
                 {searchTerm || filterType !== 'all'
                   ? 'Try adjusting your filters or search term'
-                  : "You haven't saved any favorite events or created any events yet"}
+                  : "You haven't saved any favourite events or created any events yet"}
               </p>
-              <button 
+              <button
                 onClick={() => window.location.href = '/browse-events'}
                 className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all"
               >
@@ -501,34 +478,29 @@ const MyEventsPage: React.FC = () => {
           )}
         </main>
 
-        {/* Event Stats Modal */}
+        {/* ── Event Stats Modal ── */}
         {selectedEvent && selectedEventType && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              {/* Modal Header */}
+
+              {/* Header */}
               <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-gray-800 mb-1">
-                    {selectedEvent.title}
-                  </h3>
+                  <h3 className="text-2xl font-bold text-gray-800 mb-1">{selectedEvent.title}</h3>
                   <p className="text-sm text-gray-500">
-                    {selectedEventType === 'organizer' ? 'Event Organizer' : 'Co-Organizer'} • {formatDate(selectedEvent.start_time)}
+                    {selectedEventType === 'organizer' ? 'Event Organizer' : 'Co-Organizer'} · {formatDate(selectedEvent.start_time)}
                   </p>
                 </div>
                 <button
-                  onClick={() => {
-                    setSelectedEvent(null);
-                    setSelectedEventType(null);
-                  }}
+                  onClick={() => { setSelectedEvent(null); setSelectedEventType(null); }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
-              {/* Modal Content */}
               <div className="p-6">
-                {/* Event Image */}
+                {/* Flyer */}
                 <div className="rounded-xl overflow-hidden mb-6">
                   <img
                     src={selectedEvent.flyer_url}
@@ -537,7 +509,7 @@ const MyEventsPage: React.FC = () => {
                   />
                 </div>
 
-                {/* Event Details */}
+                {/* Event details */}
                 <div className="space-y-4 mb-6">
                   <div className="flex items-center text-gray-700">
                     <Calendar className="w-5 h-5 mr-3 text-orange-500" />
@@ -545,7 +517,7 @@ const MyEventsPage: React.FC = () => {
                   </div>
                   <div className="flex items-center text-gray-700">
                     <Clock className="w-5 h-5 mr-3 text-orange-500" />
-                    <span>{formatTime(selectedEvent.start_time)} - {formatTime(selectedEvent.end_time)}</span>
+                    <span>{formatTime(selectedEvent.start_time)} – {formatTime(selectedEvent.end_time)}</span>
                   </div>
                   <div className="flex items-center text-gray-700">
                     <MapPin className="w-5 h-5 mr-3 text-orange-500" />
@@ -553,64 +525,46 @@ const MyEventsPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Stats Grid */}
+                {/* Stats grid */}
                 <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 mb-6">
                   <h4 className="text-lg font-semibold text-gray-800 mb-4">Event Statistics</h4>
                   <div className="grid grid-cols-2 gap-4">
-                    {/* Tickets Sold */}
                     <div className="bg-white rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
                         <Ticket className="w-5 h-5 text-orange-500" />
-                        <span className="text-2xl font-bold text-gray-800">
-                          {selectedEvent.sold_tickets}
-                        </span>
+                        <span className="text-2xl font-bold text-gray-800">{selectedEvent.sold_tickets}</span>
                       </div>
                       <p className="text-xs text-gray-500 mb-1">Tickets Sold</p>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className="bg-gradient-to-r from-orange-500 to-orange-600 h-2 rounded-full"
                           style={{ width: `${((selectedEvent.sold_tickets || 0) / (selectedEvent.total_tickets || 1)) * 100}%` }}
-                        ></div>
+                        />
                       </div>
-                      <p className="text-xs text-gray-600 mt-1">
-                        {selectedEvent.total_tickets} total
-                      </p>
+                      <p className="text-xs text-gray-600 mt-1">{selectedEvent.total_tickets} total</p>
                     </div>
-
-                    {/* Revenue */}
                     <div className="bg-white rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
                         <DollarSign className="w-5 h-5 text-green-500" />
-                        <span className="text-2xl font-bold text-gray-800">
-                          {(selectedEvent.revenue || 0).toLocaleString()}
-                        </span>
+                        <span className="text-2xl font-bold text-gray-800">{(selectedEvent.revenue || 0).toLocaleString()}</span>
                       </div>
                       <p className="text-xs text-gray-500">Revenue (KES)</p>
-                      <p className="text-xs text-green-600 mt-1">
-                        <TrendingUp className="w-3 h-3 inline mr-1" />
-                        Total earnings
+                      <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                        <TrendingUp className="w-3 h-3" /> Total earnings
                       </p>
                     </div>
-
-                    {/* Views */}
                     <div className="bg-white rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
                         <Eye className="w-5 h-5 text-blue-500" />
-                        <span className="text-2xl font-bold text-gray-800">
-                          {(selectedEvent.views || 0).toLocaleString()}
-                        </span>
+                        <span className="text-2xl font-bold text-gray-800">{(selectedEvent.views || 0).toLocaleString()}</span>
                       </div>
                       <p className="text-xs text-gray-500">Page Views</p>
                       <p className="text-xs text-blue-600 mt-1">Event page visits</p>
                     </div>
-
-                    {/* Bookings */}
                     <div className="bg-white rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
                         <BarChart3 className="w-5 h-5 text-purple-500" />
-                        <span className="text-2xl font-bold text-gray-800">
-                          {(selectedEvent.bookings || 0).toLocaleString()}
-                        </span>
+                        <span className="text-2xl font-bold text-gray-800">{(selectedEvent.bookings || 0).toLocaleString()}</span>
                       </div>
                       <p className="text-xs text-gray-500">Total Bookings</p>
                       <p className="text-xs text-purple-600 mt-1">Unique purchases</p>
@@ -626,10 +580,11 @@ const MyEventsPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Action Buttons */}
-                <div className="flex gap-3">
+                {/* ── Action area ── */}
+                <div className="flex flex-col gap-3">
                   {selectedEventType === 'organizer' ? (
-                    <>
+                    profileCompleted ? (
+                      // Profile complete: active dashboard button
                       <button
                         onClick={handleViewFullDashboard}
                         className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all flex items-center justify-center gap-2"
@@ -637,8 +592,45 @@ const MyEventsPage: React.FC = () => {
                         <ExternalLink className="w-5 h-5" />
                         View Full Dashboard
                       </button>
-                    </>
+                    ) : (
+                      // Profile incomplete: locked dashboard button + setup steps
+                      <div className="rounded-xl border border-gray-200 overflow-hidden">
+                        {/* Disabled button */}
+                        <button
+                          disabled
+                          className="w-full flex items-center justify-center gap-2 py-3 bg-gray-100 text-gray-400 font-medium cursor-not-allowed"
+                        >
+                          <Lock className="w-4 h-4" />
+                          View Full Dashboard
+                        </button>
+
+                        {/* Setup nudge */}
+                        <div className="bg-amber-50 border-t border-amber-100 px-5 py-4">
+                          <div className="flex items-start gap-2 mb-3">
+                            <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                            <p className="text-sm font-semibold text-amber-800">
+                              Complete your organizer profile to unlock the dashboard
+                            </p>
+                          </div>
+                          <ul className="space-y-1.5 mb-4">
+                            {PROFILE_SETUP_STEPS.map((step, i) => (
+                              <li key={i} className="flex items-center gap-2 text-sm text-amber-700">
+                                <CheckCircle className="w-3.5 h-3.5 text-amber-300 flex-shrink-0" />
+                                {step}
+                              </li>
+                            ))}
+                          </ul>
+                          <button
+                            onClick={handleSetupProfile}
+                            className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors text-sm"
+                          >
+                            Set Up Profile Now
+                          </button>
+                        </div>
+                      </div>
+                    )
                   ) : (
+                    // Co-organizer: view-only notice
                     <div className="flex-1 bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
                       <p className="text-sm text-blue-800 font-medium mb-1">Co-Organizer Access</p>
                       <p className="text-xs text-blue-600">
@@ -652,25 +644,32 @@ const MyEventsPage: React.FC = () => {
           </div>
         )}
 
-        {/* Organizer Profile Setup Prompt Modal */}
+        {/* ── Organizer Profile Setup Prompt Modal (co-organizer without profile) ── */}
         {showOrganizerPrompt && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
-              <div className="text-center">
-                <div className="space-y-3">
-                  <button
-                    onClick={handleSetupProfile}
-                    className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all"
-                  >
-                    Setup Profile Now
-                  </button>
-                  <button
-                    onClick={() => setShowOrganizerPrompt(false)}
-                    className="w-full border-2 border-gray-200 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-all"
-                  >
-                    Maybe Later
-                  </button>
+              <div className="text-center mb-6">
+                <div className="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-7 h-7 text-orange-500" />
                 </div>
+                <h3 className="text-xl font-bold text-gray-800 mb-2">Set Up Your Organizer Profile</h3>
+                <p className="text-sm text-gray-500">
+                  You need an organizer profile to view event statistics and manage events.
+                </p>
+              </div>
+              <div className="space-y-3">
+                <button
+                  onClick={handleSetupProfile}
+                  className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all"
+                >
+                  Setup Profile Now
+                </button>
+                <button
+                  onClick={() => setShowOrganizerPrompt(false)}
+                  className="w-full border-2 border-gray-200 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-all"
+                >
+                  Maybe Later
+                </button>
               </div>
             </div>
           </div>
@@ -678,6 +677,6 @@ const MyEventsPage: React.FC = () => {
       </div>
     </>
   );
-}
+};
 
 export default MyEventsPage;

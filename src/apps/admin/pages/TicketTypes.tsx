@@ -7,13 +7,6 @@ import {
 import { dummyTicketTypes, dummyEvents, formatKES } from '@admin/utils/dummyData';
 import type { AdminTicketType } from '@admin/types';
 
-// ─── NOTE: These API calls exist in the backend ───────────────────────────────
-// GET  /admin/ticket-types/:id            → tt_services.get_ticket_type_by_id_service
-// GET  /admin/events/:event_id/ticket-types → tt_services.list_ticket_types_by_event_id_service
-// POST /admin/ticket-types               → tt_services.create_ticket_type_service
-// PUT  /admin/ticket-types/:id           → tt_services.update_ticket_type_service
-// DELETE /admin/ticket-types/:id         → tt_services.delete_ticket_type_service
-
 const PAGE_SIZE = 15;
 
 const TicketTypes: React.FC = () => {
@@ -26,8 +19,6 @@ const TicketTypes: React.FC = () => {
   const [detail, setDetail]       = useState<AdminTicketType | null>(null);
 
   useEffect(() => {
-    // TODO: replace with real API call
-    // const data = await listAdminTicketTypes();
     setTimeout(() => { setTickets(dummyTicketTypes); setLoading(false); }, 400);
   }, []);
 
@@ -79,23 +70,23 @@ const TicketTypes: React.FC = () => {
           <p className="page-subtitle">{tickets.length} ticket types across {dummyEvents.length} events</p>
         </div>
         <button onClick={exportCSV} className="btn-secondary btn-sm flex items-center gap-2">
-          <Download className="w-4 h-4" /> Export
+          <Download className="w-4 h-4" /> <span className="hidden sm:inline">Export</span>
         </button>
       </div>
 
       {/* Summary */}
       <div className="grid grid-cols-3 gap-4 stagger">
-        <div className="card-sm text-center">
-          <p className="text-xs text-gray-500 mb-1">Total Tickets Sold</p>
-          <p className="text-2xl font-bold text-purple-700">{totals.totalSold.toLocaleString()}</p>
+        <div className="card-sm text-center overflow-hidden">
+          <p className="text-xs text-gray-500 mb-1">Total Sold</p>
+          <p className="text-xl font-bold text-purple-700 leading-tight">{totals.totalSold.toLocaleString()}</p>
         </div>
-        <div className="card-sm text-center">
-          <p className="text-xs text-gray-500 mb-1">Revenue Generated</p>
-          <p className="text-2xl font-bold text-emerald-600">{formatKES(totals.totalRevenue)}</p>
+        <div className="card-sm text-center overflow-hidden">
+          <p className="text-xs text-gray-500 mb-1">Revenue</p>
+          <p className="text-sm font-bold text-emerald-600 leading-tight break-all">{formatKES(totals.totalRevenue)}</p>
         </div>
-        <div className="card-sm text-center">
-          <p className="text-xs text-gray-500 mb-1">Avg. Fill Rate</p>
-          <p className="text-2xl font-bold text-blue-600">{totals.avgFillRate}%</p>
+        <div className="card-sm text-center overflow-hidden">
+          <p className="text-xs text-gray-500 mb-1">Avg. Fill</p>
+          <p className="text-xl font-bold text-blue-600 leading-tight">{totals.avgFillRate}%</p>
         </div>
       </div>
 
@@ -129,7 +120,8 @@ const TicketTypes: React.FC = () => {
           <EmptyState icon={Tag} title="No ticket types found" />
         ) : (
           <>
-            <div className="table-wrapper rounded-none border-0">
+            {/* ── Desktop table ── */}
+            <div className="hidden md:block table-wrapper rounded-none border-0">
               <table className="admin-table">
                 <thead>
                   <tr>
@@ -148,7 +140,6 @@ const TicketTypes: React.FC = () => {
                   {paginated.map(t => {
                     const event = dummyEvents.find(e => e.id === t.event_id);
                     const fillRate = Math.round((t.quantity_sold / t.quantity) * 100);
-                    const remaining = t.quantity - t.quantity_sold;
                     return (
                       <tr key={t.id}>
                         <td className="text-gray-400 text-xs">#{t.id}</td>
@@ -197,6 +188,52 @@ const TicketTypes: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* ── Mobile card list ── */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {paginated.map(t => {
+                const event = dummyEvents.find(e => e.id === t.event_id);
+                const fillRate = Math.round((t.quantity_sold / t.quantity) * 100);
+                return (
+                  <div key={t.id} className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm text-gray-900">{t.name}</p>
+                        <p className="text-xs text-gray-500 truncate mt-0.5">
+                          {event?.title ?? `Event #${t.event_id}`}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {t.is_active
+                          ? <span className="badge-success">Active</span>
+                          : <span className="badge-gray">Inactive</span>}
+                        <button
+                          onClick={() => setDetail(t)}
+                          className="text-xs text-purple-600 hover:text-purple-700 font-medium whitespace-nowrap"
+                        >
+                          View →
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="font-bold text-emerald-700 text-sm">{formatKES(t.price)}</span>
+                      <span className="text-xs text-gray-500">{t.quantity_sold} / {t.quantity} sold</span>
+                    </div>
+                    {/* Fill rate bar */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${fillRate >= 90 ? 'bg-red-500' : fillRate >= 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                          style={{ width: `${fillRate}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-semibold text-gray-600 w-8 flex-shrink-0">{fillRate}%</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
             <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} total={filtered.length} limit={PAGE_SIZE} onPageChange={setPage} />
           </>
         )}
@@ -238,7 +275,6 @@ const TicketDetailModal: React.FC<{
           <button onClick={onClose} className="btn-icon"><X className="w-5 h-5" /></button>
         </div>
 
-        {/* Price highlight */}
         <div className="bg-purple-50 rounded-xl p-4 mb-5 text-center">
           <p className="text-xs text-gray-500 mb-1">Ticket Price</p>
           <p className="text-3xl font-bold text-purple-700">{formatKES(ticket.price)}</p>
@@ -262,7 +298,6 @@ const TicketDetailModal: React.FC<{
           ))}
         </div>
 
-        {/* Fill rate bar */}
         <div className="mb-5">
           <div className="flex justify-between text-xs text-gray-500 mb-1">
             <span>Fill Rate</span><span>{fillRate}%</span>

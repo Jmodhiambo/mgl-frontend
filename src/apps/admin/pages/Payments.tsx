@@ -63,20 +63,20 @@ const Payments: React.FC = () => {
           <p className="page-subtitle">{payments.length} transactions</p>
         </div>
         <button onClick={exportCSV} className="btn-secondary btn-sm flex items-center gap-2">
-          <Download className="w-4 h-4" /> Export CSV
+          <Download className="w-4 h-4" /> <span className="hidden sm:inline">Export CSV</span>
         </button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 stagger">
         {[
-          { label: 'Total Processed', value: formatKES(totals.total), cls: 'text-gray-900' },
+          { label: 'Total Processed', value: formatKES(totals.total),     cls: 'text-gray-900'    },
           { label: 'Completed',       value: formatKES(totals.completed), cls: 'text-emerald-600' },
-          { label: 'Refunded',        value: formatKES(totals.refunded),  cls: 'text-purple-600' },
-          { label: 'Pending',         value: totals.pending + ' txns',    cls: 'text-amber-600' },
+          { label: 'Refunded',        value: formatKES(totals.refunded),  cls: 'text-purple-600'  },
+          { label: 'Pending',         value: totals.pending + ' txns',    cls: 'text-amber-600'   },
         ].map(c => (
-          <div key={c.label} className="card-sm text-center">
-            <p className="text-xs text-gray-500 mb-1">{c.label}</p>
-            <p className={`text-lg font-bold ${c.cls}`}>{c.value}</p>
+          <div key={c.label} className="card-sm text-center overflow-hidden">
+            <p className="text-xs text-gray-500 mb-1 truncate">{c.label}</p>
+            <p className={`text-sm font-bold leading-tight break-all ${c.cls}`}>{c.value}</p>
           </div>
         ))}
       </div>
@@ -104,7 +104,8 @@ const Payments: React.FC = () => {
           <EmptyState icon={CreditCard} title="No payments found" />
         ) : (
           <>
-            <div className="table-wrapper rounded-none border-0">
+            {/* ── Desktop table ── */}
+            <div className="hidden md:block table-wrapper rounded-none border-0">
               <table className="admin-table">
                 <thead>
                   <tr>
@@ -134,6 +135,25 @@ const Payments: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* ── Mobile card list ── */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {paginated.map(p => (
+                <div key={p.id} className="p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-semibold text-sm text-gray-900">{p.user_name}</p>
+                    <span className="font-bold text-emerald-700 text-sm">{formatKES(p.amount)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <StatusBadge status={p.status} />
+                    <span className={methodColor[p.method] ?? 'badge-gray'}>{p.method}</span>
+                    <span className="text-xs text-gray-500">Booking #{p.booking_id}</span>
+                  </div>
+                  <p className="text-xs text-gray-400">{formatDateTime(p.created_at)}</p>
+                </div>
+              ))}
+            </div>
+
             <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} total={filtered.length} limit={PAGE_SIZE} onPageChange={setPage} />
           </>
         )}

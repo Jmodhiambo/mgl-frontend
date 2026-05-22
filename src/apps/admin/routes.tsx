@@ -15,6 +15,8 @@ import Analytics   from '@admin/pages/Analytics';
 import Reports     from '@admin/pages/Reports';
 import AuditLogs   from '@admin/pages/AuditLogs';
 import Settings    from '@admin/pages/Settings';
+import Notifications from '@admin/pages/Notifications';
+import MyProfile from '@admin/pages/MyProfile';
 
 export const router = createBrowserRouter([
   // Root redirect
@@ -44,6 +46,8 @@ export const router = createBrowserRouter([
       { path: 'reports',          element: <Reports /> },
       { path: 'audit-logs',       element: <AuditLogs /> },
       { path: 'settings',         element: <Settings /> },
+      { path: 'notifications',    element: <Notifications /> },
+      { path: 'profile',       element: <MyProfile /> },
     ],
   },
 

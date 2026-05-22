@@ -31,7 +31,6 @@ const ROLES = ['all', 'user', 'organizer', 'admin'];
 const STATUS_FILTERS = ['all', 'active', 'inactive', 'verified', 'unverified'];
 const PAGE_SIZE = 10;
 
-// ─── Create User Modal ────────────────────────────────────────────────────────
 const roleDescriptions: Record<NewUserRole, string> = {
   user: 'Standard account. Can browse events and make bookings.',
   organizer: "Can create and manage events. They'll be notified on first login to complete their organizer profile.",
@@ -68,7 +67,6 @@ const CreateUserModal: React.FC<{
     if (!validate()) return;
     setLoading(true);
     try {
-      // TODO: await createUser(form) — replace mock below
       await new Promise(r => setTimeout(r, 800));
       const newUser: AdminUser = {
         id: Math.floor(Math.random() * 9000) + 1000,
@@ -253,10 +251,10 @@ const Users: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setShowCreate(true)} className="btn-primary btn-sm flex items-center gap-2">
-            <UserPlus className="w-4 h-4" /> Create User
+            <UserPlus className="w-4 h-4" /> <span className="hidden sm:inline">Create User</span>
           </button>
           <button onClick={exportCSV} className="btn-secondary btn-sm flex items-center gap-2">
-            <Download className="w-4 h-4" /> Export CSV
+            <Download className="w-4 h-4" /> <span className="hidden sm:inline">Export CSV</span>
           </button>
         </div>
       </div>
@@ -285,7 +283,8 @@ const Users: React.FC = () => {
           <EmptyState icon={UserPlus} title="No users found" description="Try adjusting your filters" />
         ) : (
           <>
-            <div className="table-wrapper rounded-none border-0">
+            {/* ── Desktop table (md and up) ── */}
+            <div className="hidden md:block table-wrapper rounded-none border-0">
               <table className="admin-table">
                 <thead>
                   <tr><th>#</th><th>User</th><th>Role</th><th>Status</th><th>Verified</th><th>Joined</th><th>Actions</th></tr>
@@ -321,6 +320,35 @@ const Users: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* ── Mobile card list (below md) ── */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {paginated.map(user => (
+                <div key={user.id} className="flex items-start gap-3 p-4">
+                  <div className="w-10 h-10 rounded-full purple-gradient flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                    {user.first_name.charAt(0)}{user.last_name.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-semibold text-sm text-gray-900 truncate">
+                        {user.first_name} {user.last_name}
+                      </p>
+                      <UserActionsMenu user={user} onAction={a => setConfirm({ action: a, user })} onView={() => setDetail(user)} />
+                    </div>
+                    <p className="text-xs text-gray-500 truncate mt-0.5">{user.email}</p>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <StatusBadge status={user.role} />
+                      <StatusBadge status={user.is_active ? 'active' : 'inactive'} />
+                      {user.is_verified
+                        ? <span className="badge-success">Verified</span>
+                        : <span className="badge-warning">Unverified</span>}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1.5">Joined {formatDateTime(user.created_at)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} total={filtered.length} limit={PAGE_SIZE} onPageChange={setPage} />
           </>
         )}
@@ -400,8 +428,8 @@ const UserActionsMenu: React.FC<{
             )}
             {user.role === 'organizer' && (
               <>
-              <button onClick={() => { onAction('promote-admin'); setOpen(false); }} className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-purple-50 text-purple-600"><ShieldCheck className="w-4 h-4" /> Promote to Admin</button>
-              <button onClick={() => { onAction('demote-org'); setOpen(false); }} className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-amber-50 text-amber-600"><ShieldOff className="w-4 h-4" /> Demote to User</button>
+                <button onClick={() => { onAction('promote-admin'); setOpen(false); }} className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-purple-50 text-purple-600"><ShieldCheck className="w-4 h-4" /> Promote to Admin</button>
+                <button onClick={() => { onAction('demote-org'); setOpen(false); }} className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-amber-50 text-amber-600"><ShieldOff className="w-4 h-4" /> Demote to User</button>
               </>
             )}
             {user.role === 'admin' && (

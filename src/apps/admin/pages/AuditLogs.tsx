@@ -5,6 +5,7 @@
 //     target_type, target_id, details, created_at)
 // ⚠️  NEW ENDPOINT NEEDED: GET /admin/audit-logs?admin_id=&action=&target_type=&from=&to=
 
+// src/apps/admin/pages/AuditLogs.tsx
 import { useEffect, useState, useMemo } from 'react';
 import { ClipboardList, Download } from 'lucide-react';
 import { FilterBar, SectionCard, Pagination, TableSkeleton, EmptyState } from '@admin/components/ui';
@@ -44,8 +45,6 @@ const AuditLogs: React.FC = () => {
   const [page, setPage]             = useState(1);
 
   useEffect(() => {
-    // TODO: replace with real API call
-    // const data = await api.get('/admin/audit-logs');
     setTimeout(() => { setLogs(dummyAuditLogs); setLoading(false); }, 400);
   }, []);
 
@@ -83,7 +82,7 @@ const AuditLogs: React.FC = () => {
           <p className="page-subtitle">All admin actions are recorded here for accountability</p>
         </div>
         <button onClick={exportCSV} className="btn-secondary btn-sm flex items-center gap-2">
-          <Download className="w-4 h-4" /> Export
+          <Download className="w-4 h-4" /> <span className="hidden sm:inline">Export</span>
         </button>
       </div>
 
@@ -95,9 +94,9 @@ const AuditLogs: React.FC = () => {
           { label: 'Event Actions', value: logs.filter(l => l.target_type === 'event').length },
           { label: 'Today',         value: logs.filter(l => new Date(l.created_at).toDateString() === new Date().toDateString()).length },
         ].map(c => (
-          <div key={c.label} className="card-sm text-center">
-            <p className="text-xs text-gray-500 mb-1">{c.label}</p>
-            <p className="text-xl font-bold text-purple-700">{c.value}</p>
+          <div key={c.label} className="card-sm text-center overflow-hidden">
+            <p className="text-xs text-gray-500 mb-1 truncate">{c.label}</p>
+            <p className="text-xl font-bold text-purple-700 leading-tight">{c.value}</p>
           </div>
         ))}
       </div>
@@ -133,7 +132,8 @@ const AuditLogs: React.FC = () => {
           <EmptyState icon={ClipboardList} title="No audit logs found" />
         ) : (
           <>
-            <div className="table-wrapper rounded-none border-0">
+            {/* ── Desktop table ── */}
+            <div className="hidden md:block table-wrapper rounded-none border-0">
               <table className="admin-table">
                 <thead>
                   <tr>
@@ -174,8 +174,7 @@ const AuditLogs: React.FC = () => {
                             {Object.entries(log.details).map(([k, v]) => (
                               <span key={k} className="text-xs text-gray-600">
                                 <span className="font-medium text-gray-500">{k}:</span>{' '}
-                                {String(v)}
-                                {' '}
+                                {String(v)}{' '}
                               </span>
                             ))}
                           </div>
@@ -191,6 +190,38 @@ const AuditLogs: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* ── Mobile card list ── */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {paginated.map(log => (
+                <div key={log.id} className="p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full purple-gradient flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        {log.admin_name.charAt(0)}
+                      </div>
+                      <span className="text-sm font-semibold text-gray-800">{log.admin_name}</span>
+                    </div>
+                    <span className="text-xs text-gray-400">{formatDateTime(log.created_at)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={actionColors[log.action] ?? 'badge-gray'}>
+                      {actionLabel(log.action)}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="badge-gray capitalize">{log.target_type}</span>
+                      <span className="text-xs text-gray-500">#{log.target_id}</span>
+                    </div>
+                  </div>
+                  {Object.keys(log.details).length > 0 && (
+                    <p className="text-xs text-gray-500">
+                      {Object.entries(log.details).map(([k, v]) => `${k}: ${v}`).join(' · ')}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+
             <Pagination
               page={page}
               totalPages={Math.ceil(filtered.length / PAGE_SIZE)}

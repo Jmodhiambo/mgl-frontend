@@ -11,6 +11,7 @@ export interface User {
   email_verified: boolean;
   is_active: boolean;    
   created_at: string;
+  organizer_profile_completed?: boolean;
   // updated_at: string;
 }
 
@@ -50,6 +51,7 @@ export interface Organizer {
     is_active: boolean;
     created_at: string;
     updated_at: string;
+    organizer_profile_completed: boolean;
     organizer_info: OrganizerInfo;
 
 }

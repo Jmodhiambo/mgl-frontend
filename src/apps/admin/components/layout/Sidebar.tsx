@@ -1,5 +1,5 @@
 // src/apps/admin/components/layout/Sidebar.tsx
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Calendar, Ticket, CreditCard,
   MessageSquare, BarChart3, FileText, Settings, Shield,
@@ -24,62 +24,76 @@ interface SidebarProps {
   onClose?: () => void;
   pendingApprovals?: number;
   openMessages?: number;
+  unreadNotifications?: number;
 }
 
 const navSections: NavSection[] = [
   {
     label: 'Overview',
     items: [
-      { path: '/dashboard', label: 'Dashboard',   icon: LayoutDashboard },
+      { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     ],
   },
   {
     label: 'Management',
     items: [
-      { path: '/users',     label: 'Users',        icon: Users },
-      { path: '/events',    label: 'Events',       icon: Calendar },
-      { path: '/bookings',  label: 'Bookings',     icon: Ticket },
-      { path: '/payments',  label: 'Payments',     icon: CreditCard },
-      { path: '/ticket-types', label: 'Ticket Types', icon: Tag },
+      { path: '/users',        label: 'Users',        icon: Users    },
+      { path: '/events',       label: 'Events',       icon: Calendar },
+      { path: '/bookings',     label: 'Bookings',     icon: Ticket   },
+      { path: '/payments',     label: 'Payments',     icon: CreditCard },
+      { path: '/ticket-types', label: 'Ticket Types', icon: Tag      },
     ],
   },
   {
     label: 'Communication',
     items: [
-      { path: '/messages',  label: 'Messages',     icon: MessageSquare },
+      { path: '/messages', label: 'Messages', icon: MessageSquare },
     ],
   },
   {
     label: 'Insights',
     items: [
-      { path: '/analytics', label: 'Analytics',    icon: BarChart3 },
-      { path: '/reports',   label: 'Reports',      icon: FileText },
+      { path: '/analytics', label: 'Analytics', icon: BarChart3 },
+      { path: '/reports',   label: 'Reports',   icon: FileText  },
     ],
   },
   {
     label: 'System',
     items: [
-      { path: '/audit-logs', label: 'Audit Logs',  icon: ClipboardList },
-      { path: '/settings',   label: 'Settings',    icon: Settings },
+      { path: '/audit-logs', label: 'Audit Logs', icon: ClipboardList },
+      { path: '/settings',   label: 'Settings',   icon: Settings      },
     ],
   },
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({ onLogout, onClose, pendingApprovals = 0, openMessages = 0 }) => {
+const Sidebar: React.FC<SidebarProps> = ({
+  onLogout,
+  onClose,
+  pendingApprovals = 0,
+  openMessages = 0,
+  unreadNotifications = 3,
+}) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const userUrl = import.meta.env.VITE_USER_DOMAIN;
 
   // Inject dynamic badges
   const withBadges = navSections.map(section => ({
     ...section,
     items: section.items.map(item => {
-      if (item.path === '/events' && pendingApprovals > 0)
-        return { ...item, badge: pendingApprovals };
-      if (item.path === '/messages' && openMessages > 0)
-        return { ...item, badge: openMessages };
+      if (item.path === '/events'   && pendingApprovals > 0) return { ...item, badge: pendingApprovals };
+      if (item.path === '/messages' && openMessages > 0)     return { ...item, badge: openMessages };
       return item;
     }),
   }));
+
+  const isNotificationsActive = location.pathname === '/notifications';
+  const isProfileActive       = location.pathname === '/profile';
+
+  const handleNavigate = (path: string) => {
+    navigate(path);
+    onClose?.();
+  };
 
   return (
     <aside className="sidebar flex flex-col h-screen sticky top-0 overflow-y-auto">
@@ -110,7 +124,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, onClose, pendingApprovals =
             <p className="nav-section-label">{section.label}</p>
             {section.items.map((item) => {
               const Icon = item.icon;
-              const isActive = location.pathname === item.path ||
+              const isActive =
+                location.pathname === item.path ||
                 (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
               return (
                 <NavLink
@@ -145,17 +160,40 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout, onClose, pendingApprovals =
           <Calendar className="w-4 h-4" />
           <span className="flex-1">Browse Events</span>
         </a>
+
         <div className="border-t border-white/8 my-1.5" />
-        {/* Quick actions */}
-        <button className="nav-item nav-item-inactive w-full text-left">
+
+        {/* Notifications — navigates to /notifications */}
+        <button
+          onClick={() => handleNavigate('/notifications')}
+          className={`nav-item w-full text-left ${
+            isNotificationsActive ? 'nav-item-active' : 'nav-item-inactive'
+          }`}
+        >
           <Bell className="w-4 h-4" />
           <span className="flex-1">Notifications</span>
-          <span className="text-xs bg-amber-500 text-white px-1.5 py-0.5 rounded-full font-bold">3</span>
+          {unreadNotifications > 0 && (
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center
+              ${isNotificationsActive ? 'bg-white/25 text-white' : 'bg-amber-500 text-white'}`}>
+              {unreadNotifications}
+            </span>
+          )}
+          {isNotificationsActive && <ChevronRight className="w-3 h-3 opacity-60" />}
         </button>
-        <button className="nav-item nav-item-inactive w-full text-left">
+
+        {/* My Profile — navigates to /profile */}
+        <button
+          onClick={() => handleNavigate('/profile')}
+          className={`nav-item w-full text-left ${
+            isProfileActive ? 'nav-item-active' : 'nav-item-inactive'
+          }`}
+        >
           <UserCog className="w-4 h-4" />
           <span className="flex-1">My Profile</span>
+          {isProfileActive && <ChevronRight className="w-3 h-3 opacity-60" />}
         </button>
+
+        {/* Sign Out */}
         <button
           onClick={onLogout}
           className="nav-item w-full text-left text-red-400 hover:bg-red-500/10 hover:text-red-300"

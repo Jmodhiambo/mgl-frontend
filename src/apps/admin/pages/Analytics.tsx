@@ -76,20 +76,22 @@ const Analytics: React.FC = () => {
       </div>
 
       {/* ── KPI Row ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 stagger">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger">
         {[
           { label: 'Total Revenue',  value: formatKES(stats.total_revenue),       delta: '+9.8%', up: true,  icon: DollarSign, bg: 'bg-emerald-100', color: 'text-emerald-600' },
           { label: 'Total Users',    value: stats.total_users.toLocaleString(),    delta: `+${stats.new_users_this_week} this week`, up: true, icon: Users, bg: 'bg-purple-100', color: 'text-purple-600' },
           { label: 'Total Bookings', value: stats.total_bookings.toLocaleString(), delta: '+12.3%', up: true, icon: Ticket, bg: 'bg-blue-100', color: 'text-blue-600' },
           { label: 'Active Events',  value: stats.active_events,                  delta: `${stats.total_events} total`, up: true, icon: Calendar, bg: 'bg-amber-100', color: 'text-amber-600' },
         ].map(c => (
-          <div key={c.label} className="stat-card animate-fade-in">
-            <div className={`stat-icon ${c.bg}`}>
-              <c.icon className={`w-6 h-6 ${c.color}`} />
+          <div key={c.label} className="stat-card animate-fade-in flex-col items-start gap-3">
+            <div className="flex items-center justify-between w-full">
+              <p className="stat-label">{c.label}</p>
+              <div className={`stat-icon ${c.bg} flex-shrink-0`}>
+                <c.icon className={`w-5 h-5 ${c.color}`} />
+              </div>
             </div>
             <div>
-              <p className="stat-label">{c.label}</p>
-              <p className="stat-value">{c.value}</p>
+              <p className="stat-value text-xl leading-tight">{c.value}</p>
               <p className={c.up ? 'stat-delta-up' : 'stat-delta-down'}>{c.delta}</p>
             </div>
           </div>

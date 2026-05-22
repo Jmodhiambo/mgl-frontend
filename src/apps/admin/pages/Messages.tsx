@@ -98,15 +98,15 @@ const Messages: React.FC = () => {
       {/* Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 stagger">
         {[
-          { label: 'Open',      value: counts.open,      cls: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', onClick: () => setStatus('open') },
-          { label: 'Responded', value: counts.responded, cls: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-200',   onClick: () => setStatus('responded') },
-          { label: 'Closed',    value: counts.closed,    cls: 'text-gray-600',   bg: 'bg-gray-50',   border: 'border-gray-200',   onClick: () => setStatus('closed') },
-          { label: 'Spam',      value: counts.spam,      cls: 'text-red-600',    bg: 'bg-red-50',    border: 'border-red-200',    onClick: () => setStatus('spam') },
+          { label: 'Open',      value: counts.open,      cls: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', status: 'open' },
+          { label: 'Responded', value: counts.responded, cls: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-200',   status: 'responded' },
+          { label: 'Closed',    value: counts.closed,    cls: 'text-gray-600',   bg: 'bg-gray-50',   border: 'border-gray-200',   status: 'closed' },
+          { label: 'Spam',      value: counts.spam,      cls: 'text-red-600',    bg: 'bg-red-50',    border: 'border-red-200',    status: 'spam' },
         ].map(c => (
           <button key={c.label}
-            onClick={() => { c.onClick(); setPage(1); }}
+            onClick={() => { setStatus(c.status); setPage(1); }}
             className={`card-sm text-center border-2 transition-all hover:shadow-md cursor-pointer
-              ${statusFilter === c.label.toLowerCase() ? `${c.border} shadow-sm` : 'border-transparent'}`}
+              ${statusFilter === c.status ? `${c.border} shadow-sm` : 'border-transparent'}`}
           >
             <p className="text-xs text-gray-500 mb-1">{c.label}</p>
             <p className={`text-2xl font-bold ${c.cls}`}>{c.value}</p>
@@ -148,7 +148,8 @@ const Messages: React.FC = () => {
           <EmptyState icon={MessageSquare} title="No messages found" />
         ) : (
           <>
-            <div className="table-wrapper rounded-none border-0">
+            {/* ── Desktop table ── */}
+            <div className="hidden md:block table-wrapper rounded-none border-0">
               <table className="admin-table">
                 <thead>
                   <tr>
@@ -201,6 +202,44 @@ const Messages: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* ── Mobile card list ── */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {paginated.map(m => (
+                <div
+                  key={m.id}
+                  className={`p-4 space-y-2 ${m.status === 'open' ? 'bg-orange-50/40' : ''}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm text-gray-900 truncate">{m.name}</p>
+                      <p className="text-xs text-gray-500 truncate">{m.email}</p>
+                    </div>
+                    <MessageActionsMenu
+                      message={m}
+                      onView={() => setSelected(m)}
+                      onAction={(a) => setConfirm({ action: a, msg: m })}
+                    />
+                  </div>
+                  <button
+                    onClick={() => setSelected(m)}
+                    className="text-sm font-medium text-gray-800 hover:text-purple-700 text-left w-full truncate block"
+                  >
+                    {m.subject}
+                  </button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1">
+                      {statusIcon(m.status)}
+                      <StatusBadge status={m.status} size="sm" />
+                    </div>
+                    <span className="badge-gray capitalize">{m.category}</span>
+                    <span className="text-xs text-gray-400 font-mono">{m.reference_id}</span>
+                  </div>
+                  <p className="text-xs text-gray-400">{formatDateTime(m.created_at)}</p>
+                </div>
+              ))}
+            </div>
+
             <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} total={filtered.length} limit={PAGE_SIZE} onPageChange={setPage} />
           </>
         )}
@@ -302,7 +341,6 @@ const MessageDetailModal: React.FC<{
         <button onClick={onClose} className="btn-icon"><X className="w-5 h-5" /></button>
       </div>
 
-      {/* Sender info */}
       <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl mb-5">
         <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold">
           {message.name.charAt(0)}
@@ -318,18 +356,15 @@ const MessageDetailModal: React.FC<{
         </div>
       </div>
 
-      {/* Category */}
       <div className="flex items-center gap-2 mb-4">
         <span className="badge-gray capitalize">{message.category}</span>
       </div>
 
-      {/* Message body */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5">
         <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{message.message}</p>
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-3 pt-4 border-t border-gray-100">
+      <div className="flex gap-3 pt-4 border-t border-gray-100 flex-wrap">
         <button onClick={onClose} className="btn-secondary flex-1">Close</button>
         {message.status === 'open' && (
           <button onClick={() => { onAction('respond'); onClose(); }}

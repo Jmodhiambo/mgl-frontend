@@ -105,20 +105,20 @@ const Settings: React.FC = () => {
       {alert && <AlertBanner type={alert.type} message={alert.msg} onClose={() => setAlert(null)} />}
 
       {/* Tab navigation */}
-      <div className="flex items-center gap-1 bg-white border border-gray-100 rounded-xl p-1 w-fit shadow-sm">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 bg-white border border-gray-100 rounded-xl p-1 shadow-sm">
         {TABS.map(t => {
           const Icon = t.icon;
           return (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+              className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all
                 ${activeTab === t.id
                   ? 'bg-purple-600 text-white shadow-sm'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'}`}
             >
-              <Icon className="w-4 h-4" />
-              {t.label}
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              <span>{t.label}</span>
             </button>
           );
         })}

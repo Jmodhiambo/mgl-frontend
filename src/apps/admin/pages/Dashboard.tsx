@@ -65,7 +65,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* ── Stat Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 stagger">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger">
         <StatCard
           label="Total Users"
           value={stats.total_users.toLocaleString()}
@@ -102,40 +102,40 @@ const Dashboard: React.FC = () => {
 
       {/* ── Secondary Stats ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 stagger">
-        <div className="card-sm flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center">
+        <div className="card-sm flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
             <Users className="w-4 h-4 text-purple-600" />
           </div>
-          <div>
-            <p className="text-xs text-gray-500">Organizers</p>
-            <p className="font-bold text-gray-900">{stats.total_organizers}</p>
+          <div className="min-w-0">
+            <p className="text-xs text-gray-500 truncate">Organizers</p>
+            <p className="font-bold text-gray-900 truncate">{stats.total_organizers}</p>
           </div>
         </div>
-        <div className="card-sm flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center">
+        <div className="card-sm flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
             <Clock className="w-4 h-4 text-amber-600" />
           </div>
-          <div>
-            <p className="text-xs text-gray-500">Pending Approvals</p>
-            <p className="font-bold text-gray-900">{stats.pending_approvals}</p>
+          <div className="min-w-0">
+            <p className="text-xs text-gray-500 truncate">Pending Approvals</p>
+            <p className="font-bold text-gray-900 truncate">{stats.pending_approvals}</p>
           </div>
         </div>
-        <div className="card-sm flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-red-100 flex items-center justify-center">
+        <div className="card-sm flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
             <MessageSquare className="w-4 h-4 text-red-600" />
           </div>
-          <div>
-            <p className="text-xs text-gray-500">Open Messages</p>
-            <p className="font-bold text-gray-900">{stats.open_messages}</p>
+          <div className="min-w-0">
+            <p className="text-xs text-gray-500 truncate">Open Messages</p>
+            <p className="font-bold text-gray-900 truncate">{stats.open_messages}</p>
           </div>
         </div>
-        <div className="card-sm flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center">
+        <div className="card-sm flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
             <Banknote className="w-4 h-4 text-emerald-600" />
           </div>
-          <div>
-            <p className="text-xs text-gray-500">Total Revenue</p>
-            <p className="font-bold text-gray-900">{formatKES(stats.total_revenue)}</p>
+          <div className="min-w-0">
+            <p className="text-xs text-gray-500 truncate">Total Revenue</p>
+            <p className="font-bold text-gray-900 text-sm truncate">{formatKES(stats.total_revenue)}</p>
           </div>
         </div>
       </div>

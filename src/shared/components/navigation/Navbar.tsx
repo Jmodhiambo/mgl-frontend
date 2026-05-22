@@ -1,23 +1,21 @@
-// src/shared/components/navigation/ImprovedNavbar.tsx
+// src/shared/components/navigation/Navbar.tsx
 import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
-import { Calendar, Menu, X, LogOut, User, Briefcase, Shield, UserPlus } from 'lucide-react';
+import { Calendar, Menu, X, LogOut, User, Briefcase, Shield, UserPlus, AlertTriangle } from 'lucide-react';
 
 const Navbar: React.FC = () => {
   const { logout, user, isAuthenticated } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
-  const isActive = (path: string): boolean => {
-    return location.pathname === path;
-  };
+  const isActive = (path: string): boolean => location.pathname === path;
 
   const linkClass = (path: string): string => {
-    const baseClass = "font-medium transition-colors";
+    const base = 'font-medium transition-colors';
     return isActive(path)
-      ? `${baseClass} text-orange-600`
-      : `${baseClass} text-gray-600 hover:text-orange-600`;
+      ? `${base} text-orange-600`
+      : `${base} text-gray-600 hover:text-orange-600`;
   };
 
   const handleLogout = async (): Promise<void> => {
@@ -28,19 +26,17 @@ const Navbar: React.FC = () => {
     }
   };
 
-  // Public navigation links (for non-authenticated users)
   const publicNavLinks = [
     { path: '/', label: 'Home' },
-    { path: '/events', label: 'Browse Events' },  // Unauthenticated route to browse events
+    { path: '/events', label: 'Browse Events' },
     { path: '/about', label: 'About' },
     { path: '/help', label: 'Help Center' },
     { path: '/faq', label: 'FAQ' },
     { path: '/contact', label: 'Contact' },
   ];
 
-  // Authenticated navigation links
   const authenticatedNavLinks = [
-    { path: '/browse-events', label: 'Browse Events' },  // Authenticated route to browse events with personalized features
+    { path: '/browse-events', label: 'Browse Events' },
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/my-tickets', label: 'My Tickets' },
     { path: '/my-events', label: 'My Events' },
@@ -49,45 +45,43 @@ const Navbar: React.FC = () => {
 
   const navLinks = isAuthenticated ? authenticatedNavLinks : publicNavLinks;
 
-  // Get organizer/admin dashboard URLs from env
   const organizerUrl = import.meta.env.VITE_ORGANIZER_DOMAIN;
   const adminUrl = import.meta.env.VITE_ADMIN_DOMAIN;
-  const userUrl = import.meta.env.VITE_USER_DOMAIN;
+
+  // Whether this organizer has finished setting up their profile.
+  // Cast via `as any` because the field is not yet in the shared User type —
+  // update your AuthContext type once the backend ships the column.
+  const profileCompleted: boolean = (user as any)?.organizer_profile_completed === true;
 
   return (
     <nav className="bg-white shadow-sm border-b border-orange-100 sticky top-0 z-50">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
+
           {/* Logo */}
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2">
               <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
                 <Calendar className="w-6 h-6 text-white" />
               </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-orange-600">
-                MGLTickets
-              </span>
+              <span className="text-2xl font-bold text-orange-600">MGLTickets</span>
             </Link>
           </div>
 
-          {/* Desktop Navigation Links */}
+          {/* Desktop nav links */}
           <div className="hidden md:flex items-center space-x-8">
-            {navLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={linkClass(link.path)}
-              >
+            {navLinks.map(link => (
+              <Link key={link.path} to={link.path} className={linkClass(link.path)}>
                 {link.label}
               </Link>
             ))}
           </div>
 
-          {/* Desktop User Actions */}
+          {/* Desktop user actions */}
           <div className="hidden md:flex items-center space-x-4">
             {isAuthenticated ? (
               <>
-                {/* Context Switcher - Show if user has organizer or admin role. Offer option tto become an organizer to users */}
+                {/* ── Regular user: invite to become organizer ── */}
                 {user?.role === 'user' && (
                   <Link
                     to="/setup-organizer-profile"
@@ -97,10 +91,10 @@ const Navbar: React.FC = () => {
                     <UserPlus className="w-4 h-4" />
                     <span>Become an Organizer</span>
                   </Link>
-                  
                 )}
-                
-                {user?.role === 'organizer' && (
+
+                {/* ── Organizer: profile complete → dashboard link ── */}
+                {user?.role === 'organizer' && profileCompleted && (
                   <a
                     href={`${organizerUrl}/dashboard`}
                     className="flex items-center space-x-2 px-3 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 font-medium transition-colors text-sm"
@@ -111,6 +105,19 @@ const Navbar: React.FC = () => {
                   </a>
                 )}
 
+                {/* ── Organizer: profile incomplete → complete profile CTA ── */}
+                {user?.role === 'organizer' && !profileCompleted && (
+                  <Link
+                    to="/setup-organizer-profile"
+                    className="flex items-center space-x-2 px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 font-medium transition-colors text-sm"
+                    title="Your organizer profile is incomplete. Please complete it to access your dashboard."
+                  >
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                    <span>Complete Organizer Profile</span>
+                  </Link>
+                )}
+
+                {/* ── Admin ── */}
                 {user?.role === 'admin' && (
                   <a
                     href={`${adminUrl}/dashboard`}
@@ -118,7 +125,7 @@ const Navbar: React.FC = () => {
                     title="Switch to Admin Panel"
                   >
                     <Shield className="w-4 h-4" />
-                    <span>Admin Panel</span>
+                    <span>Admin Console</span>
                   </a>
                 )}
 
@@ -129,7 +136,7 @@ const Navbar: React.FC = () => {
                   <User className="w-5 h-5" />
                   <span>Profile</span>
                 </Link>
-                
+
                 <button
                   onClick={handleLogout}
                   className="flex items-center space-x-2 text-gray-600 hover:text-orange-600 font-medium transition-colors px-3 py-2 rounded-lg hover:bg-orange-50"
@@ -140,7 +147,6 @@ const Navbar: React.FC = () => {
               </>
             ) : (
               <>
-                {/* Login/Signup buttons for non-authenticated users */}
                 <Link
                   to="/login"
                   className="text-gray-600 hover:text-orange-600 font-medium transition-colors px-4 py-2"
@@ -157,26 +163,22 @@ const Navbar: React.FC = () => {
             )}
           </div>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile menu button */}
           <div className="flex items-center md:hidden">
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="p-2 rounded-lg text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors"
             >
-              {isMobileMenuOpen ? (
-                <X className="w-6 h-6" />
-              ) : (
-                <Menu className="w-6 h-6" />
-              )}
+              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile menu */}
         {isMobileMenuOpen && (
           <div className="md:hidden border-t border-gray-200 py-4">
             <div className="flex flex-col space-y-3">
-              {navLinks.map((link) => (
+              {navLinks.map(link => (
                 <Link
                   key={link.path}
                   to={link.path}
@@ -186,19 +188,31 @@ const Navbar: React.FC = () => {
                   {link.label}
                 </Link>
               ))}
-              
+
               <div className="border-t border-gray-200 pt-3 mt-3 space-y-3">
                 {isAuthenticated ? (
                   <>
-                    {/* Context Switcher - Mobile */}
-                    {user?.role === 'organizer' && (
+                    {/* Organizer: complete → dashboard */}
+                    {user?.role === 'organizer' && profileCompleted && (
                       <a
                         href={`${organizerUrl}/dashboard`}
-                        className="flex items-center space-x-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 font-medium"
+                        className="flex items-center space-x-2 px-3 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 font-medium"
                       >
                         <Briefcase className="w-4 h-4" />
                         <span>Organizer Dashboard</span>
                       </a>
+                    )}
+
+                    {/* Organizer: incomplete → complete profile CTA */}
+                    {user?.role === 'organizer' && !profileCompleted && (
+                      <Link
+                        to="/setup-organizer-profile"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="flex items-center space-x-2 px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 font-medium"
+                      >
+                        <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                        <span>Complete Organizer Profile</span>
+                      </Link>
                     )}
 
                     {user?.role === 'admin' && (
@@ -219,12 +233,9 @@ const Navbar: React.FC = () => {
                       <User className="w-5 h-5" />
                       <span>Profile</span>
                     </Link>
-                    
+
                     <button
-                      onClick={() => {
-                        handleLogout();
-                        setIsMobileMenuOpen(false);
-                      }}
+                      onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }}
                       className="flex items-center space-x-2 text-gray-600 hover:text-orange-600 font-medium transition-colors py-2 w-full text-left"
                     >
                       <LogOut className="w-5 h-5" />
@@ -233,7 +244,6 @@ const Navbar: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    {/* Login/Signup for mobile - non-authenticated */}
                     <Link
                       to="/login"
                       onClick={() => setIsMobileMenuOpen(false)}

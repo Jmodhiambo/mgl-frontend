@@ -1,11 +1,11 @@
 // src/apps/admin/pages/Bookings.tsx
 import { useEffect, useState, useMemo } from 'react';
-import { Ticket, Download, MoreVertical, Eye, Trash2, X } from 'lucide-react';
+import { Ticket, Download, Eye, Trash2, X } from 'lucide-react';
 import {
   FilterBar, StatusBadge, ConfirmDialog, SectionCard,
   Pagination, TableSkeleton, EmptyState, AlertBanner,
 } from '@admin/components/ui';
-import { listAllBookings, deleteBooking, getBookingsByStatus } from '@admin/services/adminService';
+import { listAllBookings, deleteBooking } from '@admin/services/adminService';
 import { formatDateTime, formatKES } from '@admin/utils/dummyData';
 import type { AdminBooking } from '@admin/types';
 
@@ -67,6 +67,13 @@ const Bookings: React.FC = () => {
     const a = document.createElement('a'); a.href = 'data:text/csv,' + encodeURIComponent(csv); a.download = 'bookings.csv'; a.click();
   };
 
+  const statusColorMap: Record<string, string> = {
+    confirmed: 'bg-emerald-50 border-emerald-200',
+    pending:   'bg-amber-50 border-amber-200',
+    cancelled: 'bg-red-50 border-red-200',
+    refunded:  'bg-purple-50 border-purple-200',
+  };
+
   return (
     <div className="space-y-5">
       <div className="page-header">
@@ -75,22 +82,22 @@ const Bookings: React.FC = () => {
           <p className="page-subtitle">{bookings.length} total bookings</p>
         </div>
         <button onClick={exportCSV} className="btn-secondary btn-sm flex items-center gap-2">
-          <Download className="w-4 h-4" /> Export CSV
+          <Download className="w-4 h-4" /> <span className="hidden sm:inline">Export CSV</span>
         </button>
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 stagger">
         {[
-          { label: 'Confirmed', value: totals.confirmed, cls: 'text-emerald-600' },
-          { label: 'Pending',   value: totals.pending,   cls: 'text-amber-600'   },
-          { label: 'Cancelled', value: totals.cancelled, cls: 'text-red-600'     },
-          { label: 'Refunded',  value: totals.refunded,  cls: 'text-purple-600'  },
-          { label: 'Revenue',   value: formatKES(totals.revenue), cls: 'text-gray-900' },
+          { label: 'Confirmed', value: totals.confirmed,          cls: 'text-emerald-600' },
+          { label: 'Pending',   value: totals.pending,            cls: 'text-amber-600'   },
+          { label: 'Cancelled', value: totals.cancelled,          cls: 'text-red-600'     },
+          { label: 'Refunded',  value: totals.refunded,           cls: 'text-purple-600'  },
+          { label: 'Revenue',   value: formatKES(totals.revenue), cls: 'text-gray-900'    },
         ].map(c => (
-          <div key={c.label} className="card-sm text-center">
-            <p className="text-xs text-gray-500 mb-1">{c.label}</p>
-            <p className={`text-lg font-bold ${c.cls}`}>{c.value}</p>
+          <div key={c.label} className="card-sm text-center overflow-hidden">
+            <p className="text-xs text-gray-500 mb-1 truncate">{c.label}</p>
+            <p className={`text-sm font-bold leading-tight break-all ${c.cls}`}>{c.value}</p>
           </div>
         ))}
       </div>
@@ -116,7 +123,8 @@ const Bookings: React.FC = () => {
           <EmptyState icon={Ticket} title="No bookings found" />
         ) : (
           <>
-            <div className="table-wrapper rounded-none border-0">
+            {/* ── Desktop table ── */}
+            <div className="hidden md:block table-wrapper rounded-none border-0">
               <table className="admin-table">
                 <thead>
                   <tr>
@@ -166,6 +174,38 @@ const Bookings: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* ── Mobile card list ── */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {paginated.map(b => (
+                <div key={b.id} className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm text-gray-900">{b.customer_name}</p>
+                      <p className="text-xs text-gray-500 truncate">{b.customer_email}</p>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button onClick={() => setDetail(b)} className="btn-icon btn-sm" title="View">
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => setConfirm({ booking: b })} className="btn-icon btn-sm text-red-400 hover:text-red-600 hover:bg-red-50" title="Delete">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-700 font-medium truncate">{b.event_title}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <StatusBadge status={b.status} />
+                      <span className="text-xs text-gray-500">{b.ticket_type_name} · Qty {b.quantity}</span>
+                    </div>
+                    <span className="font-bold text-emerald-700 text-sm whitespace-nowrap">{formatKES(b.total_price)}</span>
+                  </div>
+                  <p className="text-xs text-gray-400">{formatDateTime(b.created_at)}</p>
+                </div>
+              ))}
+            </div>
+
             <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} total={filtered.length} limit={PAGE_SIZE} onPageChange={setPage} />
           </>
         )}
