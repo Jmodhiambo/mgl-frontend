@@ -1,6 +1,5 @@
 https://claude.ai/chat/132b3732-9f47-4a7d-a209-d832ca34f477
 
-Rate limit request per IP to prevent brute force and abuse
 
 🎯 Priority Suggestions (Do These First):
 HIGH PRIORITY:
@@ -27,3 +26,7 @@ LOW PRIORITY (Nice to Have):
 📋 Breadcrumbs
 📋 Global search
 📋 Feedback widgets
+
+
+
+Rate limit request per IP to prevent brute force and abuse. Logs help in seeing the attack so it is better to have them outside or sent to external services.
