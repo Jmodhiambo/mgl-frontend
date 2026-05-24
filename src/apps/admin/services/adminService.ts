@@ -1,20 +1,9 @@
-/**
- * src/apps/admin/services/adminService.tsx
- * ─────────────────────────────────────────────────────────────────────────────
- * All admin API calls.
- *
- * IMPORTANT — folder is named "services/" NOT "api/" deliberately.
- * Vite's dev server proxies every path starting with /api/ to FastAPI.
- * A folder called "api/" would cause Vite to rewrite relative imports like
- * "../api/adminService" into the URL "/api/adminService.tsx", which then
- * gets proxied to the backend and returns 404.
- * Naming it "services/" keeps it completely outside the proxy rule.
- *
- * To activate real API calls:
- *   1. Uncomment:  import api from '@shared/api/axiosConfig';
- *   2. In each function, uncomment the api.xxx() line and remove the dummy return.
- * ─────────────────────────────────────────────────────────────────────────────
- */
+// src/apps/admin/services/adminService.ts
+// ─────────────────────────────────────────────────────────────────────────────
+// All admin API calls.
+// To activate real API calls: uncomment the api.xxx() line and remove the
+// dummy return in each function.  See existing functions for the pattern.
+// ─────────────────────────────────────────────────────────────────────────────
 
 // import api from '@shared/api/axiosConfig';
 
@@ -29,13 +18,72 @@ import {
   dummyRevenueChart, dummyUserGrowthChart, dummyEventCategories,
 } from '@admin/utils/dummyData';
 
+// ─── Settings types ───────────────────────────────────────────────────────────
+
+export interface PlatformSettings {
+  platform_name: string;
+  platform_email: string;
+  support_email: string;
+  default_currency: string;
+  timezone: string;
+  platform_fee_percent: number;
+  require_event_approval: boolean;
+  allow_user_registration: boolean;
+  allow_organizer_signup: boolean;
+  enable_refunds: boolean;
+  max_tickets_per_booking: number;
+  session_timeout_hours: number;
+  maintenance_mode: boolean;
+  updated_at: string;
+  updated_by_user_id: number | null;
+}
+
+export interface AdminNotificationPrefs {
+  user_id: number;
+  notify_new_event: boolean;
+  notify_new_message: boolean;
+  notify_payment_failure: boolean;
+  notify_new_organizer: boolean;
+  notify_refund_request: boolean;
+  updated_at: string;
+}
+
+// ─── Dummy settings data (mirrors backend defaults) ───────────────────────────
+
+const dummyPlatformSettings: PlatformSettings = {
+  platform_name: 'MGLTickets',
+  platform_email: 'admin@mgltickets.com',
+  support_email: 'support@mgltickets.com',
+  default_currency: 'KES',
+  timezone: 'Africa/Nairobi',
+  platform_fee_percent: 5,
+  require_event_approval: true,
+  allow_user_registration: true,
+  allow_organizer_signup: true,
+  enable_refunds: true,
+  max_tickets_per_booking: 10,
+  session_timeout_hours: 24,
+  maintenance_mode: false,
+  updated_at: new Date().toISOString(),
+  updated_by_user_id: null,
+};
+
+const dummyNotificationPrefs: AdminNotificationPrefs = {
+  user_id: 1,
+  notify_new_event: true,
+  notify_new_message: true,
+  notify_payment_failure: true,
+  notify_new_organizer: true,
+  notify_refund_request: true,
+  updated_at: new Date().toISOString(),
+};
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export const getDashboardStats = async (): Promise<DashboardStats> => {
   // return (await api.get('/admin/analytics/dashboard')).data;
   return Promise.resolve(dummyDashboardStats);
 };
-
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
 // ⚠️  NEW ENDPOINT NEEDED: GET /admin/analytics/dashboard
@@ -62,6 +110,42 @@ export const getUserGrowthChart = async (): Promise<{ label: string; value: numb
 export const getEventCategories = async (): Promise<{ label: string; value: number }[]> => {
   // return (await api.get('/admin/analytics/events-by-category')).data;
   return Promise.resolve(dummyEventCategories);
+};
+
+// ─── Platform Settings ────────────────────────────────────────────────────────
+
+export const getPlatformSettings = async (): Promise<PlatformSettings> => {
+  // return (await api.get('/admin/settings')).data;
+  return Promise.resolve({ ...dummyPlatformSettings });
+};
+
+export const updatePlatformSettings = async (
+  updates: Partial<Omit<PlatformSettings, 'updated_at' | 'updated_by_user_id'>>,
+): Promise<PlatformSettings> => {
+  // return (await api.put('/admin/settings', updates)).data;
+  return Promise.resolve({
+    ...dummyPlatformSettings,
+    ...updates,
+    updated_at: new Date().toISOString(),
+  });
+};
+
+// ─── Admin Notification Preferences ──────────────────────────────────────────
+
+export const getAdminNotificationPrefs = async (): Promise<AdminNotificationPrefs> => {
+  // return (await api.get('/admin/settings/notifications')).data;
+  return Promise.resolve({ ...dummyNotificationPrefs });
+};
+
+export const updateAdminNotificationPrefs = async (
+  updates: Partial<Omit<AdminNotificationPrefs, 'user_id' | 'updated_at'>>,
+): Promise<AdminNotificationPrefs> => {
+  // return (await api.put('/admin/settings/notifications', updates)).data;
+  return Promise.resolve({
+    ...dummyNotificationPrefs,
+    ...updates,
+    updated_at: new Date().toISOString(),
+  });
 };
 
 // ─── Users ────────────────────────────────────────────────────────────────────
@@ -132,12 +216,6 @@ export const searchUsersByName = async (name: string): Promise<AdminUser[]> => {
       `${u.first_name} ${u.last_name}`.toLowerCase().includes(name.toLowerCase())
     )
   );
-};
-
-export const countUsersByRole = async (role?: string): Promise<number> => {
-  // return (await api.get(`/admin/analytics/count${role ? `/${role}` : ''}`)).data;
-  if (!role) return Promise.resolve(dummyUsers.length);
-  return Promise.resolve(dummyUsers.filter(u => u.role === role).length);
 };
 
 // ─── Events ───────────────────────────────────────────────────────────────────
