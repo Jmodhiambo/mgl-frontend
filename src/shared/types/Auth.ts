@@ -12,6 +12,7 @@ export interface LoginCredentials {
 export interface LoginResponse {
     access_token: string;
     token_type: string;
+    session_id?: string;
 }
 
 export interface RegisterUserInfo {
@@ -37,7 +38,8 @@ export interface AuthContextType {
     isAuthenticated: boolean;
     loading: boolean;
     user: User | null;
-    login: (accessToken: string) => void;
+    sessionId: string | null;
+    login: (loginResponse: { access_token: string; session_id?: string }) => Promise<void>;
     logout: () => Promise<void>;
 }
 

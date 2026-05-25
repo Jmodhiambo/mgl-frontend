@@ -157,3 +157,17 @@ export interface FilterState {
   page: number;
   limit: number;
 }
+
+export interface RefreshSession {
+  session_id: string;        // PK — use this as the unique key in React lists
+  user_id: number;
+  device_info: string | null;
+  ip_address: string | null;
+  location: string | null;
+  created_at: string;
+  last_used_at: string;      // effectively "last active" — updated on every request
+  expires_at: string;
+  revoked_at: string | null;
+  replaced_by_sid: string | null;
+  is_active: boolean;        // computed property from the ORM model
+}

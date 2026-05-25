@@ -1,11 +1,21 @@
 // src/apps/admin/pages/MyProfile.tsx
-import { useState, useRef } from 'react';
+
+import { useState, useRef, useEffect } from 'react';
 import {
   User, Mail, Phone, Lock, Eye, EyeOff, Shield, Camera,
   Save, CheckCircle, AlertCircle, Clock, Activity,
-  LogOut, Key, Globe, Bell, Trash2, X,
+  LogOut, Key, Globe, Bell, Trash2, X, Loader2,
 } from 'lucide-react';
-import { dummyAuditLogs, formatDateTime } from '@admin/utils/dummyData';
+import { useAuth } from '@shared/contexts/AuthContext';
+import {
+  getMyAdminSessions,
+  revokeAdminSession,
+  revokeAllOtherAdminSessions,
+  getMyActivity,
+} from '@admin/services/adminService';
+import type { RefreshSession, AuditLog } from '@admin/types';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ProfileForm {
   first_name: string;
@@ -22,31 +32,14 @@ interface PasswordForm {
   confirm_password: string;
 }
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
 const TIMEZONES = [
-  'Africa/Nairobi',
-  'Africa/Lagos',
-  'Africa/Johannesburg',
-  'Europe/London',
-  'Europe/Paris',
-  'America/New_York',
-  'America/Los_Angeles',
+  'Africa/Nairobi', 'Africa/Lagos', 'Africa/Johannesburg',
+  'Europe/London', 'Europe/Paris',
+  'America/New_York', 'America/Los_Angeles',
   'Asia/Dubai',
 ];
-
-const MOCK_SESSIONS = [
-  { id: 1, device: 'Chrome on macOS', ip: '41.90.64.12',   location: 'Nairobi, KE',  last_active: '2025-04-06T14:30:00Z', is_current: true  },
-  { id: 2, device: 'Firefox on Windows', ip: '41.90.64.55', location: 'Nairobi, KE', last_active: '2025-04-05T09:15:00Z', is_current: false },
-  { id: 3, device: 'Safari on iPhone',  ip: '197.248.10.3', location: 'Mombasa, KE', last_active: '2025-04-03T18:00:00Z', is_current: false },
-];
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
 
 type Tab = 'profile' | 'security' | 'sessions' | 'activity';
 
@@ -57,43 +50,87 @@ const TAB_ITEMS: { value: Tab; label: string; icon: React.ElementType }[] = [
   { value: 'activity', label: 'My Activity',     icon: Activity },
 ];
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 const MyProfile: React.FC = () => {
+  const { sessionId } = useAuth();
   const [tab, setTab] = useState<Tab>('profile');
-  const [avatarUrl, setAvatarUrl] = useState<string>('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Profile form
-  // DB sends a single `name` field — split it for the form, rejoin on save
-  const parseName = (fullName: string) => {
-    const parts = fullName.trim().split(/\s+/);
-    return {
-      first_name: parts[0] ?? '',
-      last_name:  parts.slice(1).join(' '),
-    };
-  };
-
+  // ── Profile ───────────────────────────────────────────────────────────────
   const [profile, setProfile] = useState<ProfileForm>({
-    ...parseName('Alice Mwangi'),
-    email:    'alice@example.com',
-    phone:    '+254 712 345 678',
-    bio:      'Platform administrator. Managing events, users, and system integrity for MGLTickets.',
+    first_name: 'Alice', last_name: 'Mwangi',
+    email: 'alice@example.com', phone: '+254 712 345 678',
+    bio: 'Platform administrator. Managing events, users, and system integrity for MGLTickets.',
     timezone: 'Africa/Nairobi',
   });
-  const [profileSaved, setProfileSaved] = useState(false);
+  const [profileSaved, setProfileSaved]     = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
 
-  // Password form
-  const [pwForm, setPwForm] = useState<PasswordForm>({ current_password: '', new_password: '', confirm_password: '' });
-  const [showPw, setShowPw] = useState({ current: false, new: false, confirm: false });
+  // ── Password ──────────────────────────────────────────────────────────────
+  const [pwForm, setPwForm] = useState<PasswordForm>({
+    current_password: '', new_password: '', confirm_password: '',
+  });
+  const [showPw, setShowPw]     = useState({ current: false, new: false, confirm: false });
   const [pwErrors, setPwErrors] = useState<Partial<Record<keyof PasswordForm, string>>>({});
   const [pwLoading, setPwLoading] = useState(false);
   const [pwSuccess, setPwSuccess] = useState(false);
 
-  const [sessions, setSessions] = useState(MOCK_SESSIONS);
+  // ── Sessions ──────────────────────────────────────────────────────────────
+  const [sessions, setSessions]               = useState<RefreshSession[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [sessionError, setSessionError]       = useState<string | null>(null);
+
+  // ── Activity ──────────────────────────────────────────────────────────────
+  const [activity, setActivity]               = useState<AuditLog[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+
+  // ── Notification prefs (local-only until admin privilege tiers exist) ─────
   const [notifPrefs, setNotifPrefs] = useState({
     new_event: true, user_signup: true, payment_dispute: true,
     weekly_report: false, system_alerts: true,
   });
+
+  // ── Lazy-load on tab switch ───────────────────────────────────────────────
+  useEffect(() => {
+    if (tab === 'sessions' && sessions.length === 0 && !sessionsLoading) fetchSessions();
+    if (tab === 'activity' && activity.length === 0 && !activityLoading)  fetchActivity();
+  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchSessions = async () => {
+    setSessionsLoading(true);
+    setSessionError(null);
+    try {
+      setSessions(await getMyAdminSessions());
+    } catch {
+      setSessionError('Failed to load sessions. Please try again.');
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
+  const fetchActivity = async () => {
+    setActivityLoading(true);
+    try {
+      setActivity(await getMyActivity());
+    } finally {
+      setActivityLoading(false);
+    }
+  };
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -105,13 +142,7 @@ const MyProfile: React.FC = () => {
 
   const handleProfileSave = async () => {
     setProfileLoading(true);
-    // Concatenate back to a single `name` field for the DB
-    const payload = {
-      ...profile,
-      name: `${profile.first_name.trim()} ${profile.last_name.trim()}`.trim(),
-    };
-    // TODO: await api.put('/admin/profile', payload);
-    console.log('Saving profile:', payload);
+    // TODO: await api.put('/admin/profile', { ...profile, name: `${profile.first_name} ${profile.last_name}` });
     await new Promise(r => setTimeout(r, 900));
     setProfileLoading(false);
     setProfileSaved(true);
@@ -130,6 +161,7 @@ const MyProfile: React.FC = () => {
   const handlePasswordChange = async () => {
     if (!validatePassword()) return;
     setPwLoading(true);
+    // TODO: await api.patch('/auth/change-password', { old_password: pwForm.current_password, new_password: pwForm.new_password });
     await new Promise(r => setTimeout(r, 1000));
     setPwLoading(false);
     setPwSuccess(true);
@@ -137,7 +169,26 @@ const MyProfile: React.FC = () => {
     setTimeout(() => setPwSuccess(false), 4000);
   };
 
-  const revokeSession = (id: number) => setSessions(p => p.filter(s => s.id !== id));
+  const handleRevokeSession = async (targetSessionId: string) => {
+    try {
+      await revokeAdminSession(targetSessionId);
+      setSessions(prev => prev.filter(s => s.session_id !== targetSessionId));
+    } catch {
+      setSessionError('Failed to revoke session. Please try again.');
+    }
+  };
+
+  const handleRevokeAllOther = async () => {
+    if (!sessionId) return;
+    try {
+      await revokeAllOtherAdminSessions(sessionId);
+      setSessions(prev => prev.filter(s => s.session_id === sessionId));
+    } catch {
+      setSessionError('Failed to sign out other sessions. Please try again.');
+    }
+  };
+
+  // ── Derived ───────────────────────────────────────────────────────────────
 
   const initials = `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase();
 
@@ -146,12 +197,16 @@ const MyProfile: React.FC = () => {
       hasError ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50 focus:bg-white'
     }`;
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────────────────────
+
   return (
     <div className="space-y-5 max-w-4xl">
+
       {/* Header card */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6">
         <div className="flex items-start gap-5 flex-wrap">
-          {/* Avatar */}
           <div className="relative flex-shrink-0">
             {avatarUrl ? (
               <img src={avatarUrl} alt="Avatar" className="w-20 h-20 rounded-2xl object-cover shadow-md" />
@@ -169,12 +224,9 @@ const MyProfile: React.FC = () => {
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
           </div>
 
-          {/* Info */}
           <div className="flex-1">
             <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-xl font-bold text-gray-900">
-                {profile.first_name} {profile.last_name}
-              </h2>
+              <h2 className="text-xl font-bold text-gray-900">{profile.first_name} {profile.last_name}</h2>
               <span className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold">
                 <Shield className="w-3 h-3" /> Administrator
               </span>
@@ -186,11 +238,10 @@ const MyProfile: React.FC = () => {
             <p className="text-sm text-gray-400 mt-2 leading-relaxed max-w-lg">{profile.bio}</p>
           </div>
 
-          {/* Stats */}
           <div className="flex gap-5 text-center flex-shrink-0">
             {[
-              { label: 'Actions',  value: dummyAuditLogs.length },
-              { label: 'Sessions', value: sessions.length },
+              { label: 'Actions',  value: activity.length || '…' },
+              { label: 'Sessions', value: sessions.length  || '…' },
               { label: 'Timezone', value: 'EAT +3' },
             ].map(s => (
               <div key={s.label}>
@@ -202,17 +253,14 @@ const MyProfile: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tab bar */}
       <div className="bg-white rounded-xl border border-gray-100 p-1 flex gap-1 flex-wrap">
         {TAB_ITEMS.map(t => {
           const Icon = t.icon;
           return (
-            <button
-              key={t.value}
-              onClick={() => setTab(t.value)}
+            <button key={t.value} onClick={() => setTab(t.value)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all flex-1 justify-center sm:flex-none
-                ${tab === t.value ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}
-            >
+                ${tab === t.value ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
               <Icon className="w-4 h-4" />
               <span className="hidden sm:inline">{t.label}</span>
             </button>
@@ -220,7 +268,7 @@ const MyProfile: React.FC = () => {
         })}
       </div>
 
-      {/* ── Profile Tab ── */}
+      {/* ══ Profile Tab ══════════════════════════════════════════════════════ */}
       {tab === 'profile' && (
         <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-5">
           <div>
@@ -240,57 +288,42 @@ const MyProfile: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  value={profile.first_name}
+                <input value={profile.first_name}
                   onChange={e => setProfile(p => ({ ...p, first_name: e.target.value }))}
-                  placeholder="e.g. Alice"
-                  className={`${inp()} pl-9`}
-                />
+                  className={`${inp()} pl-9`} />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-              <input
-                value={profile.last_name}
+              <input value={profile.last_name}
                 onChange={e => setProfile(p => ({ ...p, last_name: e.target.value }))}
-                placeholder="e.g. Mwangi"
-                className={inp()}
-              />
+                className={inp()} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="email"
-                  value={profile.email}
+                <input type="email" value={profile.email}
                   onChange={e => setProfile(p => ({ ...p, email: e.target.value }))}
-                  className={`${inp()} pl-9`}
-                />
+                  className={`${inp()} pl-9`} />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  value={profile.phone}
+                <input value={profile.phone}
                   onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))}
-                  className={`${inp()} pl-9`}
-                />
+                  className={`${inp()} pl-9`} />
               </div>
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
-            <textarea
-              rows={3}
-              value={profile.bio}
+            <textarea rows={3} value={profile.bio}
               onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))}
-              className={`${inp()} resize-none`}
-              placeholder="A short description about your role…"
-            />
+              className={`${inp()} resize-none`} />
             <p className="text-xs text-gray-400 mt-1">{profile.bio.length} / 200</p>
           </div>
 
@@ -298,38 +331,36 @@ const MyProfile: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
             <div className="relative">
               <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <select
-                value={profile.timezone}
+              <select value={profile.timezone}
                 onChange={e => setProfile(p => ({ ...p, timezone: e.target.value }))}
-                className={`${inp()} pl-9 appearance-none`}
-              >
+                className={`${inp()} pl-9 appearance-none`}>
                 {TIMEZONES.map(tz => <option key={tz}>{tz}</option>)}
               </select>
             </div>
           </div>
 
-          {/* Notification preferences */}
+          {/* Notification prefs — local only for now */}
           <div className="border-t border-gray-100 pt-5">
-            <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <h4 className="text-sm font-bold text-gray-900 mb-1 flex items-center gap-2">
               <Bell className="w-4 h-4" /> Email Notification Preferences
             </h4>
+            <p className="text-xs text-gray-400 mb-3">
+              Will be wired to the notifications system when admin-specific privilege tiers are introduced.
+            </p>
             <div className="space-y-3">
               {([
-                { key: 'new_event',        label: 'New event submitted for approval' },
-                { key: 'user_signup',      label: 'New user registration alerts'     },
-                { key: 'payment_dispute',  label: 'Payment disputes and refunds'     },
-                { key: 'weekly_report',    label: 'Weekly analytics digest'          },
-                { key: 'system_alerts',    label: 'System health and error alerts'   },
+                { key: 'new_event',       label: 'New event submitted for approval' },
+                { key: 'user_signup',     label: 'New user registration alerts'     },
+                { key: 'payment_dispute', label: 'Payment disputes and refunds'     },
+                { key: 'weekly_report',   label: 'Weekly analytics digest'          },
+                { key: 'system_alerts',   label: 'System health and error alerts'   },
               ] as { key: keyof typeof notifPrefs; label: string }[]).map(item => (
                 <div key={item.key} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                   <span className="text-sm text-gray-700">{item.label}</span>
-                  <div
-                    onClick={() => setNotifPrefs(p => ({ ...p, [item.key]: !p[item.key] }))}
-                    className={`relative w-8 rounded-full cursor-pointer transition-colors flex-shrink-0`}
-                    style={{ height: 18, width: 32, background: notifPrefs[item.key] ? '#7c3aed' : '#e5e7eb' }}
-                  >
-                    <span className={`absolute top-0.5 w-3.5 h-3.5 bg-white rounded-full shadow-sm transition-all
-                      ${notifPrefs[item.key] ? 'left-[14px]' : 'left-0.5'}`} />
+                  <div onClick={() => setNotifPrefs(p => ({ ...p, [item.key]: !p[item.key] }))}
+                    className="relative cursor-pointer flex-shrink-0"
+                    style={{ height: 18, width: 32, background: notifPrefs[item.key] ? '#7c3aed' : '#e5e7eb', borderRadius: 9 }}>
+                    <span className={`absolute top-0.5 w-3.5 h-3.5 bg-white rounded-full shadow-sm transition-all ${notifPrefs[item.key] ? 'left-[14px]' : 'left-0.5'}`} />
                   </div>
                 </div>
               ))}
@@ -340,24 +371,21 @@ const MyProfile: React.FC = () => {
             <button className="btn-secondary">Discard</button>
             <button onClick={handleProfileSave} disabled={profileLoading}
               className="btn-primary flex items-center gap-2 disabled:opacity-60">
-              {profileLoading
-                ? <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                : <><Save className="w-4 h-4" /> Save Changes</>}
+              {profileLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" /> Save Changes</>}
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Security Tab ── */}
+      {/* ══ Security Tab ═════════════════════════════════════════════════════ */}
       {tab === 'security' && (
         <div className="space-y-4">
-          {/* Change password */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
             <div>
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                 <Key className="w-4 h-4 text-purple-600" /> Change Password
               </h3>
-              <p className="text-sm text-gray-500 mt-0.5">Choose a strong password. We recommend at least 12 characters.</p>
+              <p className="text-sm text-gray-500 mt-0.5">We recommend at least 12 characters.</p>
             </div>
 
             {pwSuccess && (
@@ -369,37 +397,26 @@ const MyProfile: React.FC = () => {
 
             {(['current_password', 'new_password', 'confirm_password'] as const).map((field, idx) => {
               const labels = ['Current Password', 'New Password', 'Confirm New Password'];
-              const shown = showPw[field === 'current_password' ? 'current' : field === 'new_password' ? 'new' : 'confirm'];
+              const key = field === 'current_password' ? 'current' : field === 'new_password' ? 'new' : 'confirm';
+              const shown = showPw[key];
               return (
                 <div key={field}>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{labels[idx]}</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type={shown ? 'text' : 'password'}
-                      value={pwForm[field]}
+                    <input type={shown ? 'text' : 'password'} value={pwForm[field]}
                       onChange={e => setPwForm(p => ({ ...p, [field]: e.target.value }))}
-                      className={`${inp(!!pwErrors[field])} pl-9 pr-10`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPw(p => ({
-                        ...p,
-                        [field === 'current_password' ? 'current' : field === 'new_password' ? 'new' : 'confirm']:
-                          !p[field === 'current_password' ? 'current' : field === 'new_password' ? 'new' : 'confirm'],
-                      }))}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
+                      className={`${inp(!!pwErrors[field])} pl-9 pr-10`} />
+                    <button type="button" onClick={() => setShowPw(p => ({ ...p, [key]: !p[key] }))}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                       {shown ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                   {pwErrors[field] && <p className="mt-1 text-xs text-red-600">{pwErrors[field]}</p>}
                   {field === 'new_password' && pwForm.new_password && (
-                    <div className="mt-2 flex gap-1">
+                    <div className="mt-2 flex items-center gap-1">
                       {[8, 12, 16].map(len => (
-                        <div key={len} className={`h-1 flex-1 rounded-full transition-colors ${
-                          pwForm.new_password.length >= len ? 'bg-emerald-500' : 'bg-gray-200'
-                        }`} />
+                        <div key={len} className={`h-1 flex-1 rounded-full transition-colors ${pwForm.new_password.length >= len ? 'bg-emerald-500' : 'bg-gray-200'}`} />
                       ))}
                       <span className="text-xs text-gray-400 ml-2">
                         {pwForm.new_password.length < 8 ? 'Too short' : pwForm.new_password.length < 12 ? 'Fair' : 'Strong'}
@@ -413,21 +430,18 @@ const MyProfile: React.FC = () => {
             <div className="flex justify-end">
               <button onClick={handlePasswordChange} disabled={pwLoading}
                 className="btn-primary flex items-center gap-2 disabled:opacity-60">
-                {pwLoading
-                  ? <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                  : <><Key className="w-4 h-4" /> Update Password</>}
+                {pwLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Key className="w-4 h-4" /> Update Password</>}
               </button>
             </div>
           </div>
 
-          {/* 2FA placeholder */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                   <Shield className="w-4 h-4 text-purple-600" /> Two-Factor Authentication
                 </h3>
-                <p className="text-sm text-gray-500 mt-1">Add an extra layer of security to your account using an authenticator app.</p>
+                <p className="text-sm text-gray-500 mt-1">Add an extra layer of security using an authenticator app.</p>
               </div>
               <span className="px-2.5 py-1 bg-amber-100 text-amber-700 text-xs font-bold rounded-full flex-shrink-0">Not enabled</span>
             </div>
@@ -436,7 +450,6 @@ const MyProfile: React.FC = () => {
             </button>
           </div>
 
-          {/* Danger zone */}
           <div className="bg-white rounded-2xl border border-red-100 p-6">
             <h3 className="text-base font-bold text-red-700 flex items-center gap-2 mb-1">
               <AlertCircle className="w-4 h-4" /> Danger Zone
@@ -454,88 +467,124 @@ const MyProfile: React.FC = () => {
         </div>
       )}
 
-      {/* ── Sessions Tab ── */}
+      {/* ══ Sessions Tab ═════════════════════════════════════════════════════ */}
       {tab === 'sessions' && (
         <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
           <div>
             <h3 className="text-base font-bold text-gray-900">Active Sessions</h3>
-            <p className="text-sm text-gray-500 mt-0.5">Devices currently signed in to your account.</p>
+            <p className="text-sm text-gray-500 mt-0.5">Devices currently signed in to your admin account.</p>
           </div>
-          <div className="space-y-3">
-            {sessions.map(session => (
-              <div key={session.id}
-                className={`flex items-start justify-between gap-4 p-4 rounded-xl border
-                  ${session.is_current ? 'border-purple-200 bg-purple-50' : 'border-gray-100 bg-gray-50'}`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0
-                    ${session.is_current ? 'bg-purple-200' : 'bg-gray-200'}`}>
-                    <Globe className={`w-4 h-4 ${session.is_current ? 'text-purple-700' : 'text-gray-600'}`} />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-gray-900">{session.device}</p>
-                      {session.is_current && (
-                        <span className="px-1.5 py-0.5 bg-purple-600 text-white text-[10px] font-bold rounded-full">Current</span>
-                      )}
+
+          {sessionError && (
+            <div className="flex items-center gap-2.5 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+              <p className="text-sm text-red-700">{sessionError}</p>
+            </div>
+          )}
+
+          {sessionsLoading ? (
+            <div className="flex items-center justify-center py-10 gap-2 text-gray-400">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="text-sm">Loading sessions…</span>
+            </div>
+          ) : sessions.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">No active sessions found.</p>
+          ) : (
+            <div className="space-y-3">
+              {sessions.map(session => {
+                const isCurrent = session.session_id === sessionId;
+                return (
+                  <div key={session.session_id}
+                    className={`flex items-start justify-between gap-4 p-4 rounded-xl border
+                      ${isCurrent ? 'border-purple-200 bg-purple-50' : 'border-gray-100 bg-gray-50'}`}>
+                    <div className="flex items-start gap-3">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0
+                        ${isCurrent ? 'bg-purple-200' : 'bg-gray-200'}`}>
+                        <Globe className={`w-4 h-4 ${isCurrent ? 'text-purple-700' : 'text-gray-600'}`} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {session.device_info ?? 'Unknown device'}
+                          </p>
+                          {isCurrent && (
+                            <span className="px-1.5 py-0.5 bg-purple-600 text-white text-[10px] font-bold rounded-full">Current</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {session.ip_address ?? '—'}{session.location ? ` · ${session.location}` : ''}
+                        </p>
+                        <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                          <Clock className="w-3 h-3" />
+                          Last active {timeAgo(session.last_used_at)}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5">{session.ip} · {session.location}</p>
-                    <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
-                      <Clock className="w-3 h-3" /> Last active {timeAgo(session.last_active)}
-                    </p>
+                    {!isCurrent && (
+                      <button onClick={() => handleRevokeSession(session.session_id)}
+                        className="text-xs text-red-600 hover:text-red-700 flex items-center gap-1 flex-shrink-0 mt-1 font-medium">
+                        <X className="w-3.5 h-3.5" /> Revoke
+                      </button>
+                    )}
                   </div>
-                </div>
-                {!session.is_current && (
-                  <button onClick={() => revokeSession(session.id)}
-                    className="text-xs text-red-600 hover:text-red-700 flex items-center gap-1 flex-shrink-0 mt-1 font-medium">
-                    <X className="w-3.5 h-3.5" /> Revoke
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-          {sessions.filter(s => !s.is_current).length > 0 && (
-            <button
-              onClick={() => setSessions(p => p.filter(s => s.is_current))}
-              className="text-sm text-red-600 hover:text-red-700 font-medium flex items-center gap-1.5"
-            >
+                );
+              })}
+            </div>
+          )}
+
+          {sessions.filter(s => s.session_id !== sessionId).length > 0 && (
+            <button onClick={handleRevokeAllOther}
+              className="text-sm text-red-600 hover:text-red-700 font-medium flex items-center gap-1.5">
               <LogOut className="w-4 h-4" /> Revoke all other sessions
             </button>
           )}
         </div>
       )}
 
-      {/* ── Activity Tab ── */}
+      {/* ══ Activity Tab ═════════════════════════════════════════════════════ */}
       {tab === 'activity' && (
         <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
           <div>
             <h3 className="text-base font-bold text-gray-900">Recent Admin Activity</h3>
-            <p className="text-sm text-gray-500 mt-0.5">Your last {dummyAuditLogs.length} actions on the platform.</p>
+            <p className="text-sm text-gray-500 mt-0.5">Your last {activity.length} actions on the platform.</p>
           </div>
-          <div className="space-y-1">
-            {dummyAuditLogs.map((log, i) => (
-              <div key={log.id} className="flex items-start gap-3 py-3 border-b border-gray-50 last:border-0">
-                <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Activity className="w-3.5 h-3.5 text-purple-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-800">
-                    <span className="font-semibold capitalize">{log.action.replace(/_/g, ' ')}</span>
-                    {' · '}
-                    <span className="text-gray-500 capitalize">{log.target_type} #{log.target_id}</span>
-                  </p>
-                  {Object.keys(log.details).length > 0 && (
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {Object.entries(log.details).map(([k, v]) => `${k}: ${v}`).join(' · ')}
+
+          {activityLoading ? (
+            <div className="flex items-center justify-center py-10 gap-2 text-gray-400">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="text-sm">Loading activity…</span>
+            </div>
+          ) : activity.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">No activity recorded yet.</p>
+          ) : (
+            <div className="space-y-1">
+              {activity.map(log => (
+                <div key={log.id} className="flex items-start gap-3 py-3 border-b border-gray-50 last:border-0">
+                  <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Activity className="w-3.5 h-3.5 text-purple-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-800">
+                      <span className="font-semibold capitalize">{log.action.replace(/_/g, ' ')}</span>
+                      {' · '}
+                      <span className="text-gray-500 capitalize">{log.target_type} #{log.target_id}</span>
                     </p>
-                  )}
+                    {log.details && Object.keys(log.details).length > 0 && (
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {Object.entries(log.details).map(([k, v]) => `${k}: ${v}`).join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-400 flex-shrink-0 whitespace-nowrap">
+                    {timeAgo(log.created_at)}
+                  </span>
                 </div>
-                <span className="text-xs text-gray-400 flex-shrink-0 whitespace-nowrap">{timeAgo(log.created_at)}</span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
+
     </div>
   );
 };

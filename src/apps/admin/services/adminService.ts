@@ -9,13 +9,14 @@
 
 import type {
   AdminUser, AdminEvent, AdminBooking, AdminPayment,
-  ContactMessage, DashboardStats,
+  ContactMessage, DashboardStats, AuditLog, RefreshSession
 } from '@admin/types';
 
 import {
   dummyUsers, dummyEvents, dummyBookings, dummyPayments,
   dummyMessages, dummyDashboardStats,
   dummyRevenueChart, dummyUserGrowthChart, dummyEventCategories,
+  dummyAuditLogs, dummyRefreshSessions,
 } from '@admin/utils/dummyData';
 
 // ─── Settings types ───────────────────────────────────────────────────────────
@@ -145,6 +146,32 @@ export const updateAdminNotificationPrefs = async (
     ...dummyNotificationPrefs,
     ...updates,
     updated_at: new Date().toISOString(),
+  });
+};
+
+// ─── Admin Profile — Active Sessions ─────────────────────────────────────────
+// Backed by GET /admin/sessions → RefreshSession rows
+ 
+export const getMyAdminSessions = async (): Promise<RefreshSession[]> => {
+  // return (await api.get('/admin/sessions')).data;
+  return Promise.resolve(dummyRefreshSessions);
+};
+ 
+export const revokeAdminSession = async (sessionId: string): Promise<void> => {
+  // await api.delete(`/admin/sessions/${sessionId}`);
+  return Promise.resolve();
+};
+ 
+export const revokeAllOtherAdminSessions = async (
+  currentSessionId: string
+): Promise<{ revoked_count: number; message: string }> => {
+  // return (await api.delete('/admin/sessions', {
+  //   data: { current_session_id: currentSessionId },
+  // })).data;
+  const others = dummyRefreshSessions.filter(s => s.session_id !== currentSessionId);
+  return Promise.resolve({
+    revoked_count: others.length,
+    message: `${others.length} other session(s) have been signed out.`,
   });
 };
 
@@ -324,10 +351,48 @@ export const markMessageAsClosed = async (messageId: number): Promise<ContactMes
   return Promise.resolve({ ...msg, status: 'closed' as const });
 };
 
+
 export const markMessageAsSpam = async (messageId: number): Promise<ContactMessage> => {
   // return (await api.patch(`/admin/contact/${messageId}/spam`)).data;
   const msg = dummyMessages.find(m => m.id === messageId)!;
   return Promise.resolve({ ...msg, status: 'spam' as const });
+};
+
+// ─── Audit Logs (full list — AuditLogs.tsx page) ─────────────────────────────
+ 
+export const listAuditLogs = async (params?: {
+  admin_id?: number;
+  action?: string;
+  target_type?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ total: number; items: AuditLog[] }> => {
+  // const query = new URLSearchParams();
+  // if (params?.admin_id)    query.set('admin_id',    String(params.admin_id));
+  // if (params?.action)      query.set('action',      params.action);
+  // if (params?.target_type) query.set('target_type', params.target_type);
+  // if (params?.from)        query.set('from',        params.from);
+  // if (params?.to)          query.set('to',          params.to);
+  // if (params?.limit)       query.set('limit',       String(params.limit));
+  // if (params?.offset)      query.set('offset',      String(params.offset));
+  // return (await api.get(`/admin/audit-logs?${query.toString()}`)).data;
+  return Promise.resolve({ total: dummyAuditLogs.length, items: dummyAuditLogs });
+};
+ 
+export const getAuditLogById = async (logId: number): Promise<AuditLog> => {
+  // return (await api.get(`/admin/audit-logs/${logId}`)).data;
+  const log = dummyAuditLogs.find(l => l.id === logId);
+  if (!log) throw new Error('Audit log not found');
+  return Promise.resolve(log);
+};
+ 
+// ─── My Activity (MyProfile.tsx — 'My Activity' tab) ─────────────────────────
+ 
+export const getMyActivity = async (): Promise<AuditLog[]> => {
+  // return (await api.get('/admin/audit-logs/my')).data;
+  return Promise.resolve(dummyAuditLogs);
 };
 
 // ─── Sessions ─────────────────────────────────────────────────────────────────

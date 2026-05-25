@@ -11,61 +11,61 @@ import { logoutUser } from "@shared/api/auth/authApi";
 import { getCurrentUser } from "@shared/api/user/usersApi";
 import type { User } from "@shared/types/User";
 
+// ─── Context ──────────────────────────────────────────────────────────────────
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// ─── Provider ─────────────────────────────────────────────────────────────────
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  
-  const isRestoringSession = useRef(false);
+  const [user, setUser]                       = useState<User | null>(null);
+  const [sessionId, setSessionId]             = useState<string | null>(null);
+  const [loading, setLoading]                 = useState(true);
+
+  const isRestoringSession  = useRef(false);
   const hasAttemptedRestore = useRef(false);
 
-  useEffect(() => {
-    if (hasAttemptedRestore.current || isRestoringSession.current) {
-      return;
-    }
+  // ── Session restore on mount ────────────────────────────────────────────────
+  // Calls /auth/refresh using the HttpOnly refresh-token cookie.
+  // If successful, the response body contains both access_token and session_id.
 
-    isRestoringSession.current = true;
+  useEffect(() => {
+    if (hasAttemptedRestore.current || isRestoringSession.current) return;
+
+    isRestoringSession.current  = true;
     hasAttemptedRestore.current = true;
 
     const restoreSession = async () => {
       try {
-        console.log('Attempting to restore session...');
-        console.log('Cookies:', document.cookie);  // See all cookies
-        
-        // Attempt to refresh token
+        console.log("Attempting to restore session...");
+
         const response = await api.post("/auth/refresh");
-        console.log('Refresh successful:', response.data);
 
+        // Both access_token and session_id come back in the response body.
+        // session_id rotates on every refresh, so we always update it here.
+        const { access_token, session_id } = response.data;
 
-        const accessToken = response.data.access_token;
+        setAccessToken(access_token);
+        setSessionId(session_id ?? null);
 
-        setAccessToken(accessToken);
-
-        // Fetch current user
         const userData = await getCurrentUser();
         setUser(userData);
         setIsAuthenticated(true);
       } catch (error) {
         console.error("Failed to restore session:", error);
-        console.log('Cookies after failure:', document.cookie);
 
-        // Proper axios error handling
         if (axios.isAxiosError(error)) {
           const statusCode = error.response?.status;
-          const detail = error.response?.data?.detail || error.response?.data?.message;
-  
+          const detail     = error.response?.data?.detail || error.response?.data?.message;
+
           if (statusCode === 401) {
-            // Unauthorized error
-            console.log('Exact unauthorized error from backend:', detail);
-            // Log out user and clear session
-            setAccessToken(null);
-            setUser(null);
-            setIsAuthenticated(false);
+            console.log("Unauthorized — clearing session:", detail);
           }
         }
+
         setAccessToken(null);
+        setSessionId(null);
         setUser(null);
         setIsAuthenticated(false);
       } finally {
@@ -77,20 +77,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     restoreSession();
   }, []);
 
-  const login = async (accessToken: string) => {
-    setAccessToken(accessToken);
+  // ── login ───────────────────────────────────────────────────────────────────
+  // Called after a successful POST /auth/login.
+
+  const login = async (loginResponse: { access_token: string; session_id?: string }) => {
+    const { access_token, session_id } = loginResponse;
+
+    setAccessToken(access_token);
+    setSessionId(session_id ?? null);
 
     try {
-      // Fetch user data after login
-      const fetchUser = await getCurrentUser();
-      setUser(fetchUser);      
+      const fetchedUser = await getCurrentUser();
+      setUser(fetchedUser);
       setIsAuthenticated(true);
-      } catch (error) {
+    } catch (error) {
       console.error("Failed to fetch user after login:", error);
-      // Even if user fetch fails, we're authenticated
+      // Token is valid even if the user fetch fails — still mark authenticated.
       setIsAuthenticated(true);
     }
   };
+
+  // ── logout ──────────────────────────────────────────────────────────────────
 
   const logout = async () => {
     try {
@@ -99,11 +106,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error("Logout error:", error);
     } finally {
       setAccessToken(null);
+      setSessionId(null);
       setUser(null);
       setIsAuthenticated(false);
       hasAttemptedRestore.current = false;
     }
   };
+
+  // ── Context value ───────────────────────────────────────────────────────────
 
   return (
     <AuthContext.Provider
@@ -111,14 +121,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAuthenticated,
         loading,
         user,
+        sessionId,
         login,
-        logout
+        logout,
       }}
     >
       {children}
     </AuthContext.Provider>
   );
 };
+
+// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

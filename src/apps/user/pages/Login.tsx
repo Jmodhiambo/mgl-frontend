@@ -27,8 +27,8 @@ const Login: React.FC = () => {
       // Call your API
       const response = await loginUser({ email, password });
       
-      // Update auth context with the access token
-      await login(response.access_token);
+      // Update auth context with the access token and session ID (if provided)
+      await login(response);
 
       // Redirect to original URL or default
       if (redirectUrl) {

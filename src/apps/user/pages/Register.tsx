@@ -59,7 +59,7 @@ export default function Register() {
       });
       
       // Step 3: Update auth context
-      login(loginResponse.access_token);
+      await login(loginResponse);
       
       // Step 4: Navigate to dashboard
       navigate('/dashboard');

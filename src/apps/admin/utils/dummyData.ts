@@ -5,6 +5,7 @@
 import type {
   AdminUser, AdminEvent, AdminBooking, AdminPayment,
   ContactMessage, DashboardStats, AuditLog, AdminTicketType,
+  RefreshSession,
 } from '@admin/types';
 
 // ─── Dashboard Stats ─────────────────────────────────────────────────────────
@@ -171,3 +172,46 @@ export const timeAgo = (iso: string): string => {
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
 };
+
+// ─── Refresh Sessions ────────────────────────────────────────────────────────────────────────
+export const dummyRefreshSessions: RefreshSession[] = [
+  {
+    session_id: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4',
+    user_id: 1,
+    device_info: 'Chrome on macOS',
+    ip_address: '41.90.64.12',
+    location: 'Nairobi, KE',
+    created_at: '2025-04-06T08:00:00Z',
+    last_used_at: '2025-04-06T14:30:00Z',
+    expires_at: '2025-04-13T08:00:00Z',
+    revoked_at: null,
+    replaced_by_sid: null,
+    is_active: true,
+  },
+  {
+    session_id: 'b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5',
+    user_id: 1,
+    device_info: 'Firefox on Windows',
+    ip_address: '41.90.64.55',
+    location: 'Nairobi, KE',
+    created_at: '2025-04-05T07:00:00Z',
+    last_used_at: '2025-04-05T09:15:00Z',
+    expires_at: '2025-04-12T07:00:00Z',
+    revoked_at: null,
+    replaced_by_sid: null,
+    is_active: true,
+  },
+  {
+    session_id: 'c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6',
+    user_id: 1,
+    device_info: 'Safari on iPhone',
+    ip_address: '197.248.10.3',
+    location: 'Mombasa, KE',
+    created_at: '2025-04-03T16:00:00Z',
+    last_used_at: '2025-04-03T18:00:00Z',
+    expires_at: '2025-04-10T16:00:00Z',
+    revoked_at: null,
+    replaced_by_sid: null,
+    is_active: true,
+  },
+];

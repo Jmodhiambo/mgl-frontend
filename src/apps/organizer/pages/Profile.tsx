@@ -1,3 +1,5 @@
+// src/apps/organizer/pages/Profile.tsx
+
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, Building2, Globe, Upload, X, Save, Edit, Trash2 } from 'lucide-react';
 
