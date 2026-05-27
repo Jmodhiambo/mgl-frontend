@@ -6,6 +6,7 @@ import {
   AlertTriangle, CheckCircle, Lock,
 } from 'lucide-react';
 import { MyEventsSEO } from '@shared/components/SEO';
+import { useOrganizerProfile, FIELD_LABELS } from '@user/hooks/useOrganizerProfile';
 
 interface Event {
   id: number;
@@ -39,10 +40,6 @@ interface User {
   name: string;
   email: string;
   role: string;
-  // Added: tracks whether the organizer has finished their profile setup.
-  // False when the account was created by an admin; true when self-created
-  // or when the organizer completes the setup flow.
-  organizer_profile_completed?: boolean;
   organizer_info?: {
     bio?: string;
     organization_name?: string;
@@ -53,52 +50,41 @@ interface User {
   };
 }
 
-// Steps shown in the "complete your profile" nudge inside the modal
-const PROFILE_SETUP_STEPS = [
-  'Add your organization name',
-  'Write a short bio',
-  'Upload a profile picture',
-  'Add your area of expertise',
-  'Link your social media (optional)',
-];
-
 const MyEventsPage: React.FC = () => {
   const organizerBaseURL = import.meta.env.VITE_ORGANIZER_DOMAIN;
 
-  const [favoriteEvents, setFavoriteEvents]       = useState<Event[]>([]);
-  const [organizingEvents, setOrganizingEvents]   = useState<OrganizerEvent[]>([]);
-  const [coOrganizingEvents, setCoOrganizingEvents] = useState<OrganizerEvent[]>([]);
-  const [filteredEvents, setFilteredEvents]       = useState<(Event | OrganizerEvent)[]>([]);
-  const [loading, setLoading]                     = useState<boolean>(true);
-  const [filterType, setFilterType]               = useState<string>('all');
-  const [searchTerm, setSearchTerm]               = useState<string>('');
-  const [user, setUser]                           = useState<User | null>(null);
+  // Hook is role-gated internally — only fires for organizers
+  const { status: orgStatus, loading: orgLoading } = useOrganizerProfile();
+  const profileCompleted = orgStatus?.profile_completed === true;
+  const missingFields    = orgStatus?.missing_fields ?? [];
+
+  const [favoriteEvents, setFavoriteEvents]           = useState<Event[]>([]);
+  const [organizingEvents, setOrganizingEvents]       = useState<OrganizerEvent[]>([]);
+  const [coOrganizingEvents, setCoOrganizingEvents]   = useState<OrganizerEvent[]>([]);
+  const [filteredEvents, setFilteredEvents]           = useState<(Event | OrganizerEvent)[]>([]);
+  const [loading, setLoading]                         = useState<boolean>(true);
+  const [filterType, setFilterType]                   = useState<string>('all');
+  const [searchTerm, setSearchTerm]                   = useState<string>('');
+  const [user, setUser]                               = useState<User | null>(null);
   const [showOrganizerPrompt, setShowOrganizerPrompt] = useState<boolean>(false);
-  const [selectedEvent, setSelectedEvent]         = useState<OrganizerEvent | null>(null);
-  const [selectedEventType, setSelectedEventType] = useState<'organizer' | 'co-organizer' | null>(null);
+  const [selectedEvent, setSelectedEvent]             = useState<OrganizerEvent | null>(null);
+  const [selectedEventType, setSelectedEventType]     = useState<'organizer' | 'co-organizer' | null>(null);
 
   useEffect(() => {
     document.title = 'My Events - MGLTickets';
 
     const fetchUserAndEvents = async (): Promise<void> => {
       try {
-        // TODO: Replace with real API calls
-        // const userRes = await fetch('/api/users/me');
-        // const userData = await userRes.json();
+        // TODO: replace with real API calls
+        // const userRes  = await api.get('/users/me');
+        // const userData = userRes.data;
 
         const mockUser: User = {
           id: 1,
           name: 'John Doe',
           email: 'john@example.com',
           role: 'organizer',
-          // ← Toggle to test both states:
-          //   true  = profile complete  → "View Full Dashboard" works
-          //   false = profile incomplete → dashboard button is greyed/locked
-          organizer_profile_completed: false,
-          organizer_info: {
-            bio: '',
-            organization_name: '',
-          },
+          organizer_info: { bio: '', organization_name: '' },
         };
         setUser(mockUser);
 
@@ -212,24 +198,24 @@ const MyEventsPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    let filtered: (Event | OrganizerEvent)[] = [];
-    if (filterType === 'all')             filtered = [...favoriteEvents, ...organizingEvents, ...coOrganizingEvents];
-    else if (filterType === 'favorites')  filtered = favoriteEvents;
-    else if (filterType === 'organizing') filtered = organizingEvents;
-    else if (filterType === 'co-organizing') filtered = coOrganizingEvents;
+    let base: (Event | OrganizerEvent)[] = [];
+    if (filterType === 'all')              base = [...favoriteEvents, ...organizingEvents, ...coOrganizingEvents];
+    else if (filterType === 'favorites')   base = favoriteEvents;
+    else if (filterType === 'organizing')  base = organizingEvents;
+    else if (filterType === 'co-organizing') base = coOrganizingEvents;
 
     if (searchTerm) {
-      filtered = filtered.filter(e =>
+      base = base.filter(e =>
         e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         e.venue.toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
-    setFilteredEvents(filtered);
+    setFilteredEvents(base);
   }, [filterType, searchTerm, favoriteEvents, organizingEvents, coOrganizingEvents]);
 
-  const getEventType = (eventId: number): 'favorite' | 'organizer' | 'co-organizer' => {
-    if (favoriteEvents.some(e => e.id === eventId))    return 'favorite';
-    if (organizingEvents.some(e => e.id === eventId))  return 'organizer';
+  const getEventType = (id: number): 'favorite' | 'organizer' | 'co-organizer' => {
+    if (favoriteEvents.some(e => e.id === id))    return 'favorite';
+    if (organizingEvents.some(e => e.id === id))  return 'organizer';
     return 'co-organizer';
   };
 
@@ -249,11 +235,6 @@ const MyEventsPage: React.FC = () => {
     }
   };
 
-  const getTypeIcon = (type: string): React.ReactNode => {
-    if (type === 'favorite') return <Heart className="w-4 h-4 fill-current" />;
-    return <Users className="w-4 h-4" />;
-  };
-
   const getTypeLabel = (type: string): string => {
     if (type === 'favorite')     return 'Favorite';
     if (type === 'organizer')    return 'Organizer';
@@ -269,7 +250,6 @@ const MyEventsPage: React.FC = () => {
       setSelectedEvent(event as OrganizerEvent);
       setSelectedEventType('organizer');
     } else {
-      // co-organizer
       if (!user?.organizer_info) {
         setShowOrganizerPrompt(true);
       } else {
@@ -280,16 +260,14 @@ const MyEventsPage: React.FC = () => {
   };
 
   const handleViewFullDashboard = (): void => {
-    if (selectedEvent) {
-      window.location.href = `${organizerBaseURL}/events/${selectedEvent.slug}`;
-    }
+    if (selectedEvent) window.location.href = `${organizerBaseURL}/events/${selectedEvent.slug}`;
   };
 
   const handleSetupProfile = (): void => {
     window.location.href = '/setup-organizer-profile';
   };
 
-  const profileCompleted = user?.organizer_profile_completed === true;
+  const isOrganizerEvent = (e: Event | OrganizerEvent): e is OrganizerEvent => 'total_tickets' in e;
 
   const eventCounts: EventCounts = {
     all: favoriteEvents.length + organizingEvents.length + coOrganizingEvents.length,
@@ -297,9 +275,6 @@ const MyEventsPage: React.FC = () => {
     organizing: organizingEvents.length,
     coOrganizing: coOrganizingEvents.length,
   };
-
-  const isOrganizerEvent = (e: Event | OrganizerEvent): e is OrganizerEvent =>
-    'total_tickets' in e;
 
   if (loading) {
     return (
@@ -315,14 +290,21 @@ const MyEventsPage: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
         <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-          {/* ── Incomplete profile banner ── */}
-          {user?.role === 'organizer' && !profileCompleted && (
+          {/* ── Incomplete profile banner ──────────────────────────────────────────
+               Three conditions must all be true before this renders:
+               1. The user is actually an organizer (role check — excludes admins/users)
+               2. The /users/me/organizer fetch has finished (orgStatus !== null)
+               3. The returned status says the profile is incomplete
+               This prevents a false-positive flash for admins or users while the
+               hook is in its initial loading state (status = null, profileCompleted = false).
+          ── */}
+          {user?.role === 'organizer' && orgStatus !== null && !profileCompleted && (
             <div className="mb-6 flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
               <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="text-sm font-semibold text-red-700">Your organizer profile is incomplete</p>
                 <p className="text-sm text-red-600 mt-0.5">
-                  Complete your profile to unlock your organizer dashboard and start managing events.
+                  Complete your profile to unlock the organizer dashboard and start managing events.
                 </p>
               </div>
               <button
@@ -379,7 +361,7 @@ const MyEventsPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredEvents.map(event => {
               const eventType = getEventType(event.id);
-              const showStats = isOrganizerEvent(event) && (eventType === 'organizer' || eventType === 'co-organizer');
+              const showStats = isOrganizerEvent(event) && eventType !== 'favorite';
 
               return (
                 <div
@@ -398,15 +380,10 @@ const MyEventsPage: React.FC = () => {
                         {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
                       </span>
                       <span className="px-3 py-1 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-200 flex items-center gap-1">
-                        {getTypeIcon(eventType)}
+                        {eventType === 'favorite' ? <Heart className="w-3 h-3 fill-current" /> : <Users className="w-3 h-3" />}
                         {getTypeLabel(eventType)}
                       </span>
                     </div>
-                    {eventType !== 'favorite' && (
-                      <div className="absolute top-4 right-4">
-                        <BarChart3 className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                    )}
                   </div>
 
                   <div className="p-6">
@@ -502,11 +479,7 @@ const MyEventsPage: React.FC = () => {
               <div className="p-6">
                 {/* Flyer */}
                 <div className="rounded-xl overflow-hidden mb-6">
-                  <img
-                    src={selectedEvent.flyer_url}
-                    alt={selectedEvent.title}
-                    className="w-full h-64 object-cover"
-                  />
+                  <img src={selectedEvent.flyer_url} alt={selectedEvent.title} className="w-full h-64 object-cover" />
                 </div>
 
                 {/* Event details */}
@@ -572,7 +545,6 @@ const MyEventsPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Description */}
                 {selectedEvent.description && (
                   <div className="mb-6">
                     <h4 className="text-lg font-semibold text-gray-800 mb-2">About This Event</h4>
@@ -584,27 +556,27 @@ const MyEventsPage: React.FC = () => {
                 <div className="flex flex-col gap-3">
                   {selectedEventType === 'organizer' ? (
                     profileCompleted ? (
-                      // Profile complete: active dashboard button
+                      // Profile complete: active dashboard link
                       <button
                         onClick={handleViewFullDashboard}
-                        className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all flex items-center justify-center gap-2"
+                        className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all flex items-center justify-center gap-2"
                       >
                         <ExternalLink className="w-5 h-5" />
                         View Full Dashboard
                       </button>
                     ) : (
-                      // Profile incomplete: locked dashboard button + setup steps
+                      // Profile incomplete: locked button + dynamic setup checklist
                       <div className="rounded-xl border border-gray-200 overflow-hidden">
                         {/* Disabled button */}
                         <button
                           disabled
-                          className="w-full flex items-center justify-center gap-2 py-3 bg-gray-100 text-gray-400 font-medium cursor-not-allowed"
+                          className="w-full flex items-center justify-center gap-2 py-3 bg-gray-100 text-gray-400 font-medium cursor-not-allowed select-none"
                         >
                           <Lock className="w-4 h-4" />
                           View Full Dashboard
                         </button>
 
-                        {/* Setup nudge */}
+                        {/* Setup nudge with dynamic missing fields from the API */}
                         <div className="bg-amber-50 border-t border-amber-100 px-5 py-4">
                           <div className="flex items-start gap-2 mb-3">
                             <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
@@ -612,14 +584,26 @@ const MyEventsPage: React.FC = () => {
                               Complete your organizer profile to unlock the dashboard
                             </p>
                           </div>
-                          <ul className="space-y-1.5 mb-4">
-                            {PROFILE_SETUP_STEPS.map((step, i) => (
-                              <li key={i} className="flex items-center gap-2 text-sm text-amber-700">
-                                <CheckCircle className="w-3.5 h-3.5 text-amber-300 flex-shrink-0" />
-                                {step}
-                              </li>
-                            ))}
+
+                          {/* Checklist — driven by missing_fields from /users/me/organizer */}
+                          <ul className="space-y-2 mb-4">
+                            {Object.entries(FIELD_LABELS).map(([key, label]) => {
+                              const isMissing = missingFields.includes(key);
+                              return (
+                                <li key={key} className="flex items-center gap-2 text-sm">
+                                  <CheckCircle
+                                    className={`w-3.5 h-3.5 flex-shrink-0 ${
+                                      isMissing ? 'text-amber-300' : 'text-green-500'
+                                    }`}
+                                  />
+                                  <span className={isMissing ? 'text-amber-700' : 'text-gray-400 line-through'}>
+                                    {label}
+                                  </span>
+                                </li>
+                              );
+                            })}
                           </ul>
+
                           <button
                             onClick={handleSetupProfile}
                             className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors text-sm"
@@ -631,7 +615,7 @@ const MyEventsPage: React.FC = () => {
                     )
                   ) : (
                     // Co-organizer: view-only notice
-                    <div className="flex-1 bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                    <div className="w-full bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
                       <p className="text-sm text-blue-800 font-medium mb-1">Co-Organizer Access</p>
                       <p className="text-xs text-blue-600">
                         You have view-only access to basic event statistics. Contact the main organizer for full dashboard access.

@@ -79,3 +79,17 @@ export interface EmailResendResponse {
     success: boolean;
     message: string;
 }
+
+export interface RefreshSession {
+  session_id: string;
+  user_id: number;
+  device_info: string | null;
+  ip_address: string | null;
+  location: string | null;
+  created_at: string;
+  last_used_at: string;
+  expires_at: string;
+  revoked_at: string | null;
+  replaced_by_sid: string | null;
+  is_active: boolean;
+}

@@ -43,6 +43,42 @@ const roleColors: Record<NewUserRole, string> = {
   admin: 'border-red-500 bg-red-50 text-red-700',
 };
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Returns a display-ready full name from an AdminUser.
+ * Handles both:
+ *   - Live API responses: { name: "Alice Mwangi" }
+ *   - Dummy data:         { first_name: "Alice", last_name: "Mwangi" }
+ */
+function getDisplayName(user: AdminUser): string {
+  if ((user as any).name) return (user as any).name as string;
+  const full = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim();
+  return full || 'Unknown';
+}
+
+/**
+ * Derives up to 2 initials from a full name string.
+ * "Alice Mwangi" → "AM" · "Madonna" → "MA" · "" → "?"
+ */
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return (parts[0].charAt(0) + (parts[0].charAt(1) || '')).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
+
+/**
+ * Returns the phone number from an AdminUser.
+ * Handles both:
+ *   - Live API responses: { phone_number: "+254712345678" }
+ */
+function getPhoneNumber(user: AdminUser): string {
+  return (user as any).phone_number ?? (user as any).phone ?? 'N/A';
+}
+
+// ─── Create User Modal ────────────────────────────────────────────────────────
+
 const CreateUserModal: React.FC<{
   onClose: () => void;
   onCreated: (user: AdminUser) => void;
@@ -68,8 +104,15 @@ const CreateUserModal: React.FC<{
     setLoading(true);
     try {
       await new Promise(r => setTimeout(r, 800));
+      // Build the new user using the combined `name` field that matches the
+      // live API shape, while also populating first_name/last_name so that
+      // dummy-data consumers continue to work.
+      const fullName = `${form.first_name} ${form.last_name}`.trim();
       const newUser: AdminUser = {
         id: Math.floor(Math.random() * 9000) + 1000,
+        // Live API field
+        ...(({ name: fullName } as any)),
+        // Dummy data fields (kept for backward compat with dummyUsers)
         first_name: form.first_name,
         last_name:  form.last_name,
         email:      form.email,
@@ -192,13 +235,14 @@ const Users: React.FC = () => {
   }, []);
 
   const filtered = useMemo(() => users.filter(u => {
-    const name = `${u.first_name} ${u.last_name} ${u.email}`.toLowerCase();
+    // Search works against whichever name shape the API returned
+    const name = `${getDisplayName(u)} ${u.email}`.toLowerCase();
     if (search && !name.includes(search.toLowerCase())) return false;
     if (roleFilter !== 'all' && u.role !== roleFilter) return false;
-    if (statusFilter === 'active'     && !u.is_active)  return false;
-    if (statusFilter === 'inactive'   &&  u.is_active)  return false;
-    if (statusFilter === 'verified'   && !u.is_verified) return false;
-    if (statusFilter === 'unverified' &&  u.is_verified) return false;
+    if (statusFilter === 'active'     && !u.is_active)   return false;
+    if (statusFilter === 'inactive'   &&  u.is_active)   return false;
+    if (statusFilter === 'verified'   && !u.is_verified)  return false;
+    if (statusFilter === 'unverified' &&  u.is_verified)  return false;
     return true;
   }), [users, search, roleFilter, statusFilter]);
 
@@ -228,7 +272,7 @@ const Users: React.FC = () => {
   const exportCSV = () => {
     const rows = [
       ['ID', 'Name', 'Email', 'Role', 'Active', 'Verified', 'Created'],
-      ...filtered.map(u => [u.id, `${u.first_name} ${u.last_name}`, u.email, u.role, u.is_active, u.is_verified, u.created_at]),
+      ...filtered.map(u => [u.id, getDisplayName(u), u.email, u.role, u.is_active, u.is_verified, u.created_at]),
     ];
     const a = document.createElement('a');
     a.href = 'data:text/csv,' + encodeURIComponent(rows.map(r => r.join(',')).join('\n'));
@@ -296,10 +340,10 @@ const Users: React.FC = () => {
                       <td>
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full purple-gradient flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                            {user.first_name.charAt(0)}{user.last_name.charAt(0)}
+                            {getInitials(getDisplayName(user))}
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900 text-sm">{user.first_name} {user.last_name}</p>
+                            <p className="font-medium text-gray-900 text-sm">{getDisplayName(user)}</p>
                             <p className="text-xs text-gray-500">{user.email}</p>
                           </div>
                         </div>
@@ -326,12 +370,12 @@ const Users: React.FC = () => {
               {paginated.map(user => (
                 <div key={user.id} className="flex items-start gap-3 p-4">
                   <div className="w-10 h-10 rounded-full purple-gradient flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                    {user.first_name.charAt(0)}{user.last_name.charAt(0)}
+                    {getInitials(getDisplayName(user))}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-semibold text-sm text-gray-900 truncate">
-                        {user.first_name} {user.last_name}
+                        {getDisplayName(user)}
                       </p>
                       <UserActionsMenu user={user} onAction={a => setConfirm({ action: a, user })} onView={() => setDetail(user)} />
                     </div>
@@ -357,7 +401,7 @@ const Users: React.FC = () => {
       {confirm && (
         <ConfirmDialog
           title={actionLabels[confirm.action]}
-          message={`Are you sure you want to ${confirm.action.replace(/-/g, ' ')} ${confirm.user.first_name} ${confirm.user.last_name}? This action cannot be undone.`}
+          message={`Are you sure you want to ${confirm.action.replace(/-/g, ' ')} ${getDisplayName(confirm.user)}? This action cannot be undone.`}
           confirmLabel={actionLabels[confirm.action]}
           variant={confirm.action === 'delete' || confirm.action === 'deactivate' ? 'danger' : 'info'}
           onConfirm={handleAction} onCancel={() => setConfirm(null)} loading={actionLoading}
@@ -372,7 +416,7 @@ const Users: React.FC = () => {
           onCreated={newUser => {
             setUsers(p => [newUser, ...p]);
             setShowCreate(false);
-            setAlert({ type: 'success', msg: `${newUser.first_name} ${newUser.last_name} created successfully as ${newUser.role}.` });
+            setAlert({ type: 'success', msg: `${getDisplayName(newUser)} created successfully as ${newUser.role}.` });
           }}
         />
       )}
@@ -453,10 +497,10 @@ const UserDetailModal: React.FC<{ user: AdminUser; onClose: () => void }> = ({ u
       <div className="flex items-start justify-between mb-5">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-xl purple-gradient flex items-center justify-center text-white text-xl font-bold shadow-lg">
-            {user.first_name.charAt(0)}{user.last_name.charAt(0)}
+            {getInitials(getDisplayName(user))}
           </div>
           <div>
-            <h3 className="text-lg font-bold text-gray-900">{user.first_name} {user.last_name}</h3>
+            <h3 className="text-lg font-bold text-gray-900">{getDisplayName(user)}</h3>
             <p className="text-sm text-gray-500">{user.email}</p>
           </div>
         </div>
@@ -468,7 +512,7 @@ const UserDetailModal: React.FC<{ user: AdminUser; onClose: () => void }> = ({ u
           ['Role', user.role],
           ['Status', user.is_active ? 'Active' : 'Inactive'],
           ['Email Verified', user.is_verified ? 'Yes' : 'No'],
-          ['Phone', (user as any).phone ?? 'N/A'],
+          ['Phone', getPhoneNumber(user)],
           ['Joined', formatDateTime(user.created_at)],
           ['Last Updated', formatDateTime(user.updated_at)],
         ] as [string, string][]).map(([label, value]) => (

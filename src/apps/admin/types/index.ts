@@ -171,3 +171,21 @@ export interface RefreshSession {
   replaced_by_sid: string | null;
   is_active: boolean;        // computed property from the ORM model
 }
+
+export interface AdminMe {
+  id: number;
+  name: string;
+  email: string;
+  phone_number: string;
+  role: string;
+  is_active: boolean;
+  email_verified: boolean;
+  bio: string | null;
+  created_at: string;
+}
+ 
+export interface AdminProfileUpdate {
+  name?: string;
+  phone_number?: string;
+  bio?: string;
+}

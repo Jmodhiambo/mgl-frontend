@@ -3,9 +3,8 @@
 // All data here is placeholder. To connect real data, update adminService.tsx.
 
 import type {
-  AdminUser, AdminEvent, AdminBooking, AdminPayment,
+  AdminEvent, AdminBooking, AdminPayment,
   ContactMessage, DashboardStats, AuditLog, AdminTicketType,
-  RefreshSession,
 } from '@admin/types';
 
 // ─── Dashboard Stats ─────────────────────────────────────────────────────────
@@ -57,22 +56,6 @@ export const dummyBookingStatuses = [
   { label: 'Pending',   value: 1_840  },
   { label: 'Cancelled', value: 1_650  },
   { label: 'Refunded',  value: 760    },
-];
-
-// ─── Users ────────────────────────────────────────────────────────────────────
-export const dummyUsers: AdminUser[] = [
-  { id: 1,  first_name: 'Alice',  last_name: 'Mwangi',   email: 'alice@example.com',  role: 'admin',     is_active: true,  is_verified: true,  created_at: '2024-01-15T10:00:00Z', updated_at: '2024-03-01T12:00:00Z' },
-  { id: 2,  first_name: 'Brian',  last_name: 'Otieno',   email: 'brian@example.com',  role: 'organizer', is_active: true,  is_verified: true,  created_at: '2024-02-10T08:30:00Z', updated_at: '2024-03-10T09:00:00Z' },
-  { id: 3,  first_name: 'Carol',  last_name: 'Njoroge',  email: 'carol@example.com',  role: 'user',      is_active: true,  is_verified: true,  created_at: '2024-02-20T14:00:00Z', updated_at: '2024-02-20T14:00:00Z' },
-  { id: 4,  first_name: 'David',  last_name: 'Kimani',   email: 'david@example.com',  role: 'user',      is_active: false, is_verified: false, created_at: '2024-03-01T11:00:00Z', updated_at: '2024-03-15T16:00:00Z' },
-  { id: 5,  first_name: 'Eve',    last_name: 'Wanjiku',  email: 'eve@example.com',    role: 'organizer', is_active: true,  is_verified: true,  created_at: '2024-03-05T09:00:00Z', updated_at: '2024-03-05T09:00:00Z' },
-  { id: 6,  first_name: 'Frank',  last_name: 'Odhiambo', email: 'frank@example.com',  role: 'user',      is_active: true,  is_verified: false, created_at: '2024-03-12T13:00:00Z', updated_at: '2024-03-12T13:00:00Z' },
-  { id: 7,  first_name: 'Grace',  last_name: 'Achieng',  email: 'grace@example.com',  role: 'user',      is_active: true,  is_verified: true,  created_at: '2024-03-18T10:00:00Z', updated_at: '2024-03-18T10:00:00Z' },
-  { id: 8,  first_name: 'Henry',  last_name: 'Muriuki',  email: 'henry@example.com',  role: 'organizer', is_active: true,  is_verified: true,  created_at: '2024-03-20T08:00:00Z', updated_at: '2024-03-20T08:00:00Z' },
-  { id: 9,  first_name: 'Irene',  last_name: 'Chebet',   email: 'irene@example.com',  role: 'user',      is_active: false, is_verified: true,  created_at: '2024-03-22T15:00:00Z', updated_at: '2024-03-28T11:00:00Z' },
-  { id: 10, first_name: 'James',  last_name: 'Gitonga',  email: 'james@example.com',  role: 'user',      is_active: true,  is_verified: true,  created_at: '2024-03-25T12:00:00Z', updated_at: '2024-03-25T12:00:00Z' },
-  { id: 11, first_name: 'Karen',  last_name: 'Wambui',   email: 'karen@example.com',  role: 'organizer', is_active: true,  is_verified: true,  created_at: '2024-03-27T09:30:00Z', updated_at: '2024-03-27T09:30:00Z' },
-  { id: 12, first_name: 'Leo',    last_name: 'Mutua',    email: 'leo@example.com',    role: 'user',      is_active: true,  is_verified: false, created_at: '2024-04-01T10:00:00Z', updated_at: '2024-04-01T10:00:00Z' },
 ];
 
 // ─── Events ───────────────────────────────────────────────────────────────────
@@ -172,46 +155,3 @@ export const timeAgo = (iso: string): string => {
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
 };
-
-// ─── Refresh Sessions ────────────────────────────────────────────────────────────────────────
-export const dummyRefreshSessions: RefreshSession[] = [
-  {
-    session_id: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4',
-    user_id: 1,
-    device_info: 'Chrome on macOS',
-    ip_address: '41.90.64.12',
-    location: 'Nairobi, KE',
-    created_at: '2025-04-06T08:00:00Z',
-    last_used_at: '2025-04-06T14:30:00Z',
-    expires_at: '2025-04-13T08:00:00Z',
-    revoked_at: null,
-    replaced_by_sid: null,
-    is_active: true,
-  },
-  {
-    session_id: 'b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5',
-    user_id: 1,
-    device_info: 'Firefox on Windows',
-    ip_address: '41.90.64.55',
-    location: 'Nairobi, KE',
-    created_at: '2025-04-05T07:00:00Z',
-    last_used_at: '2025-04-05T09:15:00Z',
-    expires_at: '2025-04-12T07:00:00Z',
-    revoked_at: null,
-    replaced_by_sid: null,
-    is_active: true,
-  },
-  {
-    session_id: 'c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6',
-    user_id: 1,
-    device_info: 'Safari on iPhone',
-    ip_address: '197.248.10.3',
-    location: 'Mombasa, KE',
-    created_at: '2025-04-03T16:00:00Z',
-    last_used_at: '2025-04-03T18:00:00Z',
-    expires_at: '2025-04-10T16:00:00Z',
-    revoked_at: null,
-    replaced_by_sid: null,
-    is_active: true,
-  },
-];

@@ -5,10 +5,10 @@
 // dummy return in each function.  See existing functions for the pattern.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// import api from '@shared/api/axiosConfig';
+import api from '@shared/api/axiosConfig';
 
 import type {
-  AdminUser, AdminEvent, AdminBooking, AdminPayment,
+  AdminUser, AdminEvent, AdminBooking, AdminPayment, AdminMe, AdminProfileUpdate,
   ContactMessage, DashboardStats, AuditLog, RefreshSession
 } from '@admin/types';
 
@@ -116,100 +116,120 @@ export const getEventCategories = async (): Promise<{ label: string; value: numb
 // ─── Platform Settings ────────────────────────────────────────────────────────
 
 export const getPlatformSettings = async (): Promise<PlatformSettings> => {
-  // return (await api.get('/admin/settings')).data;
-  return Promise.resolve({ ...dummyPlatformSettings });
+  return (await api.get('/admin/settings')).data;
+  // return Promise.resolve({ ...dummyPlatformSettings });
 };
 
 export const updatePlatformSettings = async (
   updates: Partial<Omit<PlatformSettings, 'updated_at' | 'updated_by_user_id'>>,
 ): Promise<PlatformSettings> => {
-  // return (await api.put('/admin/settings', updates)).data;
-  return Promise.resolve({
-    ...dummyPlatformSettings,
-    ...updates,
-    updated_at: new Date().toISOString(),
-  });
+  return (await api.put('/admin/settings', updates)).data;
+  // return Promise.resolve({
+  //   ...dummyPlatformSettings,
+  //   ...updates,
+  //   updated_at: new Date().toISOString(),
+  // });
 };
 
 // ─── Admin Notification Preferences ──────────────────────────────────────────
 
 export const getAdminNotificationPrefs = async (): Promise<AdminNotificationPrefs> => {
-  // return (await api.get('/admin/settings/notifications')).data;
-  return Promise.resolve({ ...dummyNotificationPrefs });
+  return (await api.get('/admin/settings/notifications')).data;
+  // return Promise.resolve({ ...dummyNotificationPrefs });
 };
 
 export const updateAdminNotificationPrefs = async (
   updates: Partial<Omit<AdminNotificationPrefs, 'user_id' | 'updated_at'>>,
 ): Promise<AdminNotificationPrefs> => {
-  // return (await api.put('/admin/settings/notifications', updates)).data;
-  return Promise.resolve({
-    ...dummyNotificationPrefs,
-    ...updates,
-    updated_at: new Date().toISOString(),
-  });
+  return (await api.put('/admin/settings/notifications', updates)).data;
+  // return Promise.resolve({
+  //   ...dummyNotificationPrefs,
+  //   ...updates,
+  //   updated_at: new Date().toISOString(),
+  // });
+};
+
+// ─── Admin Profile — Update Profile ──────────────────────────────────────────
+
+export const getMyAdminProfile = async (): Promise<AdminMe> => {
+  return (await api.get('/admin/users/me')).data;
+};
+ 
+export const updateAdminProfile = async (payload: AdminProfileUpdate): Promise<AdminMe> => {
+  return (await api.patch('/admin/users/me', payload)).data;
+};
+
+export const changeAdminPassword = async (
+  current_password: string,
+  new_password: string
+): Promise<void> => {
+  await api.patch('/users/me/change-password', { old_password: current_password, new_password });
 };
 
 // ─── Admin Profile — Active Sessions ─────────────────────────────────────────
 // Backed by GET /admin/sessions → RefreshSession rows
  
 export const getMyAdminSessions = async (): Promise<RefreshSession[]> => {
-  // return (await api.get('/admin/sessions')).data;
-  return Promise.resolve(dummyRefreshSessions);
+  return (await api.get('/admin/sessions')).data;
 };
  
 export const revokeAdminSession = async (sessionId: string): Promise<void> => {
-  // await api.delete(`/admin/sessions/${sessionId}`);
-  return Promise.resolve();
+  await api.delete(`/admin/sessions/${sessionId}`);
 };
  
 export const revokeAllOtherAdminSessions = async (
   currentSessionId: string
 ): Promise<{ revoked_count: number; message: string }> => {
-  // return (await api.delete('/admin/sessions', {
-  //   data: { current_session_id: currentSessionId },
-  // })).data;
-  const others = dummyRefreshSessions.filter(s => s.session_id !== currentSessionId);
-  return Promise.resolve({
-    revoked_count: others.length,
-    message: `${others.length} other session(s) have been signed out.`,
-  });
+  return (await api.delete('/admin/sessions', {
+    data: { current_session_id: currentSessionId },
+  })).data;
+};
+
+// ─── Session Cleanup ──────────────────────────────────────────────────────────
+// Backend: POST /admin/auth/cleanup-sessions?hours={n}
+// Response: { deleted_count: number, active_sessions: number, cleanup_threshold_hours: number }
+ 
+export const cleanupSessions = async (
+  hours = 24,
+): Promise<{ deleted_count: number; active_sessions: number; cleanup_threshold_hours: number }> => {
+  return (await api.post(`/admin/auth/cleanup-sessions?hours=${hours}`)).data;
 };
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 export const listAllUsers = async (): Promise<AdminUser[]> => {
-  // return (await api.get('/admin/users')).data;
-  return Promise.resolve(dummyUsers);
+  return (await api.get('/admin/users')).data;
+  // return Promise.resolve(dummyUsers);
 };
 
 export const getUserById = async (userId: number): Promise<AdminUser> => {
-  // return (await api.get(`/admin/users/${userId}`)).data;
-  const user = dummyUsers.find(u => u.id === userId);
-  if (!user) throw new Error('User not found');
-  return Promise.resolve(user);
+  return (await api.get(`/admin/users/${userId}`)).data;
+  // const user = dummyUsers.find(u => u.id === userId);
+  // if (!user) throw new Error('User not found');
+  // return Promise.resolve(user);
 };
 
 export const deleteUser = async (_userId: number): Promise<boolean> => {
-  // return (await api.delete(`/admin/users/${_userId}`)).data;
-  return Promise.resolve(true);
+  return (await api.delete(`/admin/users/${_userId}`)).data;
+  // return Promise.resolve(true);
 };
 
 export const activateUser = async (userId: number): Promise<AdminUser> => {
-  // return (await api.patch(`/admin/users/${userId}/activate`)).data;
-  const user = dummyUsers.find(u => u.id === userId)!;
-  return Promise.resolve({ ...user, is_active: true });
+  return (await api.patch(`/admin/users/${userId}/activate`)).data;
+  // const user = dummyUsers.find(u => u.id === userId)!;
+  // return Promise.resolve({ ...user, is_active: true });
 };
 
 export const deactivateUser = async (userId: number): Promise<AdminUser> => {
-  // return (await api.patch(`/admin/users/${userId}/deactivate`)).data;
-  const user = dummyUsers.find(u => u.id === userId)!;
-  return Promise.resolve({ ...user, is_active: false });
+  return (await api.patch(`/admin/users/${userId}/deactivate`)).data;
+  // const user = dummyUsers.find(u => u.id === userId)!;
+  // return Promise.resolve({ ...user, is_active: false });
 };
 
 export const verifyUserEmail = async (userId: number): Promise<AdminUser> => {
-  // return (await api.patch(`/admin/users/${userId}/verify`)).data;
-  const user = dummyUsers.find(u => u.id === userId)!;
-  return Promise.resolve({ ...user, is_verified: true });
+  return (await api.patch(`/admin/users/${userId}/verify`)).data;
+  // const user = dummyUsers.find(u => u.id === userId)!;
+  // return Promise.resolve({ ...user, is_verified: true });
 };
 
 export const promoteToOrganizer = async (userId: number): Promise<AdminUser> => {
@@ -237,12 +257,12 @@ export const demoteFromOrganizer = async (userId: number): Promise<AdminUser> =>
 };
 
 export const searchUsersByName = async (name: string): Promise<AdminUser[]> => {
-  // return (await api.get(`/admin/users/search?name=${name}`)).data;
-  return Promise.resolve(
-    dummyUsers.filter(u =>
-      `${u.first_name} ${u.last_name}`.toLowerCase().includes(name.toLowerCase())
-    )
-  );
+  return (await api.get(`/admin/users/search?name=${name}`)).data;
+  // return Promise.resolve(
+  //   dummyUsers.filter(u =>
+  //     `${u.first_name} ${u.last_name}`.toLowerCase().includes(name.toLowerCase())
+  //   )
+  // );
 };
 
 // ─── Events ───────────────────────────────────────────────────────────────────
@@ -369,35 +389,28 @@ export const listAuditLogs = async (params?: {
   limit?: number;
   offset?: number;
 }): Promise<{ total: number; items: AuditLog[] }> => {
-  // const query = new URLSearchParams();
-  // if (params?.admin_id)    query.set('admin_id',    String(params.admin_id));
-  // if (params?.action)      query.set('action',      params.action);
-  // if (params?.target_type) query.set('target_type', params.target_type);
-  // if (params?.from)        query.set('from',        params.from);
-  // if (params?.to)          query.set('to',          params.to);
-  // if (params?.limit)       query.set('limit',       String(params.limit));
-  // if (params?.offset)      query.set('offset',      String(params.offset));
-  // return (await api.get(`/admin/audit-logs?${query.toString()}`)).data;
-  return Promise.resolve({ total: dummyAuditLogs.length, items: dummyAuditLogs });
+  const query = new URLSearchParams();
+  if (params?.admin_id)    query.set('admin_id',    String(params.admin_id));
+  if (params?.action)      query.set('action',      params.action);
+  if (params?.target_type) query.set('target_type', params.target_type);
+  if (params?.from)        query.set('from',        params.from);
+  if (params?.to)          query.set('to',          params.to);
+  if (params?.limit)       query.set('limit',       String(params.limit));
+  if (params?.offset)      query.set('offset',      String(params.offset));
+  return (await api.get(`/admin/audit-logs?${query.toString()}`)).data;
+  // return Promise.resolve({ total: dummyAuditLogs.length, items: dummyAuditLogs });
 };
  
 export const getAuditLogById = async (logId: number): Promise<AuditLog> => {
-  // return (await api.get(`/admin/audit-logs/${logId}`)).data;
-  const log = dummyAuditLogs.find(l => l.id === logId);
-  if (!log) throw new Error('Audit log not found');
-  return Promise.resolve(log);
+  return (await api.get(`/admin/audit-logs/${logId}`)).data;
+  // const log = dummyAuditLogs.find(l => l.id === logId);
+  // if (!log) throw new Error('Audit log not found');
+  // return Promise.resolve(log);
 };
  
 // ─── My Activity (MyProfile.tsx — 'My Activity' tab) ─────────────────────────
  
 export const getMyActivity = async (): Promise<AuditLog[]> => {
-  // return (await api.get('/admin/audit-logs/my')).data;
-  return Promise.resolve(dummyAuditLogs);
-};
-
-// ─── Sessions ─────────────────────────────────────────────────────────────────
-
-export const cleanupSessions = async (hours = 24): Promise<{ deleted: number }> => {
-  // return (await api.post(`/admin/auth/cleanup-sessions?hours=${hours}`)).data;
-  return Promise.resolve({ deleted: 42 });
+  return (await api.get('/admin/audit-logs/my')).data;
+  // return Promise.resolve(dummyAuditLogs);
 };

@@ -2,10 +2,12 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
+import { useOrganizerProfile } from '@user/hooks/useOrganizerProfile';
 import { Calendar, Menu, X, LogOut, User, Briefcase, Shield, UserPlus, AlertTriangle } from 'lucide-react';
 
 const Navbar: React.FC = () => {
   const { logout, user, isAuthenticated } = useAuth();
+  const { status, loading: profileLoading } = useOrganizerProfile();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
@@ -46,12 +48,46 @@ const Navbar: React.FC = () => {
   const navLinks = isAuthenticated ? authenticatedNavLinks : publicNavLinks;
 
   const organizerUrl = import.meta.env.VITE_ORGANIZER_DOMAIN;
-  const adminUrl = import.meta.env.VITE_ADMIN_DOMAIN;
+  const adminUrl     = import.meta.env.VITE_ADMIN_DOMAIN;
 
-  // Whether this organizer has finished setting up their profile.
-  // Cast via `as any` because the field is not yet in the shared User type —
-  // update your AuthContext type once the backend ships the column.
-  const profileCompleted: boolean = (user as any)?.organizer_profile_completed === true;
+  const profileCompleted = status?.profile_completed === true;
+
+  // Organizer context switcher — shared between desktop and mobile,
+  // param controls full-width vs auto-width styling
+  const renderOrganizerAction = (mobile = false) => {
+    const baseClass = mobile ? 'w-full' : '';
+
+    if (profileLoading) {
+      return (
+        <div className={`h-9 ${mobile ? 'w-full' : 'w-48'} bg-gray-100 animate-pulse rounded-lg`} />
+      );
+    }
+
+    if (profileCompleted) {
+      return (
+        <a
+          href={`${organizerUrl}/dashboard`}
+          className={`flex items-center space-x-2 px-3 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 font-medium transition-colors text-sm ${baseClass}`}
+          title="Switch to Organizer Dashboard"
+        >
+          <Briefcase className="w-4 h-4" />
+          <span>Organizer Dashboard</span>
+        </a>
+      );
+    }
+
+    return (
+      <Link
+        to="/setup-organizer-profile"
+        onClick={mobile ? () => setIsMobileMenuOpen(false) : undefined}
+        className={`flex items-center space-x-2 px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 font-medium transition-colors text-sm ${baseClass}`}
+        title="Complete your organizer profile to access the dashboard"
+      >
+        <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+        <span>Complete Organizer Profile</span>
+      </Link>
+    );
+  };
 
   return (
     <nav className="bg-white shadow-sm border-b border-orange-100 sticky top-0 z-50">
@@ -81,7 +117,6 @@ const Navbar: React.FC = () => {
           <div className="hidden md:flex items-center space-x-4">
             {isAuthenticated ? (
               <>
-                {/* ── Regular user: invite to become organizer ── */}
                 {user?.role === 'user' && (
                   <Link
                     to="/setup-organizer-profile"
@@ -93,31 +128,8 @@ const Navbar: React.FC = () => {
                   </Link>
                 )}
 
-                {/* ── Organizer: profile complete → dashboard link ── */}
-                {user?.role === 'organizer' && profileCompleted && (
-                  <a
-                    href={`${organizerUrl}/dashboard`}
-                    className="flex items-center space-x-2 px-3 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 font-medium transition-colors text-sm"
-                    title="Switch to Organizer Dashboard"
-                  >
-                    <Briefcase className="w-4 h-4" />
-                    <span>Organizer Dashboard</span>
-                  </a>
-                )}
+                {user?.role === 'organizer' && renderOrganizerAction()}
 
-                {/* ── Organizer: profile incomplete → complete profile CTA ── */}
-                {user?.role === 'organizer' && !profileCompleted && (
-                  <Link
-                    to="/setup-organizer-profile"
-                    className="flex items-center space-x-2 px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 font-medium transition-colors text-sm"
-                    title="Your organizer profile is incomplete. Please complete it to access your dashboard."
-                  >
-                    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                    <span>Complete Organizer Profile</span>
-                  </Link>
-                )}
-
-                {/* ── Admin ── */}
                 {user?.role === 'admin' && (
                   <a
                     href={`${adminUrl}/dashboard`}
@@ -125,7 +137,7 @@ const Navbar: React.FC = () => {
                     title="Switch to Admin Panel"
                   >
                     <Shield className="w-4 h-4" />
-                    <span>Admin Console</span>
+                    <span>Admin Panel</span>
                   </a>
                 )}
 
@@ -147,10 +159,7 @@ const Navbar: React.FC = () => {
               </>
             ) : (
               <>
-                <Link
-                  to="/login"
-                  className="text-gray-600 hover:text-orange-600 font-medium transition-colors px-4 py-2"
-                >
+                <Link to="/login" className="text-gray-600 hover:text-orange-600 font-medium transition-colors px-4 py-2">
                   Login
                 </Link>
                 <Link
@@ -163,7 +172,7 @@ const Navbar: React.FC = () => {
             )}
           </div>
 
-          {/* Mobile menu button */}
+          {/* Mobile menu toggle */}
           <div className="flex items-center md:hidden">
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -192,28 +201,7 @@ const Navbar: React.FC = () => {
               <div className="border-t border-gray-200 pt-3 mt-3 space-y-3">
                 {isAuthenticated ? (
                   <>
-                    {/* Organizer: complete → dashboard */}
-                    {user?.role === 'organizer' && profileCompleted && (
-                      <a
-                        href={`${organizerUrl}/dashboard`}
-                        className="flex items-center space-x-2 px-3 py-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 font-medium"
-                      >
-                        <Briefcase className="w-4 h-4" />
-                        <span>Organizer Dashboard</span>
-                      </a>
-                    )}
-
-                    {/* Organizer: incomplete → complete profile CTA */}
-                    {user?.role === 'organizer' && !profileCompleted && (
-                      <Link
-                        to="/setup-organizer-profile"
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="flex items-center space-x-2 px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 font-medium"
-                      >
-                        <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                        <span>Complete Organizer Profile</span>
-                      </Link>
-                    )}
+                    {user?.role === 'organizer' && renderOrganizerAction(true)}
 
                     {user?.role === 'admin' && (
                       <a

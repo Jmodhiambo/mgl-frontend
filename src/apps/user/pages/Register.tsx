@@ -1,17 +1,21 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
-import { registerUser } from '@shared/api/auth/authApi';
-import { loginUser } from '@shared/api/auth/authApi';
+import { registerUser, loginUser } from '@shared/api/auth/authApi';
 import { RegisterSEO } from '@shared/components/SEO';
 
-export default function Register() {
+const Register: React.FC = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     confirmPassword: '',
     name: '',
     phone_number: '',
+  });
+  const [showPasswords, setShowPasswords] = useState({
+    password: false,
+    confirmPassword: false,
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -26,11 +30,14 @@ export default function Register() {
     }));
   };
 
+  const togglePassword = (field: 'password' | 'confirmPassword') => {
+    setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
-    // Validation
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -44,7 +51,6 @@ export default function Register() {
     setIsLoading(true);
     
     try {
-      // Step 1: Register the user
       await registerUser({
         email: formData.email,
         password: formData.password,
@@ -52,16 +58,12 @@ export default function Register() {
         phone_number: formData.phone_number,
       });
       
-      // Step 2: Automatically login after successful registration
       const loginResponse = await loginUser({
         email: formData.email,
         password: formData.password,
       });
       
-      // Step 3: Update auth context
       await login(loginResponse);
-      
-      // Step 4: Navigate to dashboard
       navigate('/dashboard');
     } catch (err: any) {
       setError(
@@ -139,17 +141,28 @@ export default function Register() {
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
                 Password
               </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                required
-                disabled={isLoading}
-                minLength={8}
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPasswords.password ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 pr-10 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  required
+                  disabled={isLoading}
+                  minLength={8}
+                />
+                <button
+                  type="button"
+                  onClick={() => togglePassword('password')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  tabIndex={-1}
+                  aria-label={showPasswords.password ? 'Hide password' : 'Show password'}
+                >
+                  {showPasswords.password ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
               <p className="text-xs text-gray-600 mt-1">At least 8 characters</p>
             </div>
             
@@ -157,16 +170,27 @@ export default function Register() {
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="confirmPassword">
                 Confirm Password
               </label>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                required
-                disabled={isLoading}
-              />
+              <div className="relative">
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type={showPasswords.confirmPassword ? 'text' : 'password'}
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 pr-10 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  required
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => togglePassword('confirmPassword')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  tabIndex={-1}
+                  aria-label={showPasswords.confirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                >
+                  {showPasswords.confirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             
             <div className="mb-4">
@@ -193,3 +217,5 @@ export default function Register() {
     </>
   );
 }
+
+export default Register;

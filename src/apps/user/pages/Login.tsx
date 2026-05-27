@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
 import { loginUser } from '@shared/api/auth/authApi';
 import { LoginSEO } from '@shared/components/SEO';
@@ -7,6 +8,7 @@ import { LoginSEO } from '@shared/components/SEO';
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showReactivateLink, setShowReactivateLink] = useState(false);
@@ -16,7 +18,6 @@ const Login: React.FC = () => {
   const [searchParams] = useSearchParams();
   const redirectUrl = searchParams.get('redirect');
 
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -24,20 +25,13 @@ const Login: React.FC = () => {
     setIsLoading(true);
     
     try {
-      // Call your API
       const response = await loginUser({ email, password });
-      
-      // Update auth context with the access token and session ID (if provided)
       await login(response);
 
-      // Redirect to original URL or default
       if (redirectUrl) {
-        // Check if redirect is external (production) or internal (development)
         if (redirectUrl.startsWith('http')) {
-          // External redirect (production cross-domain)
           window.location.href = redirectUrl;
         } else {
-          // Internal redirect (development same-domain)
           navigate(redirectUrl);
         }
       } else {
@@ -47,7 +41,6 @@ const Login: React.FC = () => {
       const errorDetail = err.response?.data?.detail || 'Invalid email or password';
       setError(errorDetail);
       
-      // Check if the error is due to inactive account
       if (err.response?.status === 403 || errorDetail.toLowerCase().includes('inactive') || errorDetail.toLowerCase().includes('deactivated')) {
         setShowReactivateLink(true);
         setError('Your account was deactivated!');
@@ -98,16 +91,27 @@ const Login: React.FC = () => {
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
                 Password
               </label>
-              <input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                required
-                disabled={isLoading}
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 pr-10 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  required
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <div className="mb-4 text-right">
