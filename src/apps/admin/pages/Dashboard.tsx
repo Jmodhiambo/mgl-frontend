@@ -10,16 +10,16 @@ import {
   StatCard, SectionCard, MiniBarChart, SparkLine, PageLoader,
 } from '@admin/components/ui';
 import { StatusBadge } from '@admin/components/ui';
-import { getDashboardStats, getRevenueChart, getUserGrowthChart } from '@admin/services/adminService';
+import { getDashboardStats, getRevenueChart, getUserGrowthChart, listAllUsers } from '@admin/services/adminService';
 import {
-  dummyActivityFeed, dummyEvents, dummyUsers,
-  formatKES,
+  dummyActivityFeed, dummyEvents,formatKES,
 } from '@admin/utils/dummyData';
-import type { DashboardStats } from '@admin/types';
+import type { AdminUser, DashboardStats } from '@admin/types';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [revenueData, setRevenueData]   = useState<{ label: string; value: number }[]>([]);
   const [growthData, setGrowthData]     = useState<{ label: string; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,12 +27,14 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const [s, r, g] = await Promise.all([
+        const [s, r, g, u] = await Promise.all([
           getDashboardStats(),
           getRevenueChart(),
           getUserGrowthChart(),
+          listAllUsers(),
         ]);
         setStats(s);
+        setUsers(u);
         setRevenueData(r);
         setGrowthData(g);
       } finally {
@@ -253,9 +255,9 @@ const Dashboard: React.FC = () => {
         <SectionCard title="Platform Overview">
           <div className="space-y-4">
             {[
-              { label: 'Regular Users',   count: dummyUsers.filter(u => u.role === 'user').length,      color: 'bg-gray-200', fill: 'bg-purple-500', pct: 78 },
-              { label: 'Organizers',       count: dummyUsers.filter(u => u.role === 'organizer').length, color: 'bg-gray-200', fill: 'bg-blue-500',   pct: 18 },
-              { label: 'Administrators',   count: dummyUsers.filter(u => u.role === 'admin').length,     color: 'bg-gray-200', fill: 'bg-amber-500',  pct: 4  },
+              { label: 'Regular Users',   count: users.filter(u => u.role === 'user').length,      color: 'bg-gray-200', fill: 'bg-purple-500', pct: 78 },
+              { label: 'Organizers',       count: users.filter(u => u.role === 'organizer').length, color: 'bg-gray-200', fill: 'bg-blue-500',   pct: 18 },
+              { label: 'Administrators',   count: users.filter(u => u.role === 'admin').length,     color: 'bg-gray-200', fill: 'bg-amber-500',  pct: 4  },
             ].map(row => (
               <div key={row.label}>
                 <div className="flex justify-between text-sm mb-1">

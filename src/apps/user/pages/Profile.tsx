@@ -2,7 +2,7 @@
 
 import axios from 'axios';
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
 import {
   getUserSessions,
@@ -11,11 +11,12 @@ import {
 } from '@shared/api/user/profileApi';
 import {
   User, Mail, Phone, Lock, CheckCircle, AlertCircle,
-  Eye, EyeOff, Save, Globe, Clock, LogOut, X,
+  Eye, EyeOff, Save, Globe, Clock, LogOut, X, ExternalLink,
 } from 'lucide-react';
 import { ProfileSEO } from '@shared/components/SEO';
 import { getCurrentUser, updateUserContact, changeUserPassword } from '@shared/api/user/usersApi';
 import { deactivateUserAccount } from '@shared/api/auth/authApi';
+import { timeAgo } from '@shared/utils/timeAgo';
 import type { User as UserData, UserPasswordChange, UserUpdate } from '@shared/types/User';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -40,7 +41,6 @@ interface ShowPasswordsState {
 
 interface FormErrors {
   name?: string;
-  email?: string;
   phone_number?: string;
   old_password?: string;
   new_password?: string;
@@ -48,7 +48,6 @@ interface FormErrors {
   general?: string;
 }
 
-// Matches RefreshSessionOut from the backend
 interface RefreshSession {
   session_id: string;
   user_id: number;
@@ -65,51 +64,32 @@ interface RefreshSession {
 
 type ActiveTab = 'profile' | 'security' | 'sessions';
 
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const ProfileSettingsPage: React.FC = () => {
   const { logout, sessionId } = useAuth();
-  const [user, setUser] = useState<UserData | null>(null);
-  const [activeTab, setActiveTab] = useState<ActiveTab>('profile');
-  const [loading, setLoading] = useState<boolean>(true);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [user, setUser]             = useState<UserData | null>(null);
+  const [activeTab, setActiveTab]   = useState<ActiveTab>('profile');
+  const [loading, setLoading]       = useState<boolean>(true);
+  const [isSaving, setIsSaving]     = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string>('');
-  const [emailVerified, setEmailVerified] = useState<boolean>(false);
-  const [errors, setErrors] = useState<FormErrors>({});
+  const [emailVerified, setEmailVerified]   = useState<boolean>(false);
+  const [errors, setErrors]         = useState<FormErrors>({});
 
-  // ── Profile form ─────────────────────────────────────────────────────────
   const [profileForm, setProfileForm] = useState<ProfileFormData>({
-    name: '',
-    email: '',
-    phone_number: '',
+    name: '', email: '', phone_number: '',
   });
 
-  // ── Password form ─────────────────────────────────────────────────────────
   const [passwordForm, setPasswordForm] = useState<PasswordFormData>({
-    old_password: '',
-    new_password: '',
-    confirm_password: '',
+    old_password: '', new_password: '', confirm_password: '',
   });
   const [showPasswords, setShowPasswords] = useState<ShowPasswordsState>({
     old: false, new: false, confirm: false,
   });
 
-  // ── Sessions ──────────────────────────────────────────────────────────────
-  const [sessions, setSessions] = useState<RefreshSession[]>([]);
+  const [sessions, setSessions]               = useState<RefreshSession[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
-  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [sessionError, setSessionError]       = useState<string | null>(null);
 
   const navigate = useNavigate();
 
@@ -159,15 +139,10 @@ const ProfileSettingsPage: React.FC = () => {
 
   const validateProfileForm = (): boolean => {
     const newErrors: FormErrors = {};
-    if (!profileForm.name || profileForm.name.trim().length < 3) {
+    if (!profileForm.name || profileForm.name.trim().length < 3)
       newErrors.name = 'Name must be at least 3 characters long';
-    }
-    if (!profileForm.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profileForm.email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-    if (!profileForm.phone_number || !/^(\+254|0)[17]\d{8}$/.test(profileForm.phone_number.trim())) {
+    if (!profileForm.phone_number || !/^(\+254|0)[17]\d{8}$/.test(profileForm.phone_number.trim()))
       newErrors.phone_number = 'Please enter a valid Kenyan phone number';
-    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -180,12 +155,10 @@ const ProfileSettingsPage: React.FC = () => {
     } else if (passwordForm.new_password.length < 8) {
       newErrors.new_password = 'Password must be at least 8 characters long';
     }
-    if (passwordForm.new_password !== passwordForm.confirm_password) {
+    if (passwordForm.new_password !== passwordForm.confirm_password)
       newErrors.confirm_password = 'Passwords do not match';
-    }
-    if (passwordForm.old_password === passwordForm.new_password) {
+    if (passwordForm.old_password === passwordForm.new_password)
       newErrors.new_password = 'New password must be different from current password';
-    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -197,20 +170,18 @@ const ProfileSettingsPage: React.FC = () => {
     setIsSaving(true);
     setSuccessMessage('');
     try {
-      const updatedData: UserUpdate = {
+      const updatedUser: UserData = await updateUserContact({
         name: profileForm.name,
         phone_number: profileForm.phone_number,
-      };
-      const updatedUser: UserData = await updateUserContact(updatedData);
+      } as UserUpdate);
       setUser(updatedUser);
       setSuccessMessage('Profile updated successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response) {
+      if (axios.isAxiosError(error) && error.response)
         setErrors({ general: error.response.data.detail || error.response.data.message });
-      } else {
+      else
         setErrors({ general: 'Failed to update profile. Please try again.' });
-      }
     } finally {
       setIsSaving(false);
     }
@@ -221,20 +192,18 @@ const ProfileSettingsPage: React.FC = () => {
     setIsSaving(true);
     setSuccessMessage('');
     try {
-      const passwordData: UserPasswordChange = {
+      await changeUserPassword({
         old_password: passwordForm.old_password,
         new_password: passwordForm.new_password,
-      };
-      await changeUserPassword(passwordData);
+      } as UserPasswordChange);
       setPasswordForm({ old_password: '', new_password: '', confirm_password: '' });
       setSuccessMessage('Password changed successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response) {
+      if (axios.isAxiosError(error) && error.response)
         setErrors({ general: error.response.data.detail || error.response.data.message });
-      } else {
+      else
         setErrors({ general: 'Failed to change password. Please try again.' });
-      }
     } finally {
       setIsSaving(false);
     }
@@ -271,8 +240,6 @@ const ProfileSettingsPage: React.FC = () => {
     }
   };
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
   const formatDate = (dateString: string): string =>
     new Date(dateString).toLocaleDateString('en-US', {
       month: 'long', day: 'numeric', year: 'numeric',
@@ -286,23 +253,17 @@ const ProfileSettingsPage: React.FC = () => {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Render
-  // ─────────────────────────────────────────────────────────────────────────
-
   return (
     <>
       <ProfileSEO />
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
         <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-          {/* Page Header */}
           <div className="mb-8">
             <h2 className="text-3xl font-bold text-gray-800 mb-2">Account Settings</h2>
             <p className="text-gray-600">Manage your profile and account preferences</p>
           </div>
 
-          {/* Success Message */}
           {successMessage && (
             <div className="mb-6 bg-green-50 border border-green-200 rounded-xl p-4 flex items-center">
               <CheckCircle className="w-5 h-5 text-green-600 mr-3 flex-shrink-0" />
@@ -310,7 +271,6 @@ const ProfileSettingsPage: React.FC = () => {
             </div>
           )}
 
-          {/* General Error */}
           {errors.general && (
             <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start">
               <AlertCircle className="w-5 h-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
@@ -320,7 +280,7 @@ const ProfileSettingsPage: React.FC = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
 
-            {/* ── Sidebar Navigation ── */}
+            {/* ── Sidebar ── */}
             <div className="lg:col-span-1">
               <div className="bg-white rounded-xl shadow-md p-4 space-y-2">
                 {([
@@ -343,7 +303,6 @@ const ProfileSettingsPage: React.FC = () => {
                 ))}
               </div>
 
-              {/* Account Status */}
               {user && (
                 <div className="mt-6 bg-white rounded-xl shadow-md p-4">
                   <h3 className="font-semibold text-gray-800 mb-3">Account Status</h3>
@@ -387,7 +346,7 @@ const ProfileSettingsPage: React.FC = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
                       <div className="relative">
-                        <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                         <input
                           type="text"
                           value={profileForm.name}
@@ -399,25 +358,37 @@ const ProfileSettingsPage: React.FC = () => {
                       {errors.name && <p className="mt-2 text-sm text-red-600 flex items-center"><AlertCircle className="w-4 h-4 mr-1" />{errors.name}</p>}
                     </div>
 
+                    {/* ── Email — read-only ── */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
                       <div className="relative">
-                        <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                         <input
                           type="email"
                           value={profileForm.email}
                           disabled
                           className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
-                          placeholder="your.email@example.com"
                         />
                       </div>
-                      <p className="mt-1 text-xs text-gray-400">Email cannot be changed</p>
+                      <div className="mt-2 flex items-center justify-between flex-wrap gap-2">
+                        <p className="text-xs text-gray-400 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          Your email address cannot be edited directly.
+                        </p>
+                        <Link
+                          to="/contact"
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-600 hover:text-orange-700 transition-colors"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          Contact us to change email
+                        </Link>
+                      </div>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
                       <div className="relative">
-                        <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                         <input
                           type="tel"
                           value={profileForm.phone_number}
@@ -437,11 +408,9 @@ const ProfileSettingsPage: React.FC = () => {
                           isSaving ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white'
                         }`}
                       >
-                        {isSaving ? (
-                          <><div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2" />Saving...</>
-                        ) : (
-                          <><Save className="w-5 h-5 mr-2" />Save Changes</>
-                        )}
+                        {isSaving
+                          ? <><div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2" />Saving...</>
+                          : <><Save className="w-5 h-5 mr-2" />Save Changes</>}
                       </button>
                     </div>
                   </div>
@@ -454,15 +423,14 @@ const ProfileSettingsPage: React.FC = () => {
                   <div className="bg-white rounded-xl shadow-md p-8">
                     <h3 className="text-2xl font-bold text-gray-800 mb-6">Change Password</h3>
                     <div className="space-y-6">
-
-                      {(['old_password', 'new_password', 'confirm_password'] as const).map((field) => {
+                      {(['old_password', 'new_password', 'confirm_password'] as const).map(field => {
                         const labels = { old_password: 'Current Password', new_password: 'New Password', confirm_password: 'Confirm New Password' };
                         const showKey = field === 'old_password' ? 'old' : field === 'new_password' ? 'new' : 'confirm';
                         return (
                           <div key={field}>
                             <label className="block text-sm font-medium text-gray-700 mb-2">{labels[field]}</label>
                             <div className="relative">
-                              <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                               <input
                                 type={showPasswords[showKey] ? 'text' : 'password'}
                                 value={passwordForm[field]}
@@ -473,7 +441,7 @@ const ProfileSettingsPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => setShowPasswords({ ...showPasswords, [showKey]: !showPasswords[showKey] })}
-                                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                               >
                                 {showPasswords[showKey] ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                               </button>
@@ -482,7 +450,6 @@ const ProfileSettingsPage: React.FC = () => {
                           </div>
                         );
                       })}
-
                       <div className="pt-4">
                         <button
                           onClick={handlePasswordChange}
@@ -491,15 +458,14 @@ const ProfileSettingsPage: React.FC = () => {
                             isSaving ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white'
                           }`}
                         >
-                          {isSaving ? (
-                            <><div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2" />Updating...</>
-                          ) : 'Update Password'}
+                          {isSaving
+                            ? <><div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2" />Updating...</>
+                            : 'Update Password'}
                         </button>
                       </div>
                     </div>
                   </div>
 
-                  {/* Danger Zone */}
                   <div className="bg-white rounded-xl shadow-md p-8 border-2 border-red-200">
                     <h3 className="text-2xl font-bold text-red-600 mb-4">Danger Zone</h3>
                     <p className="text-gray-600 mb-6">

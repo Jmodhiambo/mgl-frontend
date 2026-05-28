@@ -1,22 +1,38 @@
 // src/apps/admin/pages/Messages.tsx
-import { useEffect, useState, useMemo, useRef } from 'react';
-import { MessageSquare, X, Mail, Clock, CheckCircle, AlertTriangle, Trash2 } from 'lucide-react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { MessageSquare, X, Mail, Clock, CheckCircle, AlertTriangle, Trash2, RefreshCw } from 'lucide-react';
 import {
   FilterBar, StatusBadge, ConfirmDialog, SectionCard,
   Pagination, TableSkeleton, EmptyState, AlertBanner,
 } from '@admin/components/ui';
-import {
-  listContactMessages, markMessageAsResponded,
-  markMessageAsClosed, markMessageAsSpam,
-} from '@admin/services/adminService';
+import { listContactMessages, updateContactMessageStatus, deleteContactMessage } from '@admin/services/adminService';
 import { formatDateTime } from '@admin/utils/dummyData';
 import type { ContactMessage } from '@admin/types';
 
-const STATUS_OPTS = ['all', 'open', 'responded', 'closed', 'spam'];
-const CATEGORY_OPTS = ['all', 'booking', 'payment', 'refund', 'event', 'general'];
-const PAGE_SIZE = 10;
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-type QuickAction = 'respond' | 'close' | 'spam';
+const STATUS_OPTS   = ['all', 'new', 'pending', 'responded', 'closed', 'spam'];
+const CATEGORY_OPTS = ['all', 'booking', 'payment', 'refund', 'event', 'general'];
+const PAGE_SIZE     = 10;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type ContactMessageStatus = 'new' | 'pending' | 'responded' | 'closed' | 'spam';
+
+// Actions map 1-to-1 to statuses, plus delete which is separate
+type QuickAction = ContactMessageStatus | 'delete';
+
+// Map each action to the status it sets (delete is handled separately)
+const ACTION_STATUS: Record<Exclude<QuickAction, 'delete'>, ContactMessageStatus> = {
+  new:       'new',
+  pending:   'pending',
+  responded: 'responded',
+  closed:    'closed',
+  spam:      'spam',
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 const Messages: React.FC = () => {
   const [messages, setMessages]   = useState<ContactMessage[]>([]);
@@ -28,64 +44,84 @@ const Messages: React.FC = () => {
   const [selected, setSelected]   = useState<ContactMessage | null>(null);
   const [confirm, setConfirm]     = useState<{ action: QuickAction; msg: ContactMessage } | null>(null);
   const [actionLoading, setAL]    = useState(false);
-  const [alert, setAlert]         = useState<{ type: 'success'|'error'; msg: string } | null>(null);
+  const [alert, setAlert]         = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
   useEffect(() => {
     listContactMessages().then(data => { setMessages(data); setLoading(false); });
   }, []);
 
-  const filtered = useMemo(() => {
-    return messages.filter(m => {
-      const str = `${m.name} ${m.email} ${m.subject} ${m.message}`.toLowerCase();
-      if (search && !str.includes(search.toLowerCase())) return false;
-      if (statusFilter !== 'all' && m.status !== statusFilter) return false;
-      if (catFilter !== 'all' && m.category !== catFilter) return false;
-      return true;
-    });
-  }, [messages, search, statusFilter, catFilter]);
+  const filtered = useMemo(() => messages.filter(m => {
+    const str = `${m.name} ${m.email} ${m.subject} ${m.message}`.toLowerCase();
+    if (search && !str.includes(search.toLowerCase())) return false;
+    if (statusFilter !== 'all' && m.status !== statusFilter) return false;
+    if (catFilter !== 'all' && m.category !== catFilter) return false;
+    return true;
+  }), [messages, search, statusFilter, catFilter]);
 
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const counts = useMemo(() => ({
-    open:      messages.filter(m => m.status === 'open').length,
+    new:       messages.filter(m => m.status === 'new').length,
+    pending:   messages.filter(m => m.status === 'pending').length,
     responded: messages.filter(m => m.status === 'responded').length,
     closed:    messages.filter(m => m.status === 'closed').length,
     spam:      messages.filter(m => m.status === 'spam').length,
   }), [messages]);
 
+  // ── Action handler ──────────────────────────────────────────────────────────
   const handleAction = async () => {
     if (!confirm) return;
     setAL(true);
     try {
       const { action, msg } = confirm;
-      let updated: ContactMessage;
-      if (action === 'respond') updated = await markMessageAsResponded(msg.id);
-      else if (action === 'close') updated = await markMessageAsClosed(msg.id);
-      else updated = await markMessageAsSpam(msg.id);
-      setMessages(p => p.map(m => m.id === updated.id ? updated : m));
-      if (selected?.id === msg.id) setSelected(updated);
-      setAlert({ type: 'success', msg: 'Message status updated.' });
+      if (action === 'delete') {
+        await deleteContactMessage(msg.id);
+        setMessages(p => p.filter(m => m.id !== msg.id));
+        if (selected?.id === msg.id) setSelected(null);
+        setAlert({ type: 'success', msg: 'Message deleted.' });
+      } else {
+        const updated = await updateContactMessageStatus(msg.id, ACTION_STATUS[action]);
+        setMessages(p => p.map(m => m.id === updated.id ? updated : m));
+        if (selected?.id === msg.id) setSelected(updated);
+        setAlert({ type: 'success', msg: 'Message status updated.' });
+      }
     } catch {
-      setAlert({ type: 'error', msg: 'Action failed.' });
+      setAlert({ type: 'error', msg: 'Action failed. Please try again.' });
     } finally {
       setAL(false);
       setConfirm(null);
     }
   };
 
+  // ── Labels & messages ───────────────────────────────────────────────────────
   const actionLabel: Record<QuickAction, string> = {
-    respond: 'Mark as Responded',
-    close: 'Close Message',
-    spam: 'Mark as Spam',
+    new:       'Reopen Message',
+    pending:   'Mark as Pending',
+    responded: 'Mark as Responded',
+    closed:    'Close Message',
+    spam:      'Mark as Spam',
+    delete:    'Delete Message',
   };
 
-  const statusIcon = (status: string) => {
-    if (status === 'open') return <Clock className="w-3.5 h-3.5 text-orange-500" />;
-    if (status === 'responded') return <Mail className="w-3.5 h-3.5 text-blue-500" />;
-    if (status === 'closed') return <CheckCircle className="w-3.5 h-3.5 text-gray-400" />;
-    return <AlertTriangle className="w-3.5 h-3.5 text-red-500" />;
+  const actionMessage: Record<QuickAction, string> = {
+    new:       'Reopen this message from {name} and reset it back to new?',
+    pending:   "Mark this message from {name} as pending? Use this when you're actively working on it.",
+    responded: 'Mark this message from {name} as responded?',
+    closed:    'Close this message from {name}?',
+    spam:      'Mark this message from {name} as spam? It will be filtered from the main view.',
+    delete:    'Permanently delete this message from {name}? This cannot be undone.',
   };
 
+  // ── Status icon ─────────────────────────────────────────────────────────────
+  const statusIcon = (s: string) => {
+    if (s === 'new')       return <Clock      className="w-3.5 h-3.5 text-orange-500" />;
+    if (s === 'pending')   return <RefreshCw  className="w-3.5 h-3.5 text-amber-500"  />;
+    if (s === 'responded') return <Mail       className="w-3.5 h-3.5 text-blue-500"   />;
+    if (s === 'closed')    return <CheckCircle className="w-3.5 h-3.5 text-gray-400"  />;
+    return                        <AlertTriangle className="w-3.5 h-3.5 text-red-500" />;
+  };
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5">
       <div className="page-header">
@@ -95,21 +131,23 @@ const Messages: React.FC = () => {
         </div>
       </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 stagger">
-        {[
-          { label: 'Open',      value: counts.open,      cls: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', status: 'open' },
-          { label: 'Responded', value: counts.responded, cls: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-200',   status: 'responded' },
-          { label: 'Closed',    value: counts.closed,    cls: 'text-gray-600',   bg: 'bg-gray-50',   border: 'border-gray-200',   status: 'closed' },
-          { label: 'Spam',      value: counts.spam,      cls: 'text-red-600',    bg: 'bg-red-50',    border: 'border-red-200',    status: 'spam' },
-        ].map(c => (
-          <button key={c.label}
-            onClick={() => { setStatus(c.status); setPage(1); }}
+      {/* ── Summary cards ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 stagger">
+        {([
+          { label: 'New',       key: 'new',       cls: 'text-orange-600', border: 'border-orange-200' },
+          { label: 'Pending',   key: 'pending',   cls: 'text-amber-600',  border: 'border-amber-200'  },
+          { label: 'Responded', key: 'responded', cls: 'text-blue-600',   border: 'border-blue-200'   },
+          { label: 'Closed',    key: 'closed',    cls: 'text-gray-600',   border: 'border-gray-200'   },
+          { label: 'Spam',      key: 'spam',      cls: 'text-red-600',    border: 'border-red-200'    },
+        ] as { label: string; key: keyof typeof counts; cls: string; border: string }[]).map(c => (
+          <button
+            key={c.key}
+            onClick={() => { setStatus(c.key); setPage(1); }}
             className={`card-sm text-center border-2 transition-all hover:shadow-md cursor-pointer
-              ${statusFilter === c.status ? `${c.border} shadow-sm` : 'border-transparent'}`}
+              ${statusFilter === c.key ? `${c.border} shadow-sm` : 'border-transparent'}`}
           >
             <p className="text-xs text-gray-500 mb-1">{c.label}</p>
-            <p className={`text-2xl font-bold ${c.cls}`}>{c.value}</p>
+            <p className={`text-2xl font-bold ${c.cls}`}>{counts[c.key]}</p>
           </button>
         ))}
       </div>
@@ -124,11 +162,15 @@ const Messages: React.FC = () => {
           <>
             <select value={statusFilter} onChange={e => { setStatus(e.target.value); setPage(1); }}
               className="select-field w-auto min-w-[130px]">
-              {STATUS_OPTS.map(s => <option key={s} value={s}>{s === 'all' ? 'All Status' : s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
+              {STATUS_OPTS.map(s => (
+                <option key={s} value={s}>{s === 'all' ? 'All Status' : s.charAt(0).toUpperCase() + s.slice(1)}</option>
+              ))}
             </select>
             <select value={catFilter} onChange={e => { setCat(e.target.value); setPage(1); }}
               className="select-field w-auto min-w-[140px]">
-              {CATEGORY_OPTS.map(c => <option key={c} value={c}>{c === 'all' ? 'All Categories' : c.charAt(0).toUpperCase()+c.slice(1)}</option>)}
+              {CATEGORY_OPTS.map(c => (
+                <option key={c} value={c}>{c === 'all' ? 'All Categories' : c.charAt(0).toUpperCase() + c.slice(1)}</option>
+              ))}
             </select>
           </>
         }
@@ -164,7 +206,7 @@ const Messages: React.FC = () => {
                 </thead>
                 <tbody>
                   {paginated.map(m => (
-                    <tr key={m.id} className={m.status === 'open' ? 'bg-orange-50/30' : ''}>
+                    <tr key={m.id} className={m.status === 'new' ? 'bg-orange-50/30' : ''}>
                       <td className="text-xs text-gray-400 font-mono">{m.reference_id}</td>
                       <td>
                         <p className="font-medium text-sm text-gray-900">{m.name}</p>
@@ -178,23 +220,19 @@ const Messages: React.FC = () => {
                           {m.subject}
                         </button>
                       </td>
-                      <td>
-                        <span className="badge-gray capitalize">{m.category}</span>
-                      </td>
+                      <td><span className="badge-gray capitalize">{m.category}</span></td>
                       <td>
                         <div className="flex items-center gap-1.5">
                           {statusIcon(m.status)}
                           <StatusBadge status={m.status} size="sm" />
                         </div>
                       </td>
-                      <td className="text-xs text-gray-500 whitespace-nowrap">
-                        {formatDateTime(m.created_at)}
-                      </td>
+                      <td className="text-xs text-gray-500 whitespace-nowrap">{formatDateTime(m.created_at)}</td>
                       <td>
                         <MessageActionsMenu
                           message={m}
                           onView={() => setSelected(m)}
-                          onAction={(a) => setConfirm({ action: a, msg: m })}
+                          onAction={a => setConfirm({ action: a, msg: m })}
                         />
                       </td>
                     </tr>
@@ -206,10 +244,7 @@ const Messages: React.FC = () => {
             {/* ── Mobile card list ── */}
             <div className="md:hidden divide-y divide-gray-100">
               {paginated.map(m => (
-                <div
-                  key={m.id}
-                  className={`p-4 space-y-2 ${m.status === 'open' ? 'bg-orange-50/40' : ''}`}
-                >
+                <div key={m.id} className={`p-4 space-y-2 ${m.status === 'new' ? 'bg-orange-50/40' : ''}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold text-sm text-gray-900 truncate">{m.name}</p>
@@ -218,7 +253,7 @@ const Messages: React.FC = () => {
                     <MessageActionsMenu
                       message={m}
                       onView={() => setSelected(m)}
-                      onAction={(a) => setConfirm({ action: a, msg: m })}
+                      onAction={a => setConfirm({ action: a, msg: m })}
                     />
                   </div>
                   <button
@@ -240,7 +275,13 @@ const Messages: React.FC = () => {
               ))}
             </div>
 
-            <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} total={filtered.length} limit={PAGE_SIZE} onPageChange={setPage} />
+            <Pagination
+              page={page}
+              totalPages={Math.ceil(filtered.length / PAGE_SIZE)}
+              total={filtered.length}
+              limit={PAGE_SIZE}
+              onPageChange={setPage}
+            />
           </>
         )}
       </SectionCard>
@@ -248,9 +289,9 @@ const Messages: React.FC = () => {
       {confirm && (
         <ConfirmDialog
           title={actionLabel[confirm.action]}
-          message={`Mark message from ${confirm.msg.name} as "${confirm.action}"?`}
+          message={actionMessage[confirm.action].replace('{name}', confirm.msg.name)}
           confirmLabel={actionLabel[confirm.action]}
-          variant={confirm.action === 'spam' ? 'danger' : 'info'}
+          variant={confirm.action === 'spam' || confirm.action === 'delete' ? 'danger' : 'info'}
           onConfirm={handleAction}
           onCancel={() => setConfirm(null)}
           loading={actionLoading}
@@ -261,132 +302,204 @@ const Messages: React.FC = () => {
         <MessageDetailModal
           message={selected}
           onClose={() => setSelected(null)}
-          onAction={(a) => setConfirm({ action: a, msg: selected })}
+          onAction={a => setConfirm({ action: a, msg: selected })}
         />
       )}
     </div>
   );
 };
 
-// ─── Actions dropdown ─────────────────────────────────────────────────────────
+// ─── Actions Dropdown ─────────────────────────────────────────────────────────
+
 const MessageActionsMenu: React.FC<{
   message: ContactMessage;
   onView: () => void;
   onAction: (a: QuickAction) => void;
 }> = ({ message, onView, onAction }) => {
-  const [open, setOpen] = useState(false);
-  const [openUpward, setOpenUpward] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen]       = useState(false);
+  const [menuStyle, setStyle] = useState<React.CSSProperties>({});
+  const triggerRef            = useRef<HTMLButtonElement>(null);
 
-  const handleOpen = () => {
-    if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setOpenUpward(window.innerHeight - rect.bottom < 200);
-    }
+  const handleOpen = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect       = triggerRef.current.getBoundingClientRect();
+    const menuHeight = 220;
+    const openUpward = window.innerHeight - rect.bottom < menuHeight && rect.top > menuHeight;
+    setStyle(
+      openUpward
+        ? { position: 'fixed', bottom: window.innerHeight - rect.top + 4, right: window.innerWidth - rect.right, top: 'auto' }
+        : { position: 'fixed', top: rect.bottom + 4, right: window.innerWidth - rect.right },
+    );
     setOpen(o => !o);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => { window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close); };
+  }, [open]);
+
+  const s = message.status;
+
+  const menu = open && createPortal(
+    <>
+      <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
+      <div style={{ ...menuStyle, zIndex: 9999 }}
+        className="w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-1 text-sm animate-slide-up"
+      >
+        <button onClick={() => { onView(); setOpen(false); }}
+          className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-gray-50 text-gray-700">
+          <MessageSquare className="w-4 h-4 text-gray-400" /> Read Message
+        </button>
+
+        <div className="divider my-1" />
+
+        {/* ── Forward transitions ── */}
+        {s === 'new' && (
+          <button onClick={() => { onAction('pending'); setOpen(false); }}
+            className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-amber-50 text-amber-700">
+            <RefreshCw className="w-4 h-4" /> Mark Pending
+          </button>
+        )}
+        {(s === 'new' || s === 'pending') && (
+          <button onClick={() => { onAction('responded'); setOpen(false); }}
+            className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-blue-50 text-blue-700">
+            <Mail className="w-4 h-4" /> Mark Responded
+          </button>
+        )}
+        {s !== 'closed' && s !== 'spam' && (
+          <button onClick={() => { onAction('closed'); setOpen(false); }}
+            className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-gray-50 text-gray-700">
+            <CheckCircle className="w-4 h-4" /> Close
+          </button>
+        )}
+        {s !== 'spam' && (
+          <button onClick={() => { onAction('spam'); setOpen(false); }}
+            className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-red-50 text-red-600">
+            <AlertTriangle className="w-4 h-4" /> Mark Spam
+          </button>
+        )}
+
+        {/* ── Reopen ── */}
+        {(s === 'closed' || s === 'spam') && (
+          <button onClick={() => { onAction('new'); setOpen(false); }}
+            className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-emerald-50 text-emerald-700">
+            <RefreshCw className="w-4 h-4" /> Reopen
+          </button>
+        )}
+
+        <div className="divider my-1" />
+
+        <button onClick={() => { onAction('delete'); setOpen(false); }}
+          className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-red-50 text-red-600">
+          <Trash2 className="w-4 h-4" /> Delete
+        </button>
+      </div>
+    </>,
+    document.body,
+  );
 
   return (
-    <div className="relative">
+    <>
       <button ref={triggerRef} onClick={handleOpen} className="btn-icon">
         <span className="text-xs font-medium text-gray-500">•••</span>
       </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className={`absolute right-0 z-20 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 text-sm animate-slide-up
-            ${openUpward ? 'bottom-full mb-1' : 'top-8'}`}>
-            <button onClick={() => { onView(); setOpen(false); }}
-              className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-gray-50 text-gray-700">
-              <MessageSquare className="w-4 h-4 text-gray-400" /> Read Message
-            </button>
-            {message.status === 'open' && (
-              <button onClick={() => { onAction('respond'); setOpen(false); }}
-                className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-blue-50 text-blue-700">
-                <Mail className="w-4 h-4" /> Mark Responded
-              </button>
-            )}
-            {message.status !== 'closed' && message.status !== 'spam' && (
-              <button onClick={() => { onAction('close'); setOpen(false); }}
-                className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-gray-50 text-gray-700">
-                <CheckCircle className="w-4 h-4" /> Close
-              </button>
-            )}
-            {message.status !== 'spam' && (
-              <button onClick={() => { onAction('spam'); setOpen(false); }}
-                className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-red-50 text-red-600">
-                <Trash2 className="w-4 h-4" /> Mark Spam
-              </button>
-            )}
-          </div>
-        </>
-      )}
-    </div>
+      {menu}
+    </>
   );
 };
 
 // ─── Message Detail Modal ─────────────────────────────────────────────────────
+
 const MessageDetailModal: React.FC<{
   message: ContactMessage;
   onClose: () => void;
   onAction: (a: QuickAction) => void;
-}> = ({ message, onClose, onAction }) => (
-  <div className="modal-overlay" onClick={onClose}>
-    <div className="modal-panel max-w-2xl p-6" onClick={e => e.stopPropagation()}>
-      <div className="flex items-start justify-between mb-5">
-        <div>
-          <p className="text-xs text-gray-500 font-mono mb-1">{message.reference_id}</p>
-          <h3 className="text-xl font-bold text-gray-900">{message.subject}</h3>
-        </div>
-        <button onClick={onClose} className="btn-icon"><X className="w-5 h-5" /></button>
-      </div>
+}> = ({ message, onClose, onAction }) => {
+  const s = message.status;
 
-      <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl mb-5">
-        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold">
-          {message.name.charAt(0)}
-        </div>
-        <div className="flex-1">
-          <p className="font-semibold text-gray-900">{message.name}</p>
-          <p className="text-sm text-gray-500">{message.email}</p>
-          {message.phone && <p className="text-sm text-gray-500">{message.phone}</p>}
-        </div>
-        <div className="text-right">
-          <StatusBadge status={message.status} />
-          <p className="text-xs text-gray-400 mt-1">{formatDateTime(message.created_at)}</p>
-        </div>
-      </div>
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-panel max-w-2xl p-6" onClick={e => e.stopPropagation()}>
 
-      <div className="flex items-center gap-2 mb-4">
-        <span className="badge-gray capitalize">{message.category}</span>
-      </div>
+        <div className="flex items-start justify-between mb-5">
+          <div>
+            <p className="text-xs text-gray-500 font-mono mb-1">{message.reference_id}</p>
+            <h3 className="text-xl font-bold text-gray-900">{message.subject}</h3>
+          </div>
+          <button onClick={onClose} className="btn-icon"><X className="w-5 h-5" /></button>
+        </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5">
-        <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{message.message}</p>
-      </div>
+        <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl mb-5">
+          <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold">
+            {message.name.charAt(0)}
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-gray-900">{message.name}</p>
+            <p className="text-sm text-gray-500">{message.email}</p>
+            {message.phone && <p className="text-sm text-gray-500">{message.phone}</p>}
+          </div>
+          <div className="text-right">
+            <StatusBadge status={message.status} />
+            <p className="text-xs text-gray-400 mt-1">{formatDateTime(message.created_at)}</p>
+          </div>
+        </div>
 
-      <div className="flex gap-3 pt-4 border-t border-gray-100 flex-wrap">
-        <button onClick={onClose} className="btn-secondary flex-1">Close</button>
-        {message.status === 'open' && (
-          <button onClick={() => { onAction('respond'); onClose(); }}
-            className="btn-primary flex-1 flex items-center justify-center gap-2">
-            <Mail className="w-4 h-4" /> Mark as Responded
+        <div className="flex items-center gap-2 mb-4">
+          <span className="badge-gray capitalize">{message.category}</span>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl p-4 mb-5">
+          <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{message.message}</p>
+        </div>
+
+        <div className="flex gap-2 pt-4 border-t border-gray-100 flex-wrap">
+          <button onClick={onClose} className="btn-secondary flex-1">Close</button>
+
+          {s === 'new' && (
+            <button onClick={() => { onAction('pending'); onClose(); }}
+              className="btn-secondary flex-1 flex items-center justify-center gap-2">
+              <RefreshCw className="w-4 h-4" /> Mark Pending
+            </button>
+          )}
+          {(s === 'new' || s === 'pending') && (
+            <button onClick={() => { onAction('responded'); onClose(); }}
+              className="btn-primary flex-1 flex items-center justify-center gap-2">
+              <Mail className="w-4 h-4" /> Mark Responded
+            </button>
+          )}
+          {s !== 'closed' && s !== 'spam' && (
+            <button onClick={() => { onAction('closed'); onClose(); }}
+              className="btn-secondary flex-1">
+              Close Ticket
+            </button>
+          )}
+          {(s === 'closed' || s === 'spam') && (
+            <button onClick={() => { onAction('new'); onClose(); }}
+              className="btn-primary flex-1 flex items-center justify-center gap-2">
+              <RefreshCw className="w-4 h-4" /> Reopen
+            </button>
+          )}
+
+          {/* Icon-only danger actions to avoid crowding */}
+          {s !== 'spam' && (
+            <button onClick={() => { onAction('spam'); onClose(); }}
+              title="Mark as Spam"
+              className="btn-danger flex items-center justify-center px-3">
+              <AlertTriangle className="w-4 h-4" />
+            </button>
+          )}
+          <button onClick={() => { onAction('delete'); onClose(); }}
+            title="Delete Message"
+            className="btn-danger flex items-center justify-center px-3">
+            <Trash2 className="w-4 h-4" />
           </button>
-        )}
-        {message.status !== 'closed' && message.status !== 'spam' && (
-          <button onClick={() => { onAction('close'); onClose(); }}
-            className="btn-secondary flex-1">
-            Close Ticket
-          </button>
-        )}
-        {message.status !== 'spam' && (
-          <button onClick={() => { onAction('spam'); onClose(); }}
-            className="btn-danger flex-1 flex items-center justify-center gap-2">
-            <AlertTriangle className="w-4 h-4" /> Spam
-          </button>
-        )}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default Messages;

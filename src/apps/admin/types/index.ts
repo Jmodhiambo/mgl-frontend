@@ -95,7 +95,7 @@ export interface ContactMessage {
   subject: string;
   category: string;
   message: string;
-  status: 'open' | 'responded' | 'closed' | 'spam';
+  status: 'new' | 'pending' | 'responded' | 'closed' | 'spam';
   created_at: string;
   updated_at: string;
   handled_by?: number;
@@ -188,4 +188,41 @@ export interface AdminProfileUpdate {
   name?: string;
   phone_number?: string;
   bio?: string;
+}
+
+export interface PlatformSettings {
+  platform_name: string;
+  platform_email: string;
+  support_email: string;
+  default_currency: string;
+  timezone: string;
+  platform_fee_percent: number;
+  require_event_approval: boolean;
+  allow_user_registration: boolean;
+  allow_organizer_signup: boolean;
+  enable_refunds: boolean;
+  max_tickets_per_booking: number;
+  session_timeout_hours: number;
+  maintenance_mode: boolean;
+  updated_at: string;
+  updated_by_user_id: number | null;
+}
+
+export interface AdminNotificationPrefs {
+  user_id: number;
+  notify_new_event: boolean;
+  notify_new_message: boolean;
+  notify_payment_failure: boolean;
+  notify_new_organizer: boolean;
+  notify_refund_request: boolean;
+  updated_at: string;
+}
+
+export interface ContactMessageStats {
+  total: number;
+  new: number;
+  pending: number;
+  responded: number;
+  closed: number;
+  spam: number;
 }

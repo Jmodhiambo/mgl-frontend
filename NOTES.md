@@ -30,3 +30,5 @@ LOW PRIORITY (Nice to Have):
 
 
 Rate limit request per IP to prevent brute force and abuse. Logs help in seeing the attack so it is better to have them outside or sent to external services.
+
+Work on article analytics for the admin console after launch.

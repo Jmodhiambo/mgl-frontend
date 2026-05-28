@@ -9,75 +9,16 @@ import api from '@shared/api/axiosConfig';
 
 import type {
   AdminUser, AdminEvent, AdminBooking, AdminPayment, AdminMe, AdminProfileUpdate,
-  ContactMessage, DashboardStats, AuditLog, RefreshSession
+  ContactMessage, DashboardStats, AuditLog, RefreshSession, PlatformSettings,
+  AdminNotificationPrefs, ContactMessageStats,
 } from '@admin/types';
 
 import {
-  dummyUsers, dummyEvents, dummyBookings, dummyPayments,
-  dummyMessages, dummyDashboardStats,
-  dummyRevenueChart, dummyUserGrowthChart, dummyEventCategories,
-  dummyAuditLogs, dummyRefreshSessions,
+  dummyEvents, dummyBookings, dummyPayments,
+  dummyDashboardStats, dummyRevenueChart, dummyUserGrowthChart, dummyEventCategories,
 } from '@admin/utils/dummyData';
 
 // ─── Settings types ───────────────────────────────────────────────────────────
-
-export interface PlatformSettings {
-  platform_name: string;
-  platform_email: string;
-  support_email: string;
-  default_currency: string;
-  timezone: string;
-  platform_fee_percent: number;
-  require_event_approval: boolean;
-  allow_user_registration: boolean;
-  allow_organizer_signup: boolean;
-  enable_refunds: boolean;
-  max_tickets_per_booking: number;
-  session_timeout_hours: number;
-  maintenance_mode: boolean;
-  updated_at: string;
-  updated_by_user_id: number | null;
-}
-
-export interface AdminNotificationPrefs {
-  user_id: number;
-  notify_new_event: boolean;
-  notify_new_message: boolean;
-  notify_payment_failure: boolean;
-  notify_new_organizer: boolean;
-  notify_refund_request: boolean;
-  updated_at: string;
-}
-
-// ─── Dummy settings data (mirrors backend defaults) ───────────────────────────
-
-const dummyPlatformSettings: PlatformSettings = {
-  platform_name: 'MGLTickets',
-  platform_email: 'admin@mgltickets.com',
-  support_email: 'support@mgltickets.com',
-  default_currency: 'KES',
-  timezone: 'Africa/Nairobi',
-  platform_fee_percent: 5,
-  require_event_approval: true,
-  allow_user_registration: true,
-  allow_organizer_signup: true,
-  enable_refunds: true,
-  max_tickets_per_booking: 10,
-  session_timeout_hours: 24,
-  maintenance_mode: false,
-  updated_at: new Date().toISOString(),
-  updated_by_user_id: null,
-};
-
-const dummyNotificationPrefs: AdminNotificationPrefs = {
-  user_id: 1,
-  notify_new_event: true,
-  notify_new_message: true,
-  notify_payment_failure: true,
-  notify_new_organizer: true,
-  notify_refund_request: true,
-  updated_at: new Date().toISOString(),
-};
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
@@ -228,32 +169,13 @@ export const deactivateUser = async (userId: number): Promise<AdminUser> => {
 
 export const verifyUserEmail = async (userId: number): Promise<AdminUser> => {
   return (await api.patch(`/admin/users/${userId}/verify`)).data;
-  // const user = dummyUsers.find(u => u.id === userId)!;
-  // return Promise.resolve({ ...user, is_verified: true });
 };
 
-export const promoteToOrganizer = async (userId: number): Promise<AdminUser> => {
-  // return (await api.patch(`/admin/users/${userId}/role/user-to-organizer`)).data;
-  const user = dummyUsers.find(u => u.id === userId)!;
-  return Promise.resolve({ ...user, role: 'organizer' });
-};
-
-export const promoteToAdmin = async (userId: number): Promise<AdminUser> => {
-  // return (await api.patch(`/admin/users/${userId}/role/user-to-admin`)).data;
-  const user = dummyUsers.find(u => u.id === userId)!;
-  return Promise.resolve({ ...user, role: 'admin' });
-};
-
-export const demoteFromAdmin = async (userId: number): Promise<AdminUser> => {
-  // return (await api.patch(`/admin/users/${userId}/role/admin-to-user`)).data;
-  const user = dummyUsers.find(u => u.id === userId)!;
-  return Promise.resolve({ ...user, role: 'user' });
-};
-
-export const demoteFromOrganizer = async (userId: number): Promise<AdminUser> => {
-  // return (await api.patch(`/admin/users/${userId}/role/organizer-to-user`)).data;
-  const user = dummyUsers.find(u => u.id === userId)!;
-  return Promise.resolve({ ...user, role: 'user' });
+export const updateUserRole = async (
+  userId: number,
+  role: 'user' | 'organizer' | 'admin',
+): Promise<AdminUser> => {
+  return (await api.patch(`/admin/users/${userId}/update-role/${role}`)).data;
 };
 
 export const searchUsersByName = async (name: string): Promise<AdminUser[]> => {
@@ -263,6 +185,21 @@ export const searchUsersByName = async (name: string): Promise<AdminUser[]> => {
   //     `${u.first_name} ${u.last_name}`.toLowerCase().includes(name.toLowerCase())
   //   )
   // );
+};
+
+export const updateUserEmail = async (userId: number, newEmail: string): Promise<AdminUser> => {
+  return (
+    await api.patch('/admin/users/update-user-email/', {
+      user_id: userId,
+      new_email: newEmail,
+    })
+  ).data;
+};
+
+export const resendVerificationEmail = async (
+  userId: number,
+): Promise<{ success: boolean; message: string }> => {
+  return (await api.post(`/admin/users/${userId}/resend-verification`)).data;
 };
 
 // ─── Events ───────────────────────────────────────────────────────────────────
@@ -347,35 +284,59 @@ export const countPayments = async (): Promise<number> => {
 
 // ─── Contact Messages ─────────────────────────────────────────────────────────
 
+type ContactMessageStatus = 'new' | 'pending' | 'responded' | 'closed' | 'spam';
+
 export const listContactMessages = async (): Promise<ContactMessage[]> => {
-  // return (await api.get('/admin/contact')).data;
-  return Promise.resolve(dummyMessages);
+  return (await api.get('/admin/contact')).data;
+  // return Promise.resolve(dummyMessages);
 };
 
 export const getContactMessage = async (messageId: number): Promise<ContactMessage> => {
-  // return (await api.get(`/admin/contact/${messageId}`)).data;
-  const msg = dummyMessages.find(m => m.id === messageId);
-  if (!msg) throw new Error('Message not found');
-  return Promise.resolve(msg);
+  return (await api.get(`/admin/contact/${messageId}`)).data;
+  // const msg = dummyMessages.find(m => m.id === messageId);
+  // if (!msg) throw new Error('Message not found');
+  // return Promise.resolve(msg);
 };
 
-export const markMessageAsResponded = async (messageId: number): Promise<ContactMessage> => {
-  // return (await api.patch(`/admin/contact/${messageId}/respond`)).data;
-  const msg = dummyMessages.find(m => m.id === messageId)!;
-  return Promise.resolve({ ...msg, status: 'responded' as const });
+export const updateContactMessageStatus = async (
+  messageId: number,
+  status: ContactMessageStatus,
+): Promise<ContactMessage> => {
+  return (await api.patch(`/admin/contact/${messageId}/status`, { status })).data;
+  // const msg = dummyMessages.find(m => m.id === messageId)!;
+  // return Promise.resolve({ ...msg, status });
 };
 
-export const markMessageAsClosed = async (messageId: number): Promise<ContactMessage> => {
-  // return (await api.patch(`/admin/contact/${messageId}/close`)).data;
-  const msg = dummyMessages.find(m => m.id === messageId)!;
-  return Promise.resolve({ ...msg, status: 'closed' as const });
+export const deleteContactMessage = async (messageId: number): Promise<void> => {
+  await api.delete(`/admin/contact/${messageId}`);
+  // return Promise.resolve();
 };
 
+export const getContactMessageStats = async (): Promise<ContactMessageStats> => {
+  return (await api.get('/admin/contact/stats/overview')).data;
+};
 
-export const markMessageAsSpam = async (messageId: number): Promise<ContactMessage> => {
-  // return (await api.patch(`/admin/contact/${messageId}/spam`)).data;
-  const msg = dummyMessages.find(m => m.id === messageId)!;
-  return Promise.resolve({ ...msg, status: 'spam' as const });
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+export const getUnreadNotificationCount = async (): Promise<number> => {
+  return (await api.get('/admin/notifications/count/unread')).data;
+  // return Promise.resolve(3);
+};
+
+export const listAdminNotifications = async (limit = 50, offset = 0) => {
+  return (await api.get(`/admin/notifications?limit=${limit}&offset=${offset}`)).data;
+};
+
+export const markNotificationRead = async (notificationId: number) => {
+  return (await api.patch(`/admin/notifications/${notificationId}/read`)).data;
+};
+
+export const markAllNotificationsRead = async () => {
+  return (await api.patch('/admin/notifications/read-all')).data;
+};
+
+export const dismissNotification = async (notificationId: number) => {
+  return (await api.delete(`/admin/notifications/${notificationId}`)).data;
 };
 
 // ─── Audit Logs (full list — AuditLogs.tsx page) ─────────────────────────────

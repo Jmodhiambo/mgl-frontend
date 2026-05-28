@@ -1,12 +1,21 @@
 // src/apps/admin/components/layout/AdminLayout.tsx
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
 import Sidebar from './Sidebar';
 import Header from './Header';
-import { dummyDashboardStats } from '@admin/utils/dummyData';
+import {
+  getContactMessageStats,
+  getUnreadNotificationCount,
+  getUnapprovedEvents,
+} from '@admin/services/adminService';
 
-// Map route paths to readable page titles
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const POLL_INTERVAL_MS = 60_000; // refresh badges every 60 seconds
+
+// ─── Page titles ──────────────────────────────────────────────────────────────
+
 const pageTitles: Record<string, string> = {
   '/dashboard':    'Dashboard',
   '/users':        'User Management',
@@ -19,32 +28,79 @@ const pageTitles: Record<string, string> = {
   '/reports':      'Reports',
   '/audit-logs':   'Audit Logs',
   '/settings':     'Settings',
+  '/notifications': 'Notifications',
+  '/profile':      'My Profile',
 };
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 const AdminLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const location = useLocation();
-  const { user, logout } = useAuth();
+  const location                      = useLocation();
+  const { user, logout }              = useAuth();
 
+  // ── Badge state ─────────────────────────────────────────────────────────────
+  const [pendingApprovals,    setPendingApprovals]    = useState(0);
+  const [openMessages,        setOpenMessages]        = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  // ── Fetch all badge counts in one shot ──────────────────────────────────────
+  const fetchBadges = useCallback(async () => {
+    try {
+      const [events, msgStats, notifCount] = await Promise.allSettled([
+        getUnapprovedEvents(),
+        getContactMessageStats(),
+        getUnreadNotificationCount(),
+      ]);
+
+      if (events.status === 'fulfilled')
+        setPendingApprovals(events.value.length);
+
+      if (msgStats.status === 'fulfilled')
+        // new + pending are the ones needing admin attention
+        setOpenMessages(msgStats.value.new + msgStats.value.pending);
+
+      if (notifCount.status === 'fulfilled')
+        setUnreadNotifications(notifCount.value);
+    } catch {
+      // Silently degrade — stale badge counts are better than a broken layout
+    }
+  }, []);
+
+  // Fetch on mount, then poll
+  useEffect(() => {
+    fetchBadges();
+    const interval = setInterval(fetchBadges, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [fetchBadges]);
+
+  // Re-fetch when navigating away from messages or events so badges update
+  // immediately after the admin takes action on those pages
+  useEffect(() => {
+    fetchBadges();
+  }, [location.pathname, fetchBadges]);
+
+  // ── Derived ─────────────────────────────────────────────────────────────────
   const pageTitle = Object.entries(pageTitles).find(([path]) =>
     location.pathname === path || location.pathname.startsWith(path + '/')
   )?.[1] ?? 'Admin Panel';
 
-  const adminName = user ? `${user.name}` : 'Admin';
+  const adminName = user?.name ?? 'Admin';
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
 
-      {/* ── Sidebar — desktop: always visible ── */}
+      {/* ── Sidebar — desktop ── */}
       <div className="hidden lg:flex flex-shrink-0">
         <Sidebar
-          pendingApprovals={dummyDashboardStats.pending_approvals}
-          openMessages={dummyDashboardStats.open_messages}
+          pendingApprovals={pendingApprovals}
+          openMessages={openMessages}
+          unreadNotifications={unreadNotifications}
           onLogout={logout}
         />
       </div>
 
-      {/* ── Sidebar — mobile: overlay ── */}
+      {/* ── Sidebar — mobile overlay ── */}
       {sidebarOpen && (
         <div
           className="lg:hidden fixed inset-0 z-40 flex"
@@ -53,8 +109,9 @@ const AdminLayout: React.FC = () => {
           <div className="absolute inset-0 bg-black/60" />
           <div className="relative z-50" onClick={e => e.stopPropagation()}>
             <Sidebar
-              pendingApprovals={dummyDashboardStats.pending_approvals}
-              openMessages={dummyDashboardStats.open_messages}
+              pendingApprovals={pendingApprovals}
+              openMessages={openMessages}
+              unreadNotifications={unreadNotifications}
               onLogout={logout}
               onClose={() => setSidebarOpen(false)}
             />
@@ -69,6 +126,8 @@ const AdminLayout: React.FC = () => {
           onMenuToggle={() => setSidebarOpen(prev => !prev)}
           menuOpen={sidebarOpen}
           adminName={adminName}
+          unreadNotifications={unreadNotifications}
+          onNotificationsRead={() => setUnreadNotifications(0)}
         />
 
         <main className="flex-1 overflow-y-auto">

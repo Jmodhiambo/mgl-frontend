@@ -1,5 +1,6 @@
 // src/apps/admin/pages/Events.tsx
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import {
   Calendar, CheckCircle, XCircle, Trash2, Eye,
@@ -340,60 +341,80 @@ const EventActionsMenu: React.FC<{
   onAction: (a: 'approve' | 'reject' | 'delete') => void;
   onView: () => void;
 }> = ({ event, onAction, onView }) => {
-  const [open, setOpen] = useState(false);
-  const [openUpward, setOpenUpward] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen]       = useState(false);
+  const [menuStyle, setStyle] = useState<React.CSSProperties>({});
+  const triggerRef            = useRef<HTMLButtonElement>(null);
 
   const handleOpen = useCallback(() => {
-    if (triggerRef.current) {
-      const { bottom } = triggerRef.current.getBoundingClientRect();
-      setOpenUpward(window.innerHeight - bottom < 200);
-    }
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const menuHeight = 160;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < menuHeight && rect.top > menuHeight;
+    setStyle(
+      openUpward
+        ? { position: 'fixed', bottom: window.innerHeight - rect.top + 4, right: window.innerWidth - rect.right, top: 'auto' }
+        : { position: 'fixed', top: rect.bottom + 4, right: window.innerWidth - rect.right },
+    );
     setOpen(o => !o);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => { window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close); };
+  }, [open]);
+
+  const menu = open && createPortal(
+    <>
+      <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
+      <div
+        style={{ ...menuStyle, zIndex: 9999 }}
+        className="w-44 bg-white rounded-xl shadow-lg border border-gray-100 py-1 text-sm animate-slide-up"
+      >
+        <button
+          onClick={() => { onView(); setOpen(false); }}
+          className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-gray-50 text-gray-700"
+        >
+          <Eye className="w-4 h-4 text-gray-400" /> View Details
+        </button>
+        {!event.is_approved && (
+          <button
+            onClick={() => { onAction('approve'); setOpen(false); }}
+            className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-emerald-50 text-emerald-700"
+          >
+            <CheckCircle className="w-4 h-4" /> Approve
+          </button>
+        )}
+        {event.is_approved && (
+          <button
+            onClick={() => { onAction('reject'); setOpen(false); }}
+            className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-amber-50 text-amber-700"
+          >
+            <XCircle className="w-4 h-4" /> Reject
+          </button>
+        )}
+        <div className="divider my-1" />
+        <button
+          onClick={() => { onAction('delete'); setOpen(false); }}
+          className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-red-50 text-red-600"
+        >
+          <Trash2 className="w-4 h-4" /> Delete
+        </button>
+      </div>
+    </>,
+    document.body,
+  );
+
   return (
-    <div className="relative">
+    <>
       <button ref={triggerRef} onClick={handleOpen} className="btn-icon">
         <MoreVertical className="w-4 h-4" />
       </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className={`absolute right-0 z-20 w-44 bg-white rounded-xl shadow-lg border border-gray-100 py-1 text-sm animate-slide-up ${openUpward ? 'bottom-full mb-1' : 'top-8'}`}>
-            <button
-              onClick={() => { onView(); setOpen(false); }}
-              className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-gray-50 text-gray-700"
-            >
-              <Eye className="w-4 h-4 text-gray-400" /> View Details
-            </button>
-            {!event.is_approved && (
-              <button
-                onClick={() => { onAction('approve'); setOpen(false); }}
-                className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-emerald-50 text-emerald-700"
-              >
-                <CheckCircle className="w-4 h-4" /> Approve
-              </button>
-            )}
-            {event.is_approved && (
-              <button
-                onClick={() => { onAction('reject'); setOpen(false); }}
-                className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-amber-50 text-amber-700"
-              >
-                <XCircle className="w-4 h-4" /> Reject
-              </button>
-            )}
-            <div className="divider my-1" />
-            <button
-              onClick={() => { onAction('delete'); setOpen(false); }}
-              className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-red-50 text-red-600"
-            >
-              <Trash2 className="w-4 h-4" /> Delete
-            </button>
-          </div>
-        </>
-      )}
-    </div>
+      {menu}
+    </>
   );
 };
 

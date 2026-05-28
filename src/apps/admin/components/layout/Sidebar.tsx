@@ -71,7 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onClose,
   pendingApprovals = 0,
   openMessages = 0,
-  unreadNotifications = 3,
+  unreadNotifications = 0,
 }) => {
   const location = useLocation();
   const navigate = useNavigate();

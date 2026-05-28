@@ -1,9 +1,10 @@
 // src/apps/organizer/pages/Profile.tsx
 
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  User, Mail, Phone, Building2, Globe, Upload,
-  X, Save, Edit, Trash2, Clock, LogOut, AlertCircle,
+  User, Mail, Phone, Globe, Upload,
+  X, Save, Edit, Trash2, Clock, LogOut, AlertCircle, ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
 import {
@@ -11,6 +12,7 @@ import {
   revokeOrganizerSession,
   revokeAllOtherOrganizerSessions,
 } from '@shared/api/organizer/orgProfileApi';
+import { timeAgo } from '@shared/utils/timeAgo';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,7 +35,6 @@ interface OrganizerProfile {
   };
 }
 
-// Matches RefreshSessionOut from the backend
 interface RefreshSession {
   session_id: string;
   user_id: number;
@@ -50,27 +51,14 @@ interface RefreshSession {
 
 type ActiveTab = 'profile' | 'sessions';
 
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const OrganizerProfile: React.FC = () => {
   const { sessionId } = useAuth();
-  const [profile, setProfile] = useState<OrganizerProfile | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [editing, setEditing] = useState(false);
+  const [profile, setProfile]   = useState<OrganizerProfile | null>(null);
+  const [loading, setLoading]   = useState(false);
+  const [editing, setEditing]   = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('profile');
-  const [profilePicture, setProfilePicture] = useState<File | null>(null);
   const [profilePicturePreview, setProfilePicturePreview] = useState<string>('');
 
   const [formData, setFormData] = useState({
@@ -85,24 +73,21 @@ const OrganizerProfile: React.FC = () => {
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // ── Sessions ──────────────────────────────────────────────────────────────
-  const [sessions, setSessions] = useState<RefreshSession[]>([]);
+  const [sessions, setSessions]               = useState<RefreshSession[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
-  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [sessionError, setSessionError]       = useState<string | null>(null);
 
   // ── Data fetching ─────────────────────────────────────────────────────────
 
   useEffect(() => { loadProfile(); }, []);
 
   useEffect(() => {
-    if (activeTab === 'sessions' && sessions.length === 0 && !sessionsLoading) {
-      fetchSessions();
-    }
+    if (activeTab === 'sessions' && sessions.length === 0 && !sessionsLoading) fetchSessions();
   }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadProfile = async () => {
     setLoading(true);
-    // TODO: const response = await getOrganizerProfile();
+    // TODO: replace mock with real API call
     const mockProfile: OrganizerProfile = {
       id: 1,
       name: 'John Organizer',
@@ -182,37 +167,31 @@ const OrganizerProfile: React.FC = () => {
     field: 'social_media_links' | 'area_of_expertise'
   ) => {
     setFormData(prev => {
-      const newArray = [...prev[field]];
-      newArray[index] = value;
-      return { ...prev, [field]: newArray };
+      const arr = [...prev[field]];
+      arr[index] = value;
+      return { ...prev, [field]: arr };
     });
   };
 
-  const addArrayField = (field: 'social_media_links' | 'area_of_expertise') => {
+  const addArrayField    = (field: 'social_media_links' | 'area_of_expertise') =>
     setFormData(prev => ({ ...prev, [field]: [...prev[field], ''] }));
-  };
 
-  const removeArrayField = (index: number, field: 'social_media_links' | 'area_of_expertise') => {
+  const removeArrayField = (index: number, field: 'social_media_links' | 'area_of_expertise') =>
     setFormData(prev => ({ ...prev, [field]: prev[field].filter((_, i) => i !== index) }));
-  };
 
   const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) { setErrors(prev => ({ ...prev, profilePicture: 'File size must be less than 5MB' })); return; }
     if (!file.type.startsWith('image/')) { setErrors(prev => ({ ...prev, profilePicture: 'Please upload an image file' })); return; }
-    setProfilePicture(file);
     const reader = new FileReader();
     reader.onloadend = () => setProfilePicturePreview(reader.result as string);
     reader.readAsDataURL(file);
     if (errors.profilePicture) setErrors(prev => ({ ...prev, profilePicture: '' }));
   };
 
-  const removeProfilePicture = async () => {
-    // TODO: await deleteOrganizerProfilePicture();
-    setProfilePicture(null);
+  const removeProfilePicture = () => {
     setProfilePicturePreview('');
-    alert('Profile picture removed successfully');
   };
 
   const validateForm = (): boolean => {
@@ -228,21 +207,14 @@ const OrganizerProfile: React.FC = () => {
     setLoading(true);
     try {
       // TODO: await updateOrganizerProfile(formData);
-      console.log('Profile updated:', formData);
-      alert('Profile updated successfully!');
       setEditing(false);
       loadProfile();
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('Failed to update profile. Please try again.');
     } finally {
       setLoading(false);
     }
   };
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Render
-  // ─────────────────────────────────────────────────────────────────────────
 
   if (loading && !profile) {
     return (
@@ -256,7 +228,6 @@ const OrganizerProfile: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-800 mb-2">My Profile</h1>
@@ -272,7 +243,6 @@ const OrganizerProfile: React.FC = () => {
           )}
         </div>
 
-        {/* Tab bar */}
         <div className="flex gap-2 mb-6">
           {([
             { value: 'profile',  label: 'Profile Info'    },
@@ -331,35 +301,54 @@ const OrganizerProfile: React.FC = () => {
             <div className="bg-white rounded-xl shadow-md p-6 mb-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4">Basic Information</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Name *</label>
                   <input type="text" name="name" value={formData.name} onChange={handleInputChange} disabled={!editing}
                     className={`w-full px-4 py-3 border ${errors.name ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600`} />
                   {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
                 </div>
+
+                {/* ── Email — read-only ── */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
-                  <input type="email" value={profile?.email} disabled
+                  <input type="email" value={profile?.email ?? ''} disabled
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600" />
-                  <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                  <div className="mt-1.5 flex items-center justify-between flex-wrap gap-1.5">
+                    <p className="text-xs text-gray-400 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      Email cannot be edited directly.
+                    </p>
+                    <Link
+                      to="/contact"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Contact us to change
+                    </Link>
+                  </div>
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Phone Number *</label>
                   <input type="tel" name="phone_number" value={formData.phone_number} onChange={handleInputChange} disabled={!editing}
                     className={`w-full px-4 py-3 border ${errors.phone_number ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600`} />
                   {errors.phone_number && <p className="mt-1 text-sm text-red-600">{errors.phone_number}</p>}
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Organization Name</label>
                   <input type="text" name="organization_name" value={formData.organization_name} onChange={handleInputChange} disabled={!editing}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600" />
                 </div>
+
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Website URL</label>
                   <input type="url" name="website_url" value={formData.website_url} onChange={handleInputChange} disabled={!editing}
                     placeholder="https://example.com"
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600" />
                 </div>
+
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Bio</label>
                   <textarea name="bio" value={formData.bio} onChange={handleInputChange} disabled={!editing} rows={4}
@@ -376,7 +365,7 @@ const OrganizerProfile: React.FC = () => {
                 {formData.social_media_links.map((link, index) => (
                   <div key={index} className="flex gap-2">
                     <input type="url" value={link}
-                      onChange={(e) => handleArrayInputChange(index, e.target.value, 'social_media_links')}
+                      onChange={e => handleArrayInputChange(index, e.target.value, 'social_media_links')}
                       disabled={!editing} placeholder="https://twitter.com/yourhandle"
                       className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600" />
                     {editing && formData.social_media_links.length > 1 && (
@@ -403,7 +392,7 @@ const OrganizerProfile: React.FC = () => {
                 {formData.area_of_expertise.map((area, index) => (
                   <div key={index} className="flex gap-2">
                     <input type="text" value={area}
-                      onChange={(e) => handleArrayInputChange(index, e.target.value, 'area_of_expertise')}
+                      onChange={e => handleArrayInputChange(index, e.target.value, 'area_of_expertise')}
                       disabled={!editing} placeholder="e.g., Music Festivals, Corporate Events"
                       className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-600" />
                     {editing && formData.area_of_expertise.length > 1 && (
@@ -423,7 +412,6 @@ const OrganizerProfile: React.FC = () => {
               </div>
             </div>
 
-            {/* Action Buttons */}
             {editing && (
               <div className="flex gap-4">
                 <button type="button" onClick={() => { setEditing(false); loadProfile(); }}

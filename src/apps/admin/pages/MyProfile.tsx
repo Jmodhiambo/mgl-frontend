@@ -3,18 +3,16 @@ import { useState, useRef, useEffect } from 'react';
 import {
   User, Mail, Phone, Lock, Eye, EyeOff, Shield, Camera,
   Save, CheckCircle, AlertCircle, Clock, Activity,
-  LogOut, Key, Globe, Bell, Trash2, X, Loader2,
+  LogOut, Key, Globe, Bell, Trash2, X, Loader2, Info,
 } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
 import {
-  getMyAdminSessions,
-  revokeAdminSession,
-  revokeAllOtherAdminSessions,
-  getMyActivity,
-  updateAdminProfile,
-  changeAdminPassword,
-  getMyAdminProfile,
+  getMyAdminSessions, revokeAdminSession, revokeAllOtherAdminSessions,
+  getMyActivity, updateAdminProfile, changeAdminPassword, getMyAdminProfile,
+  getAdminNotificationPrefs, updateAdminNotificationPrefs,
 } from '@admin/services/adminService';
+import type { AdminNotificationPrefs } from '@admin/services/adminService';
+import { timeAgo } from '@shared/utils/timeAgo';
 import type { RefreshSession } from '@shared/types/Auth';
 import type { AuditLog } from '@admin/types';
 
@@ -32,15 +30,6 @@ interface PasswordForm {
   confirm_password: string;
 }
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
-
 type Tab = 'profile' | 'security' | 'sessions' | 'activity';
 
 const TAB_ITEMS: { value: Tab; label: string; icon: React.ElementType }[] = [
@@ -56,42 +45,30 @@ const MyProfile: React.FC = () => {
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Profile form
-  // DB sends a single `name` field — split it for the form, rejoin on save
   const parseName = (fullName: string) => {
     const parts = fullName.trim().split(/\s+/);
-    return {
-      first_name: parts[0] ?? '',
-      last_name:  parts.slice(1).join(' '),
-    };
+    return { first_name: parts[0] ?? '', last_name: parts.slice(1).join(' ') };
   };
 
   const [profile, setProfile] = useState<ProfileForm>({
     first_name: '', last_name: '', email: '', phone: '', bio: null,
   });
-  const [emailVerified, setEmailVerified] = useState(false);
-  const [role, setRole]                   = useState('admin');
-  const [profileSaved, setProfileSaved]       = useState(false);
-  const [profileLoading, setProfileLoading]   = useState(false);
-  const [profileFetchLoading, setProfileFetch] = useState(true);
+  const [emailVerified, setEmailVerified]       = useState(false);
+  const [role, setRole]                         = useState('admin');
+  const [profileSaved, setProfileSaved]         = useState(false);
+  const [profileLoading, setProfileLoading]     = useState(false);
+  const [profileFetchLoading, setProfileFetch]  = useState(true);
 
-  // Load profile from API on mount
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         const data = await getMyAdminProfile();
         const { first_name, last_name } = parseName(data.name);
-        setProfile({
-          first_name,
-          last_name,
-          email: data.email,
-          phone: data.phone_number,
-          bio:   data.bio ?? null,
-        });
+        setProfile({ first_name, last_name, email: data.email, phone: data.phone_number, bio: data.bio ?? null });
         setEmailVerified(data.email_verified);
         setRole(data.role);
       } catch {
-        // silently degrade — form keeps its initial empty state
+        // silently degrade
       } finally {
         setProfileFetch(false);
       }
@@ -99,9 +76,8 @@ const MyProfile: React.FC = () => {
     fetchProfile();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Password form
-  const [pwForm, setPwForm] = useState<PasswordForm>({ current_password: '', new_password: '', confirm_password: '' });
-  const [showPw, setShowPw] = useState({ current: false, new: false, confirm: false });
+  const [pwForm, setPwForm]     = useState<PasswordForm>({ current_password: '', new_password: '', confirm_password: '' });
+  const [showPw, setShowPw]     = useState({ current: false, new: false, confirm: false });
   const [pwErrors, setPwErrors] = useState<Partial<Record<keyof PasswordForm, string>>>({});
   const [pwLoading, setPwLoading] = useState(false);
   const [pwSuccess, setPwSuccess] = useState(false);
@@ -113,23 +89,70 @@ const MyProfile: React.FC = () => {
   const [activity, setActivity]               = useState<AuditLog[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
 
-  const [notifPrefs, setNotifPrefs] = useState({
-    new_event: true, user_signup: true, payment_dispute: true,
-    weekly_report: false, system_alerts: true,
-  });
+  type NotifForm = Omit<AdminNotificationPrefs, 'user_id' | 'updated_at'>;
+  const [notifPrefs, setNotifPrefs]         = useState<NotifForm | null>(null);
+  const [notifLoading, setNotifLoading]     = useState(false);
+  const [notifSaving, setNotifSaving]       = useState(false);
+  const [notifDirty, setNotifDirty]         = useState(false);
+  const [notifError, setNotifError]         = useState<string | null>(null);
+  const [notifSaved, setNotifSaved]         = useState(false);
 
-  // Lazy-load data when a tab is first opened
   useEffect(() => {
     if (tab === 'sessions' && sessions.length === 0 && !sessionsLoading) fetchSessions();
     if (tab === 'activity' && activity.length === 0 && !activityLoading)  fetchActivity();
+    if (tab === 'profile'  && notifPrefs === null  && !notifLoading)      fetchNotifPrefs();
   }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchNotifPrefs = async () => {
+    setNotifLoading(true);
+    setNotifError(null);
+    try {
+      const data = await getAdminNotificationPrefs();
+      const { user_id, updated_at, ...form } = data;
+      setNotifPrefs(form);
+    } catch {
+      setNotifError('Failed to load notification preferences.');
+      // Fall back to sensible defaults so the UI isn't broken
+      setNotifPrefs({
+        notify_new_event: true,
+        notify_new_message: true,
+        notify_payment_failure: true,
+        notify_new_organizer: true,
+        notify_refund_request: true,
+      });
+    } finally {
+      setNotifLoading(false);
+    }
+  };
+
+  const saveNotifPrefs = async () => {
+    if (!notifPrefs) return;
+    setNotifSaving(true);
+    setNotifError(null);
+    try {
+      const updated = await updateAdminNotificationPrefs(notifPrefs);
+      const { user_id, updated_at, ...form } = updated;
+      setNotifPrefs(form);
+      setNotifDirty(false);
+      setNotifSaved(true);
+      setTimeout(() => setNotifSaved(false), 3000);
+    } catch {
+      setNotifError('Failed to save notification preferences. Please try again.');
+    } finally {
+      setNotifSaving(false);
+    }
+  };
+
+  const updateNotif = <K extends keyof NotifForm>(key: K, value: NotifForm[K]) => {
+    setNotifPrefs(p => p ? { ...p, [key]: value } : p);
+    setNotifDirty(true);
+  };
 
   const fetchSessions = async () => {
     setSessionsLoading(true);
     setSessionError(null);
     try {
-      const data = await getMyAdminSessions();
-      setSessions(data);
+      setSessions(await getMyAdminSessions());
     } catch {
       setSessionError('Failed to load sessions. Please try again.');
     } finally {
@@ -140,10 +163,9 @@ const MyProfile: React.FC = () => {
   const fetchActivity = async () => {
     setActivityLoading(true);
     try {
-      const data = await getMyActivity();
-      setActivity(data);
+      setActivity(await getMyActivity());
     } catch {
-      // silently degrade — the tab shows empty state
+      // silently degrade
     } finally {
       setActivityLoading(false);
     }
@@ -228,10 +250,10 @@ const MyProfile: React.FC = () => {
 
   return (
     <div className="space-y-5 max-w-4xl">
-      {/* Header card */}
+
+      {/* ── Header card ── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6">
         <div className="flex items-start gap-5 flex-wrap">
-          {/* Avatar */}
           <div className="relative flex-shrink-0">
             {avatarUrl ? (
               <img src={avatarUrl} alt="Avatar" className="w-20 h-20 rounded-2xl object-cover shadow-md" />
@@ -249,12 +271,9 @@ const MyProfile: React.FC = () => {
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
           </div>
 
-          {/* Info */}
           <div className="flex-1">
             <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-xl font-bold text-gray-900">
-                {profile.first_name} {profile.last_name}
-              </h2>
+              <h2 className="text-xl font-bold text-gray-900">{profile.first_name} {profile.last_name}</h2>
               <span className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold capitalize">
                 <Shield className="w-3 h-3" /> {role}
               </span>
@@ -270,7 +289,6 @@ const MyProfile: React.FC = () => {
             </p>
           </div>
 
-          {/* Stats */}
           <div className="flex gap-5 text-center flex-shrink-0">
             {[
               { label: 'Actions',  value: activityLoading ? '…' : activity.length },
@@ -285,19 +303,19 @@ const MyProfile: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="bg-white rounded-xl border border-gray-100 p-1 flex gap-1 flex-wrap">
+      {/* ── Tabs ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 bg-white border border-gray-100 rounded-xl p-1 shadow-sm">
         {TAB_ITEMS.map(t => {
           const Icon = t.icon;
           return (
-            <button
-              key={t.value}
-              onClick={() => setTab(t.value)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all flex-1 justify-center sm:flex-none
-                ${tab === t.value ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}
+            <button key={t.value} onClick={() => setTab(t.value)}
+              className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all
+                ${tab === t.value
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'}`}
             >
-              <Icon className="w-4 h-4" />
-              <span className="hidden sm:inline">{t.label}</span>
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              <span>{t.label}</span>
             </button>
           );
         })}
@@ -318,112 +336,141 @@ const MyProfile: React.FC = () => {
             </div>
           ) : (
             <>
-            {profileSaved && (
-            <div className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-              <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-              <p className="text-sm text-emerald-800 font-medium">Profile updated successfully.</p>
-            </div>
-          )}
+              {profileSaved && (
+                <div className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                  <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  <p className="text-sm text-emerald-800 font-medium">Profile updated successfully.</p>
+                </div>
+              )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  value={profile.first_name}
-                  onChange={e => setProfile(p => ({ ...p, first_name: e.target.value }))}
-                  placeholder="e.g. Alice"
-                  className={`${inp()} pl-9`}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-              <input
-                value={profile.last_name}
-                onChange={e => setProfile(p => ({ ...p, last_name: e.target.value }))}
-                placeholder="e.g. Mwangi"
-                className={inp()}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="email"
-                  value={profile.email}
-                  disabled
-                  className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-not-allowed"
-                />
-              </div>
-              <p className="mt-1 text-xs text-gray-400">Email cannot be changed</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  value={profile.phone}
-                  onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))}
-                  className={`${inp()} pl-9`}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
-            <textarea
-              rows={3}
-              value={profile.bio ?? ''}
-              onChange={e => setProfile(p => ({ ...p, bio: e.target.value || null }))}
-              className={`${inp()} resize-none`}
-              placeholder="Tell us a little about your role — e.g. 'Platform administrator managing events and users.'"
-            />
-            <p className="text-xs text-gray-400 mt-1">
-              {profile.bio ? `${profile.bio.length} / 200` : 'Optional — helps identify you across the admin team.'}
-            </p>
-          </div>
-
-          {/* Notification preferences */}
-          <div className="border-t border-gray-100 pt-5">
-            <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-              <Bell className="w-4 h-4" /> Email Notification Preferences
-            </h4>
-            <div className="space-y-3">
-              {([
-                { key: 'new_event',        label: 'New event submitted for approval' },
-                { key: 'user_signup',      label: 'New user registration alerts'     },
-                { key: 'payment_dispute',  label: 'Payment disputes and refunds'     },
-                { key: 'weekly_report',    label: 'Weekly analytics digest'          },
-                { key: 'system_alerts',    label: 'System health and error alerts'   },
-              ] as { key: keyof typeof notifPrefs; label: string }[]).map(item => (
-                <div key={item.key} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                  <span className="text-sm text-gray-700">{item.label}</span>
-                  <div
-                    onClick={() => setNotifPrefs(p => ({ ...p, [item.key]: !p[item.key] }))}
-                    className={`relative w-8 rounded-full cursor-pointer transition-colors flex-shrink-0`}
-                    style={{ height: 18, width: 32, background: notifPrefs[item.key] ? '#7c3aed' : '#e5e7eb' }}
-                  >
-                    <span className={`absolute top-0.5 w-3.5 h-3.5 bg-white rounded-full shadow-sm transition-all
-                      ${notifPrefs[item.key] ? 'left-[14px]' : 'left-0.5'}`} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input value={profile.first_name} onChange={e => setProfile(p => ({ ...p, first_name: e.target.value }))}
+                      placeholder="e.g. Alice" className={`${inp()} pl-9`} />
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                  <input value={profile.last_name} onChange={e => setProfile(p => ({ ...p, last_name: e.target.value }))}
+                    placeholder="e.g. Mwangi" className={inp()} />
+                </div>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <button className="btn-secondary">Discard</button>
-            <button onClick={handleProfileSave} disabled={profileLoading}
-              className="btn-primary flex items-center gap-2 disabled:opacity-60">
-              {profileLoading
-                ? <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                : <><Save className="w-4 h-4" /> Save Changes</>}
-            </button>
-          </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input type="email" value={profile.email} disabled
+                      className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-not-allowed" />
+                  </div>
+                  <p className="mt-1.5 text-xs text-gray-400 flex items-center gap-1.5">
+                    <Info className="w-3.5 h-3.5 flex-shrink-0" />
+                    Admin email addresses use a custom domain and cannot be changed. Contact support if you need assistance.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input value={profile.phone} onChange={e => setProfile(p => ({ ...p, phone: e.target.value }))}
+                      className={`${inp()} pl-9`} />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
+                <textarea rows={3} value={profile.bio ?? ''}
+                  onChange={e => setProfile(p => ({ ...p, bio: e.target.value || null }))}
+                  className={`${inp()} resize-none`}
+                  placeholder="Tell us a little about your role — e.g. 'Platform administrator managing events and users.'" />
+                <p className="text-xs text-gray-400 mt-1">
+                  {profile.bio ? `${profile.bio.length} / 200` : 'Optional — helps identify you across the admin team.'}
+                </p>
+              </div>
+
+              <div className="border-t border-gray-100 pt-5">
+                <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+                  <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                    <Bell className="w-4 h-4" /> Email Notification Preferences
+                  </h4>
+                  <button
+                    onClick={saveNotifPrefs}
+                    disabled={notifSaving || notifLoading || !notifDirty || !notifPrefs}
+                    className="btn-primary btn-sm flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {notifSaving ? (
+                      <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving…</>
+                    ) : (
+                      <><Save className="w-3.5 h-3.5" /> Save Preferences</>
+                    )}
+                  </button>
+                </div>
+
+                {notifSaved && (
+                  <div className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mb-3">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <p className="text-sm text-emerald-800 font-medium">Notification preferences saved.</p>
+                  </div>
+                )}
+
+                {notifError && (
+                  <div className="flex items-center gap-2.5 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-3">
+                    <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                    <p className="text-sm text-red-700">{notifError}</p>
+                  </div>
+                )}
+
+                {notifLoading ? (
+                  <div className="space-y-3">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                        <div className="h-3.5 w-48 bg-gray-100 rounded animate-pulse" />
+                        <div className="h-4 w-8 bg-gray-100 rounded-full animate-pulse" />
+                      </div>
+                    ))}
+                  </div>
+                ) : notifPrefs ? (
+                  <div className="space-y-3">
+                    {([
+                      { key: 'notify_new_event',      label: 'New event pending approval'   },
+                      { key: 'notify_new_message',     label: 'New contact message received' },
+                      { key: 'notify_payment_failure', label: 'Payment failure detected'     },
+                      { key: 'notify_new_organizer',   label: 'New organizer application'    },
+                      { key: 'notify_refund_request',  label: 'Booking refund requested'     },
+                    ] as { key: keyof NotifForm; label: string }[]).map(item => (
+                      <div key={item.key} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                        <span className="text-sm text-gray-700">{item.label}</span>
+                        <button
+                          type="button"
+                          onClick={() => updateNotif(item.key, !notifPrefs[item.key])}
+                          aria-pressed={notifPrefs[item.key]}
+                          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent
+                            transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2
+                            ${notifPrefs[item.key] ? 'bg-purple-600 focus:ring-purple-400' : 'bg-gray-200 focus:ring-gray-300'}`}
+                        >
+                          <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow
+                            transform ring-0 transition duration-200 ease-in-out
+                            ${notifPrefs[item.key] ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button className="btn-secondary">Discard</button>
+                <button onClick={handleProfileSave} disabled={profileLoading}
+                  className="btn-primary flex items-center gap-2 disabled:opacity-60">
+                  {profileLoading
+                    ? <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                    : <><Save className="w-4 h-4" /> Save Changes</>}
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -432,7 +479,6 @@ const MyProfile: React.FC = () => {
       {/* ── Security Tab ── */}
       {tab === 'security' && (
         <div className="space-y-4">
-          {/* Change password */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
             <div>
               <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
@@ -450,27 +496,18 @@ const MyProfile: React.FC = () => {
 
             {(['current_password', 'new_password', 'confirm_password'] as const).map((field, idx) => {
               const labels = ['Current Password', 'New Password', 'Confirm New Password'];
-              const shown = showPw[field === 'current_password' ? 'current' : field === 'new_password' ? 'new' : 'confirm'];
+              const showKey = field === 'current_password' ? 'current' : field === 'new_password' ? 'new' : 'confirm';
+              const shown = showPw[showKey];
               return (
                 <div key={field}>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{labels[idx]}</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type={shown ? 'text' : 'password'}
-                      value={pwForm[field]}
+                    <input type={shown ? 'text' : 'password'} value={pwForm[field]}
                       onChange={e => setPwForm(p => ({ ...p, [field]: e.target.value }))}
-                      className={`${inp(!!pwErrors[field])} pl-9 pr-10`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPw(p => ({
-                        ...p,
-                        [field === 'current_password' ? 'current' : field === 'new_password' ? 'new' : 'confirm']:
-                          !p[field === 'current_password' ? 'current' : field === 'new_password' ? 'new' : 'confirm'],
-                      }))}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
+                      className={`${inp(!!pwErrors[field])} pl-9 pr-10`} />
+                    <button type="button" onClick={() => setShowPw(p => ({ ...p, [showKey]: !p[showKey] }))}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                       {shown ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
@@ -501,14 +538,13 @@ const MyProfile: React.FC = () => {
             </div>
           </div>
 
-          {/* 2FA placeholder */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                   <Shield className="w-4 h-4 text-purple-600" /> Two-Factor Authentication
                 </h3>
-                <p className="text-sm text-gray-500 mt-1">Add an extra layer of security to your account using an authenticator app.</p>
+                <p className="text-sm text-gray-500 mt-1">Add an extra layer of security using an authenticator app.</p>
               </div>
               <span className="px-2.5 py-1 bg-amber-100 text-amber-700 text-xs font-bold rounded-full flex-shrink-0">Not enabled</span>
             </div>
@@ -517,7 +553,6 @@ const MyProfile: React.FC = () => {
             </button>
           </div>
 
-          {/* Danger zone */}
           <div className="bg-white rounded-2xl border border-red-100 p-6">
             <h3 className="text-base font-bold text-red-700 flex items-center gap-2 mb-1">
               <AlertCircle className="w-4 h-4" /> Danger Zone
@@ -603,10 +638,8 @@ const MyProfile: React.FC = () => {
           )}
 
           {sessions.filter(s => s.session_id !== sessionId).length > 0 && (
-            <button
-              onClick={handleRevokeAllOther}
-              className="text-sm text-red-600 hover:text-red-700 font-medium flex items-center gap-1.5"
-            >
+            <button onClick={handleRevokeAllOther}
+              className="text-sm text-red-600 hover:text-red-700 font-medium flex items-center gap-1.5">
               <LogOut className="w-4 h-4" /> Revoke all other sessions
             </button>
           )}
