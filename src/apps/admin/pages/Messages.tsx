@@ -1,4 +1,3 @@
-// src/apps/admin/pages/Messages.tsx
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { MessageSquare, X, Mail, Clock, CheckCircle, AlertTriangle, Trash2, RefreshCw } from 'lucide-react';
@@ -9,6 +8,7 @@ import {
 import { listContactMessages, updateContactMessageStatus, deleteContactMessage } from '@admin/services/adminService';
 import { formatDateTime } from '@admin/utils/dummyData';
 import type { ContactMessage } from '@admin/types';
+import { adminEvents } from '@admin/utils/adminEvents';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -37,6 +37,7 @@ const ACTION_STATUS: Record<Exclude<QuickAction, 'delete'>, ContactMessageStatus
 const Messages: React.FC = () => {
   const [messages, setMessages]   = useState<ContactMessage[]>([]);
   const [loading, setLoading]     = useState(true);
+  const [refreshing, setRefresh]  = useState(false);
   const [search, setSearch]       = useState('');
   const [statusFilter, setStatus] = useState('all');
   const [catFilter, setCat]       = useState('all');
@@ -46,9 +47,19 @@ const Messages: React.FC = () => {
   const [actionLoading, setAL]    = useState(false);
   const [alert, setAlert]         = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
-  useEffect(() => {
-    listContactMessages().then(data => { setMessages(data); setLoading(false); });
+  const loadMessages = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    else setRefresh(true);
+    try {
+      const data = await listContactMessages();
+      setMessages(data);
+    } finally {
+      setLoading(false);
+      setRefresh(false);
+    }
   }, []);
+
+  useEffect(() => { loadMessages(); }, [loadMessages]);
 
   const filtered = useMemo(() => messages.filter(m => {
     const str = `${m.name} ${m.email} ${m.subject} ${m.message}`.toLowerCase();
@@ -85,6 +96,8 @@ const Messages: React.FC = () => {
         if (selected?.id === msg.id) setSelected(updated);
         setAlert({ type: 'success', msg: 'Message status updated.' });
       }
+      // Immediately refresh sidebar/header badge counts
+      adminEvents.emit('badges:refresh');
     } catch {
       setAlert({ type: 'error', msg: 'Action failed. Please try again.' });
     } finally {
@@ -129,6 +142,15 @@ const Messages: React.FC = () => {
           <h1 className="page-title">Contact Messages</h1>
           <p className="page-subtitle">{messages.length} total messages</p>
         </div>
+        <button
+          onClick={() => loadMessages(true)}
+          disabled={refreshing}
+          className="btn-secondary btn-sm flex items-center gap-2 disabled:opacity-60"
+          title="Refresh messages"
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">{refreshing ? 'Refreshing…' : 'Refresh'}</span>
+        </button>
       </div>
 
       {/* ── Summary cards ── */}

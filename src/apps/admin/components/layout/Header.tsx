@@ -11,6 +11,7 @@ import {
   markAllNotificationsRead,
   dismissNotification,
 } from '@admin/services/adminService';
+import { adminEvents } from '@admin/utils/adminEvents';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -119,6 +120,8 @@ const Header: React.FC<HeaderProps> = ({
       setNotifs(p => p.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
       try {
         await markNotificationRead(notif.id);
+        // Refresh all badges so sidebar message count stays in sync
+        adminEvents.emit('badges:refresh');
       } catch {
         // Revert on failure
         setNotifs(p => p.map(n => n.id === notif.id ? { ...n, is_read: false } : n));
@@ -133,8 +136,8 @@ const Header: React.FC<HeaderProps> = ({
     onNotificationsRead?.();
     try {
       await markAllNotificationsRead();
+      adminEvents.emit('badges:refresh');
     } catch {
-      // Re-fetch to restore accurate state
       fetchNotifications();
     }
   };

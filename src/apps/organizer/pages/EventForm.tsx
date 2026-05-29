@@ -1,11 +1,22 @@
+// src/apps/organizer/pages/EventForm.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Calendar, MapPin, FileText, Upload, X, Save, ArrowLeft } from 'lucide-react';
+import { MapPin, Upload, X, Save, ArrowLeft } from 'lucide-react';
+import {
+  createEvent,
+  updateEvent,
+  getEventDetails,
+} from '@organizer/services/eventService';
+
+const CATEGORIES = ['Music', 'Tech', 'Sports', 'Food', 'Comedy', 'Culture', 'Party', 'Other'];
 
 interface EventFormData {
   title: string;
   description: string;
   venue: string;
+  city: string;
+  country: string;
+  category: string;
   start_time: string;
   end_time: string;
   flyer: File | null;
@@ -16,187 +27,138 @@ interface EventFormProps {
 }
 
 const EventForm: React.FC<EventFormProps> = ({ mode = 'create' }) => {
-  const navigate = useNavigate();
+  const navigate   = useNavigate();
   const { id: eventId } = useParams<{ id: string }>();
-  
+
   const [formData, setFormData] = useState<EventFormData>({
-    title: '',
-    description: '',
-    venue: '',
-    start_time: '',
-    end_time: '',
-    flyer: null
+    title: '', description: '', venue: '', city: '',
+    country: 'Kenya', category: 'Music',
+    start_time: '', end_time: '', flyer: null,
   });
-
-  const [flyerPreview, setFlyerPreview] = useState<string>('');
-  const [loading, setLoading] = useState(false);
+  const [flyerPreview, setFlyerPreview] = useState('');
+  const [loading, setLoading]           = useState(false);
   const [loadingEvent, setLoadingEvent] = useState(false);
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [errors, setErrors]             = useState<Record<string, string>>({});
+  const [apiError, setApiError]         = useState<string | null>(null);
 
+  // ── Load existing event data in edit mode ─────────────────────────────────
   useEffect(() => {
     if (mode === 'edit' && eventId) {
-      loadEventData();
+      setLoadingEvent(true);
+      getEventDetails(Number(eventId))
+        .then(({ event }) => {
+          // datetime-local input expects 'YYYY-MM-DDTHH:MM' format
+          const toLocal = (iso: string) => iso.slice(0, 16);
+          setFormData({
+            title:       event.title,
+            description: event.description ?? '',
+            venue:       event.venue,
+            city:        event.city,
+            country:     event.country,
+            category:    event.category,
+            start_time:  toLocal(event.start_time),
+            end_time:    toLocal(event.end_time),
+            flyer:       null,
+          });
+          setFlyerPreview(event.flyer_url);
+        })
+        .catch(() => setApiError('Failed to load event data. Please try again.'))
+        .finally(() => setLoadingEvent(false));
     }
   }, [eventId, mode]);
 
-  const loadEventData = async () => {
-    setLoadingEvent(true);
-    try {
-      // TODO: Replace with actual API call
-      // const event = await getEventById(eventId);
-      
-      // Mock data for demonstration
-      const mockEvent = {
-        id: parseInt(eventId || '1'),
-        title: 'Summer Music Festival 2025',
-        description: 'The biggest music festival of the year featuring top artists from around the world.',
-        venue: 'Kasarani Stadium, Nairobi',
-        start_time: '2025-07-15T14:00',
-        end_time: '2025-07-15T23:00',
-        flyer_url: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400'
-      };
-
-      setFormData({
-        title: mockEvent.title,
-        description: mockEvent.description || '',
-        venue: mockEvent.venue,
-        start_time: mockEvent.start_time,
-        end_time: mockEvent.end_time,
-        flyer: null
-      });
-      
-      setFlyerPreview(mockEvent.flyer_url);
-    } catch (error) {
-      console.error('Failed to load event:', error);
-      alert('Failed to load event data. Please try again.');
-    } finally {
-      setLoadingEvent(false);
+  // ── Validation ────────────────────────────────────────────────────────────
+  const validate = (): boolean => {
+    const e: Record<string, string> = {};
+    if (!formData.title.trim())    e.title      = 'Event title is required';
+    if (!formData.venue.trim())    e.venue      = 'Venue is required';
+    if (!formData.city.trim())     e.city       = 'City is required';
+    if (!formData.start_time)      e.start_time = 'Start time is required';
+    if (!formData.end_time)        e.end_time   = 'End time is required';
+    if (
+      formData.start_time &&
+      formData.end_time &&
+      new Date(formData.end_time) <= new Date(formData.start_time)
+    ) {
+      e.end_time = 'End time must be after start time';
     }
+    if (mode === 'create' && !formData.flyer && !flyerPreview) {
+      e.flyer = 'Event flyer is required';
+    }
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-  };
-
+  // ── Flyer upload ──────────────────────────────────────────────────────────
   const handleFlyerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setErrors(prev => ({ ...prev, flyer: 'File size must be less than 5MB' }));
-        return;
-      }
-
-      if (!file.type.startsWith('image/')) {
-        setErrors(prev => ({ ...prev, flyer: 'Please upload an image file' }));
-        return;
-      }
-
-      setFormData(prev => ({ ...prev, flyer: file }));
-      
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFlyerPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-
-      if (errors.flyer) {
-        setErrors(prev => ({ ...prev, flyer: '' }));
-      }
-    }
-  };
-
-  const removeFlyerPreview = () => {
-    setFormData(prev => ({ ...prev, flyer: null }));
-    setFlyerPreview('');
-  };
-
-  const validateForm = (): boolean => {
-    const newErrors: { [key: string]: string } = {};
-
-    if (!formData.title.trim()) {
-      newErrors.title = 'Event title is required';
-    }
-
-    if (!formData.venue.trim()) {
-      newErrors.venue = 'Venue is required';
-    }
-
-    if (!formData.start_time) {
-      newErrors.start_time = 'Start time is required';
-    }
-
-    if (!formData.end_time) {
-      newErrors.end_time = 'End time is required';
-    }
-
-    if (formData.start_time && formData.end_time) {
-      const startDate = new Date(formData.start_time);
-      const endDate = new Date(formData.end_time);
-      
-      if (endDate <= startDate) {
-        newErrors.end_time = 'End time must be after start time';
-      }
-    }
-
-    if (mode === 'create' && !formData.flyer && !flyerPreview) {
-      newErrors.flyer = 'Event flyer is required';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async () => {
-    if (!validateForm()) {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setErrors(p => ({ ...p, flyer: 'File size must be less than 5MB' }));
       return;
     }
+    if (!file.type.startsWith('image/')) {
+      setErrors(p => ({ ...p, flyer: 'Please upload an image file' }));
+      return;
+    }
+    setFormData(p => ({ ...p, flyer: file }));
+    const reader = new FileReader();
+    reader.onloadend = () => setFlyerPreview(reader.result as string);
+    reader.readAsDataURL(file);
+    setErrors(p => ({ ...p, flyer: '' }));
+  };
 
+  // ── Submit ────────────────────────────────────────────────────────────────
+  const handleSubmit = async () => {
+    if (!validate()) return;
     setLoading(true);
-
+    setApiError(null);
     try {
-      const formDataToSend = new FormData();
-      formDataToSend.append('title', formData.title);
-      formDataToSend.append('description', formData.description);
-      formDataToSend.append('venue', formData.venue);
-      formDataToSend.append('start_time', formData.start_time);
-      formDataToSend.append('end_time', formData.end_time);
-      if (formData.flyer) {
-        formDataToSend.append('flyer', formData.flyer);
+      if (mode === 'create') {
+        await createEvent({
+          title:       formData.title,
+          description: formData.description,
+          venue:       formData.venue,
+          city:        formData.city,
+          country:     formData.country,
+          category:    formData.category,
+          start_time:  new Date(formData.start_time).toISOString(),
+          end_time:    new Date(formData.end_time).toISOString(),
+          flyer:       formData.flyer,
+        });
+      } else {
+        await updateEvent(Number(eventId), {
+          title:       formData.title,
+          description: formData.description,
+          venue:       formData.venue,
+          city:        formData.city,
+          country:     formData.country,
+          category:    formData.category,
+          start_time:  new Date(formData.start_time).toISOString(),
+          end_time:    new Date(formData.end_time).toISOString(),
+        });
       }
-
-      // TODO: API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      alert(`Event ${mode === 'create' ? 'created' : 'updated'} successfully!`);
       navigate('/events');
-    } catch (error) {
-      console.error('Error submitting form:', error);
-      alert('Failed to submit form. Please try again.');
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail ?? 'Failed to submit form. Please try again.';
+      setApiError(detail);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleBack = () => {
-    navigate('/events');
-  };
+  const inp = (key: string) =>
+    `w-full px-4 py-3 border ${
+      errors[key] ? 'border-red-500' : 'border-gray-300'
+    } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`;
 
-  const handleCancel = () => {
-    if (confirm('Are you sure you want to cancel? Any unsaved changes will be lost.')) {
-      navigate('/events');
-    }
-  };
-
+  // ── Loading state (edit mode) ─────────────────────────────────────────────
   if (loadingEvent) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading event data...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mx-auto mb-4" />
+          <p className="text-gray-600">Loading event data…</p>
         </div>
       </div>
     );
@@ -205,139 +167,143 @@ const EventForm: React.FC<EventFormProps> = ({ mode = 'create' }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {/* Header */}
         <div className="mb-8">
-          <button 
-            onClick={handleBack}
+          <button
+            onClick={() => navigate('/events')}
             className="flex items-center text-gray-600 hover:text-blue-600 transition-colors mb-4"
           >
-            <ArrowLeft className="w-5 h-5 mr-1" />
-            Back to Events
+            <ArrowLeft className="w-5 h-5 mr-1" /> Back to Events
           </button>
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
             {mode === 'create' ? 'Create New Event' : 'Edit Event'}
           </h1>
           <p className="text-gray-600">
-            {mode === 'create' 
-              ? 'Fill in the details below to create your event' 
+            {mode === 'create'
+              ? 'Fill in the details below to create your event'
               : 'Update your event information'}
           </p>
         </div>
 
+        {/* API error banner */}
+        {apiError && (
+          <div className="mb-6 flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
+            <p className="text-sm text-red-700">{apiError}</p>
+          </div>
+        )}
+
         <div className="space-y-6">
+
+          {/* Title */}
           <div className="bg-white rounded-xl shadow-md p-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Event Title *
-            </label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Event Title *</label>
             <input
-              type="text"
-              name="title"
-              value={formData.title}
-              onChange={handleInputChange}
+              type="text" value={formData.title}
+              onChange={e => setFormData(p => ({ ...p, title: e.target.value }))}
               placeholder="e.g., Summer Music Festival 2025"
-              className={`w-full px-4 py-3 border ${
-                errors.title ? 'border-red-500' : 'border-gray-300'
-              } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+              className={inp('title')}
             />
-            {errors.title && (
-              <p className="mt-2 text-sm text-red-600">{errors.title}</p>
-            )}
+            {errors.title && <p className="mt-2 text-sm text-red-600">{errors.title}</p>}
           </div>
 
+          {/* Description */}
           <div className="bg-white rounded-xl shadow-md p-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Description
-            </label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
             <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleInputChange}
-              rows={5}
-              placeholder="Tell people about your event..."
+              value={formData.description} rows={5}
+              onChange={e => setFormData(p => ({ ...p, description: e.target.value }))}
+              placeholder="Tell people about your event…"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
             />
-            <p className="mt-2 text-sm text-gray-500">
-              {formData.description.length} / 1000 characters
-            </p>
+            <p className="mt-2 text-sm text-gray-500">{formData.description.length} / 1000 characters</p>
           </div>
 
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Venue *
-            </label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          {/* Category + Country */}
+          <div className="bg-white rounded-xl shadow-md p-6 grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Category</label>
+              <select
+                value={formData.category}
+                onChange={e => setFormData(p => ({ ...p, category: e.target.value }))}
+                className={inp('category')}
+              >
+                {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Country</label>
               <input
-                type="text"
-                name="venue"
-                value={formData.venue}
-                onChange={handleInputChange}
-                placeholder="e.g., Kasarani Stadium, Nairobi"
-                className={`w-full pl-10 pr-4 py-3 border ${
-                  errors.venue ? 'border-red-500' : 'border-gray-300'
-                } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                type="text" value={formData.country}
+                onChange={e => setFormData(p => ({ ...p, country: e.target.value }))}
+                className={inp('country')}
               />
             </div>
-            {errors.venue && (
-              <p className="mt-2 text-sm text-red-600">{errors.venue}</p>
-            )}
           </div>
 
+          {/* Venue + City */}
+          <div className="bg-white rounded-xl shadow-md p-6 grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Venue *</label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                  type="text" value={formData.venue}
+                  onChange={e => setFormData(p => ({ ...p, venue: e.target.value }))}
+                  placeholder="e.g., Kasarani Stadium"
+                  className={`${inp('venue')} pl-10`}
+                />
+              </div>
+              {errors.venue && <p className="mt-2 text-sm text-red-600">{errors.venue}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">City *</label>
+              <input
+                type="text" value={formData.city}
+                onChange={e => setFormData(p => ({ ...p, city: e.target.value }))}
+                placeholder="e.g., Nairobi"
+                className={inp('city')}
+              />
+              {errors.city && <p className="mt-2 text-sm text-red-600">{errors.city}</p>}
+            </div>
+          </div>
+
+          {/* Dates */}
           <div className="bg-white rounded-xl shadow-md p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Event Schedule</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Start Date & Time *
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Start Date & Time *</label>
                 <input
-                  type="datetime-local"
-                  name="start_time"
-                  value={formData.start_time}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-3 border ${
-                    errors.start_time ? 'border-red-500' : 'border-gray-300'
-                  } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                  type="datetime-local" value={formData.start_time}
+                  onChange={e => setFormData(p => ({ ...p, start_time: e.target.value }))}
+                  className={inp('start_time')}
                 />
-                {errors.start_time && (
-                  <p className="mt-2 text-sm text-red-600">{errors.start_time}</p>
-                )}
+                {errors.start_time && <p className="mt-2 text-sm text-red-600">{errors.start_time}</p>}
               </div>
-
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  End Date & Time *
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">End Date & Time *</label>
                 <input
-                  type="datetime-local"
-                  name="end_time"
-                  value={formData.end_time}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-3 border ${
-                    errors.end_time ? 'border-red-500' : 'border-gray-300'
-                  } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                  type="datetime-local" value={formData.end_time}
+                  onChange={e => setFormData(p => ({ ...p, end_time: e.target.value }))}
+                  className={inp('end_time')}
                 />
-                {errors.end_time && (
-                  <p className="mt-2 text-sm text-red-600">{errors.end_time}</p>
-                )}
+                {errors.end_time && <p className="mt-2 text-sm text-red-600">{errors.end_time}</p>}
               </div>
             </div>
           </div>
 
+          {/* Flyer */}
           <div className="bg-white rounded-xl shadow-md p-6">
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Event Flyer {mode === 'create' && '*'}
             </label>
-            
             {flyerPreview ? (
               <div className="relative">
-                <img
-                  src={flyerPreview}
-                  alt="Flyer preview"
-                  className="w-full h-64 object-cover rounded-lg"
-                />
+                <img src={flyerPreview} alt="Flyer preview" className="w-full h-64 object-cover rounded-lg" />
                 <button
                   type="button"
-                  onClick={removeFlyerPreview}
+                  onClick={() => { setFlyerPreview(''); setFormData(p => ({ ...p, flyer: null })); }}
                   className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
                 >
                   <X size={20} />
@@ -349,39 +315,26 @@ const EventForm: React.FC<EventFormProps> = ({ mode = 'create' }) => {
               </div>
             ) : (
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors">
-                <input
-                  type="file"
-                  id="flyer"
-                  accept="image/*"
-                  onChange={handleFlyerChange}
-                  className="hidden"
-                />
-                <label
-                  htmlFor="flyer"
-                  className="cursor-pointer flex flex-col items-center"
-                >
+                <input type="file" id="flyer" accept="image/*" onChange={handleFlyerChange} className="hidden" />
+                <label htmlFor="flyer" className="cursor-pointer flex flex-col items-center">
                   <div className="p-4 bg-blue-100 rounded-full mb-4">
                     <Upload className="w-8 h-8 text-blue-600" />
                   </div>
-                  <p className="text-gray-700 font-medium mb-2">
-                    Click to upload event flyer
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    PNG, JPG or WEBP (MAX. 5MB)
-                  </p>
+                  <p className="text-gray-700 font-medium mb-2">Click to upload event flyer</p>
+                  <p className="text-sm text-gray-500">PNG, JPG or WEBP (MAX. 5MB)</p>
                 </label>
               </div>
             )}
-            
-            {errors.flyer && (
-              <p className="mt-2 text-sm text-red-600">{errors.flyer}</p>
-            )}
+            {errors.flyer && <p className="mt-2 text-sm text-red-600">{errors.flyer}</p>}
           </div>
 
+          {/* Actions */}
           <div className="flex gap-4">
             <button
               type="button"
-              onClick={handleCancel}
+              onClick={() => {
+                if (confirm('Any unsaved changes will be lost.')) navigate('/events');
+              }}
               className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
             >
               Cancel
@@ -390,15 +343,12 @@ const EventForm: React.FC<EventFormProps> = ({ mode = 'create' }) => {
               type="button"
               onClick={handleSubmit}
               disabled={loading}
-              className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md flex items-center justify-center disabled:opacity-50"
             >
               {loading ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
               ) : (
-                <>
-                  <Save className="w-5 h-5 mr-2" />
-                  {mode === 'create' ? 'Create Event' : 'Save Changes'}
-                </>
+                <><Save className="w-5 h-5 mr-2" />{mode === 'create' ? 'Create Event' : 'Save Changes'}</>
               )}
             </button>
           </div>

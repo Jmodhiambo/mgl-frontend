@@ -11,24 +11,9 @@ import {
   getMyActivity, updateAdminProfile, changeAdminPassword, getMyAdminProfile,
   getAdminNotificationPrefs, updateAdminNotificationPrefs,
 } from '@admin/services/adminService';
-import type { AdminNotificationPrefs } from '@admin/services/adminService';
 import { timeAgo } from '@shared/utils/timeAgo';
 import type { RefreshSession } from '@shared/types/Auth';
-import type { AuditLog } from '@admin/types';
-
-interface ProfileForm {
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
-  bio: string | null;
-}
-
-interface PasswordForm {
-  current_password: string;
-  new_password: string;
-  confirm_password: string;
-}
+import type { AuditLog, AdminNotificationPrefs, ProfileForm, PasswordForm } from '@admin/types';
 
 type Tab = 'profile' | 'security' | 'sessions' | 'activity';
 

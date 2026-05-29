@@ -226,3 +226,18 @@ export interface ContactMessageStats {
   closed: number;
   spam: number;
 }
+
+// Profile form types
+export interface ProfileForm {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  bio: string | null;
+}
+
+export interface PasswordForm {
+  current_password: string;
+  new_password: string;
+  confirm_password: string;
+}

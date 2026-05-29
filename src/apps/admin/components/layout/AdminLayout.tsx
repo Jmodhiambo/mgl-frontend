@@ -9,6 +9,7 @@ import {
   getUnreadNotificationCount,
   getUnapprovedEvents,
 } from '@admin/services/adminService';
+import { adminEvents } from '@admin/utils/adminEvents';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -67,11 +68,15 @@ const AdminLayout: React.FC = () => {
     }
   }, []);
 
-  // Fetch on mount, then poll
+  // Fetch on mount, poll every 60s, and respond to manual badge:refresh events
   useEffect(() => {
     fetchBadges();
     const interval = setInterval(fetchBadges, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
+    adminEvents.on('badges:refresh', fetchBadges);
+    return () => {
+      clearInterval(interval);
+      adminEvents.off('badges:refresh', fetchBadges);
+    };
   }, [fetchBadges]);
 
   // Re-fetch when navigating away from messages or events so badges update
