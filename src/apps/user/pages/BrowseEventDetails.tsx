@@ -1,261 +1,322 @@
-import React, { useState, useEffect } from 'react';
+// src/apps/user/pages/BrowseEventDetails.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+// Authenticated event detail page — shown to logged-in users.
+// Unauthenticated users see EventDetails.tsx instead.
+//
+// Route: /browse-events/:identifier
+// Supports navigation state restore: when a user selects tickets on
+// EventDetails.tsx and is then redirected here after login, the ticket
+// selection is preserved via location.state.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Calendar, MapPin, Clock, Users, Share2, Heart, ChevronLeft, Ticket, AlertCircle } from 'lucide-react';
+import {
+  Calendar, MapPin, Clock, Users, Share2, Heart,
+  ChevronLeft, Ticket, AlertCircle, RefreshCw,
+} from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
 import SEO from '@shared/components/SEO';
+import {
+  getEventByIdentifier,
+  getTicketTypesByEvent,
+  getFavorites,
+  addFavorite,
+  removeFavorite,
+} from '@user/services/eventService';
+import type { EventOut, TicketTypeOut, SelectedTickets } from '@shared/types/Event';
 
-// Base Url
-const baseUrl = import.meta.env.VITE_BASE_URL;
+const baseUrl = import.meta.env.VITE_BASE_URL ?? 'https://mgltickets.com';
 
-interface Event {
-  id: number;
-  title: string;
-  slug: string;
-  venue: string;
-  start_time: string;
-  end_time: string;
-  flyer_url: string;
-  description: string;
-  organizer_id: number;
-  status: string;
-}
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-interface TicketType {
-  id: number;
-  event_id: number;
-  name: string;
-  description: string;
-  price: number;
-  total_quantity: number;
-  quantity_sold: number;
-}
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+  });
 
-interface SelectedTickets {
-  [ticketTypeId: number]: number;
-}
+const formatTime = (iso: string) =>
+  new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+const getDurationHours = (start: string, end: string): string => {
+  const diff = (new Date(end).getTime() - new Date(start).getTime()) / 1000 / 60 / 60;
+  if (diff < 1)  return `${Math.round(diff * 60)} min`;
+  if (diff === Math.floor(diff)) return `${diff}h`;
+  return `${Math.floor(diff)}h ${Math.round((diff % 1) * 60)}min`;
+};
+
+// ─── Ticket selector row ──────────────────────────────────────────────────────
+
+const TicketRow: React.FC<{
+  ticket: TicketTypeOut;
+  selectedQty: number;
+  onChange: (id: number, qty: number) => void;
+}> = ({ ticket, selectedQty, onChange }) => {
+  const available  = ticket.quantity_available - ticket.quantity_sold;
+  const isLowStock = available <= 10 && available > 0;
+  const isSoldOut  = available <= 0;
+
+  return (
+    <div
+      className={`border-2 rounded-xl p-6 transition-all ${
+        selectedQty > 0
+          ? 'border-orange-500 bg-orange-50'
+          : isSoldOut
+          ? 'border-gray-200 bg-gray-50 opacity-60'
+          : 'border-gray-200 hover:border-orange-300'
+      }`}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1">
+          <div className="flex items-center gap-3 mb-2">
+            <h3 className="text-xl font-bold text-gray-800">{ticket.name}</h3>
+            {isLowStock && (
+              <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">
+                Only {available} left
+              </span>
+            )}
+            {isSoldOut && (
+              <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                Sold Out
+              </span>
+            )}
+          </div>
+          {ticket.description && (
+            <p className="text-gray-600 text-sm mb-3">{ticket.description}</p>
+          )}
+          <div className="flex items-center text-sm text-gray-500">
+            <Users className="w-4 h-4 mr-1" />
+            <span>{ticket.quantity_sold} sold / {ticket.quantity_available} available</span>
+          </div>
+        </div>
+        <div className="text-right ml-4">
+          <div className="text-2xl font-bold text-orange-600">
+            KES {ticket.price.toLocaleString()}
+          </div>
+        </div>
+      </div>
+
+      {!isSoldOut && (
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+          <span className="text-sm text-gray-600 font-medium">Quantity:</span>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => onChange(ticket.id, Math.max(0, selectedQty - 1))}
+              disabled={selectedQty === 0}
+              className="w-10 h-10 rounded-lg border-2 border-orange-500 text-orange-600 font-bold hover:bg-orange-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              −
+            </button>
+            <span className="w-12 text-center font-bold text-lg text-gray-800">
+              {selectedQty}
+            </span>
+            <button
+              onClick={() => onChange(ticket.id, Math.min(available, selectedQty + 1))}
+              disabled={selectedQty >= available}
+              className="w-10 h-10 rounded-lg border-2 border-orange-500 bg-orange-500 text-white font-bold hover:bg-orange-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              +
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Page component ───────────────────────────────────────────────────────────
 
 const BrowseEventDetailsPage: React.FC = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { eventId } = useParams<{ eventId: string }>();
-  const { isAuthenticated } = useAuth();
-  const [event, setEvent] = useState<Event | null>(null);
-  const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
-  const [selectedTickets, setSelectedTickets] = useState<SelectedTickets>({});
-  const [loading, setLoading] = useState<boolean>(true);
-  const [isFavorite, setIsFavorite] = useState<boolean>(false);
+  const navigate             = useNavigate();
+  const location             = useLocation();
+  const { identifier }       = useParams<{ identifier: string }>();
+  const { isAuthenticated }  = useAuth();
 
+  const [event, setEvent]               = useState<EventOut | null>(null);
+  const [ticketTypes, setTicketTypes]   = useState<TicketTypeOut[]>([]);
+  const [selectedTickets, setSelected]  = useState<SelectedTickets>({});
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState<string | null>(null);
+  const [isFavorite, setIsFavorite]     = useState(false);
+  const [favLoading, setFavLoading]     = useState(false);
+
+  // ── Restore ticket selection from login redirect state ────────────────────
   useEffect(() => {
-    document.title = event ? `${event.title} - Event Details` : 'Event Details';
-    
-    fetchEventDetails();
-    
-    // Restore selected tickets from navigation state if coming from login
-    const state = location.state as { selectedTickets?: SelectedTickets; event?: Event };
-    if (state?.selectedTickets) {
-      setSelectedTickets(state.selectedTickets);
-    }
+    const state = location.state as {
+      selectedTickets?: SelectedTickets;
+      event?: EventOut;
+    } | null;
+    if (state?.selectedTickets) setSelected(state.selectedTickets);
     if (state?.event) {
       setEvent(state.event);
       setLoading(false);
     }
-  }, [eventId, location.state]);
+  }, []);
 
-  const fetchEventDetails = async (): Promise<void> => {
+  // ── Load event + tickets + favourite state ────────────────────────────────
+  const load = useCallback(async () => {
+    if (!identifier) return;
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      
-      const mockEvent: Event = {
-        id: parseInt(eventId || '1'),
-        title: "Summer Music Festival 2025",
-        slug: "summer-music-festival-2025",
-        venue: "Kasarani Stadium, Nairobi",
-        start_time: "2025-07-15T14:00:00Z",
-        end_time: "2025-07-15T23:00:00Z",
-        flyer_url: "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=1200",
-        description: "The biggest music festival of the year featuring top artists from across Africa. Get ready for an unforgettable experience with live performances, food vendors, and amazing vibes. This year's lineup includes some of the hottest acts in Afrobeats, Hip Hop, and Reggae. Don't miss out on this incredible celebration of music and culture!",
-        organizer_id: 1,
-        status: "approved"
-      };
-
-      const mockTicketTypes: TicketType[] = [
-        {
-          id: 1,
-          event_id: parseInt(eventId || '1'),
-          name: "VIP Pass",
-          description: "Front row access, complimentary drinks, exclusive lounge area",
-          price: 5000,
-          total_quantity: 50,
-          quantity_sold: 23
-        },
-        {
-          id: 2,
-          event_id: parseInt(eventId || '1'),
-          name: "Regular Admission",
-          description: "General admission to the festival",
-          price: 1500,
-          total_quantity: 500,
-          quantity_sold: 342
-        },
-        {
-          id: 3,
-          event_id: parseInt(eventId || '1'),
-          name: "Student Ticket",
-          description: "Valid student ID required at entrance",
-          price: 1000,
-          total_quantity: 200,
-          quantity_sold: 156
-        },
-        {
-          id: 4,
-          event_id: parseInt(eventId || '1'),
-          name: "Early Bird Special",
-          description: "Limited time offer - save 30%!",
-          price: 1050,
-          total_quantity: 100,
-          quantity_sold: 98
-        }
-      ];
-
-      setEvent(mockEvent);
-      setTicketTypes(mockTicketTypes);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching event details:', error);
+      const eventData = await getEventByIdentifier(identifier);
+      const [ticketsData, favData] = await Promise.all([
+        getTicketTypesByEvent(eventData.id),
+        getFavorites().catch(() => []),
+      ]);
+      setEvent(eventData);
+      setTicketTypes(ticketsData);
+      // Check if this event is already favourited
+      const isFav = favData.some(f => f.event_id === eventData.id);
+      setIsFavorite(isFav);
+    } catch {
+      setError('Event not found or failed to load. Please try again.');
+    } finally {
       setLoading(false);
     }
-  };
+  }, [identifier]);
 
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long',
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
-  };
+  useEffect(() => {
+    // Only fetch if we don't already have the event from navigation state
+    if (!event) load();
+    else {
+      // Event was pre-filled from state — still load tickets and fav status
+      (async () => {
+        try {
+          const [ticketsData, favData] = await Promise.all([
+            getTicketTypesByEvent(event.id),
+            getFavorites().catch(() => []),
+          ]);
+          setTicketTypes(ticketsData);
+          setIsFavorite(favData.some(f => f.event_id === event.id));
+        } catch { /* non-critical */ }
+      })();
+    }
+  }, [load]);
 
-  const formatTime = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
-  };
+  useEffect(() => {
+    if (event) document.title = `${event.title} - MGLTickets`;
+  }, [event]);
 
-  const handleTicketChange = (ticketTypeId: number, quantity: number): void => {
-    setSelectedTickets((prev: SelectedTickets) => {
-      if (quantity === 0) {
-        const newState = { ...prev };
-        delete newState[ticketTypeId];
-        return newState;
+  // ── Ticket selection ───────────────────────────────────────────────────────
+  const handleTicketChange = (id: number, qty: number) => {
+    setSelected(prev => {
+      if (qty === 0) {
+        const next = { ...prev };
+        delete next[id];
+        return next;
       }
-      return { ...prev, [ticketTypeId]: quantity };
+      return { ...prev, [id]: qty };
     });
   };
 
-  const calculateTotal = (): number => {
-    return Object.entries(selectedTickets).reduce((total: number, [ticketTypeId, quantity]) => {
-      const ticket = ticketTypes.find((t: TicketType) => t.id === parseInt(ticketTypeId));
-      return total + (ticket ? ticket.price * quantity : 0);
-    }, 0);
-  };
+  const totalTickets = Object.values(selectedTickets).reduce((s, q) => s + q, 0);
+  const totalPrice   = Object.entries(selectedTickets).reduce((s, [id, qty]) => {
+    const t = ticketTypes.find(t => t.id === Number(id));
+    return s + (t ? t.price * qty : 0);
+  }, 0);
 
-  const getTotalTickets = (): number => {
-    return Object.values(selectedTickets).reduce((sum: number, qty: number) => sum + qty, 0);
-  };
-
-  const handleCheckout = (): void => {
+  // ── Checkout ───────────────────────────────────────────────────────────────
+  const handleCheckout = () => {
     const bookingData = {
       eventId: event?.id,
-      tickets: Object.entries(selectedTickets).map(([ticketTypeId, quantity]) => {
-        const ticket = ticketTypes.find(t => t.id === parseInt(ticketTypeId));
-        return {
-          ticket_type_id: parseInt(ticketTypeId),
-          name: ticket?.name || '',
-          quantity,
-          price: ticket?.price || 0
-        };
+      tickets: Object.entries(selectedTickets).map(([id, qty]) => {
+        const t = ticketTypes.find(t => t.id === Number(id));
+        return { ticket_type_id: Number(id), name: t?.name ?? '', quantity: qty, price: t?.price ?? 0 };
       }),
-      total: calculateTotal()
+      total: totalPrice,
     };
-
     navigate('/checkout', { state: { bookingData, event } });
   };
 
-  const handleFavoriteToggle = (): void => {
-    setIsFavorite(!isFavorite);
-    // TODO: Add API call to save/remove favorite
+  // ── Favourite toggle ───────────────────────────────────────────────────────
+  const handleFavoriteToggle = async () => {
+    if (!event || favLoading) return;
+    setFavLoading(true);
+    try {
+      if (isFavorite) {
+        await removeFavorite(event.id);
+        setIsFavorite(false);
+      } else {
+        await addFavorite(event.id);
+        setIsFavorite(true);
+      }
+    } catch { /* silently ignore */ }
+    finally { setFavLoading(false); }
   };
 
-  const handleShare = (): void => {
+  // ── Share ──────────────────────────────────────────────────────────────────
+  const handleShare = () => {
+    const url = `${baseUrl}/events/${event?.slug}`;
     if (navigator.share) {
-      navigator.share({
-        title: event?.title,
-        text: event?.description,
-        url: window.location.href
-      }).catch(err => console.log('Error sharing:', err));
+      navigator.share({ title: event?.title, url }).catch(() => {});
     } else {
-      navigator.clipboard.writeText(window.location.href);
-      alert('Link copied to clipboard!');
+      navigator.clipboard.writeText(url);
     }
   };
 
+  // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-16 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent" />
       </div>
     );
   }
 
-  if (!event) {
+  // ── Error / not found ──────────────────────────────────────────────────────
+  if (error || !event) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-16 flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="w-16 h-16 text-orange-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Event Not Found</h2>
-          <p className="text-gray-600 mb-6">The event you're looking for doesn't exist.</p>
-          <button
-            onClick={() => navigate('/browse-events')}
-            className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all"
-          >
-            Browse Events
-          </button>
+        <div className="text-center space-y-4">
+          <AlertCircle className="w-16 h-16 text-orange-500 mx-auto" />
+          <h2 className="text-2xl font-bold text-gray-800">Event Not Found</h2>
+          <p className="text-gray-600">{error ?? "The event you're looking for doesn't exist."}</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={load}
+              className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+            >
+              <RefreshCw className="w-4 h-4" /> Retry
+            </button>
+            <button
+              onClick={() => navigate('/browse-events')}
+              className="px-5 py-2.5 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600"
+            >
+              Browse Events
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  const hasSelectedTickets = getTotalTickets() > 0;
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
-      {event && (
-        <SEO
-          title={event.title}
-          description={`${event.description.substring(0, 155)}... Get tickets now!`}
-          keywords={`${event.title}, ${event.venue}, Kenya events, tickets`}
-          ogImage={event.flyer_url}
-          ogType="article"
-          canonicalUrl={`${baseUrl}/events/${event.slug}`}
-        />
-      )}
+      <SEO
+        title={event.title}
+        description={`${(event.description ?? '').substring(0, 155)}… Get tickets now!`}
+        keywords={`${event.title}, ${event.venue}, Kenya events, tickets`}
+        ogImage={event.flyer_url}
+        ogType="article"
+        canonicalUrl={`${baseUrl}/events/${event.slug}`}
+      />
+
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
         <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Back Button */}
-          <button 
+
+          {/* Back button */}
+          <button
             onClick={() => navigate('/browse-events')}
             className="flex items-center text-gray-600 hover:text-orange-600 transition-colors mb-6"
           >
-            <ChevronLeft className="w-5 h-5 mr-1" />
-            Back to Events
+            <ChevronLeft className="w-5 h-5 mr-1" /> Back to Events
           </button>
 
-          {/* Event Hero */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Event Image */}
+          {/* Hero grid: flyer + sidebar card */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            {/* Flyer */}
             <div className="lg:col-span-2">
               <div className="rounded-2xl overflow-hidden shadow-xl">
                 <img
@@ -266,61 +327,71 @@ const BrowseEventDetailsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Single Sidebar Card - Event Details on top, Booking Summary below */}
+            {/* Sticky sidebar */}
             <div className="lg:col-span-1">
-              <div className="bg-white rounded-2xl shadow-md p-6 space-y-6 sticky top-20">
-                {/* Event Details Section */}
+              <div className="bg-white rounded-2xl shadow-md p-6 sticky top-20 space-y-5">
+
+                {/* Event summary */}
                 <div>
                   <h3 className="text-lg font-bold text-gray-800 mb-3">Event Details</h3>
-                  <div className="space-y-3">
-                    <div>
-                      <h4 className="text-2xl font-bold text-gray-800 mb-2">{event.title}</h4>
-                      <div className="flex items-center text-orange-600 mb-2">
-                        <Calendar className="w-4 h-4 mr-2" />
-                        <span className="font-medium text-sm">{formatDate(event.start_time)}</span>
-                      </div>
-                      <div className="flex items-center text-gray-600 mb-2">
-                        <Clock className="w-4 h-4 mr-2" />
-                        <span className="text-sm">{formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
-                      </div>
-                      <div className="flex items-center text-gray-600">
-                        <MapPin className="w-4 h-4 mr-2" />
-                        <span className="text-sm">{event.venue}</span>
-                      </div>
+                  <h1 className="text-2xl font-bold text-gray-900 mb-3 leading-tight">{event.title}</h1>
+                  <div className="space-y-2">
+                    <div className="flex items-center text-orange-600">
+                      <Calendar className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span className="font-medium text-sm">{formatDate(event.start_time)}</span>
+                    </div>
+                    <div className="flex items-center text-gray-600">
+                      <Clock className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span className="text-sm">{formatTime(event.start_time)} – {formatTime(event.end_time)}</span>
+                    </div>
+                    <div className="flex items-center text-gray-600">
+                      <MapPin className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span className="text-sm">{event.venue}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Status, Duration, Event ID */}
-                <div className="border-t border-gray-200 pt-4">
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Status:</span>
-                      <span className="font-medium text-green-600">Available</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Duration:</span>
-                      <span className="font-medium text-gray-800">9 hours</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Event ID:</span>
-                      <span className="font-medium text-gray-800">#{event.id}</span>
-                    </div>
+                {/* Quick stats */}
+                <div className="border-t border-gray-100 pt-4 grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-gray-500">Status</span>
+                    <p className="font-medium text-green-600 capitalize">{event.status}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Duration</span>
+                    <p className="font-medium text-gray-800">{getDurationHours(event.start_time, event.end_time)}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Event ID</span>
+                    <p className="font-medium text-gray-800">#{event.id}</p>
                   </div>
                 </div>
 
-                {/* Booking Summary Section */}
-                <div className="border-t border-gray-200 pt-4">
+                {/* Booking summary */}
+                <div className="border-t border-gray-100 pt-4">
                   <h3 className="text-xl font-bold text-gray-800 mb-4">Booking Summary</h3>
-                  {hasSelectedTickets ? (
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center mb-4">
-                        <span className="text-gray-600">Total ({getTotalTickets()} tickets)</span>
+                  {totalTickets > 0 ? (
+                    <div className="space-y-3">
+                      {/* Per-type breakdown */}
+                      <div className="space-y-1">
+                        {Object.entries(selectedTickets).map(([id, qty]) => {
+                          const t = ticketTypes.find(t => t.id === Number(id));
+                          if (!t) return null;
+                          return (
+                            <div key={id} className="flex justify-between text-sm text-gray-600">
+                              <span>{qty}× {t.name}</span>
+                              <span>KES {(t.price * qty).toLocaleString()}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                        <span className="text-gray-600">Total ({totalTickets} tickets)</span>
                         <span className="text-2xl font-bold text-orange-600">
-                          KES {calculateTotal().toLocaleString()}
+                          KES {totalPrice.toLocaleString()}
                         </span>
                       </div>
-                      <button 
+                      <button
                         onClick={handleCheckout}
                         className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-4 rounded-xl font-semibold hover:from-green-600 hover:to-green-700 transition-all shadow-lg"
                       >
@@ -335,13 +406,16 @@ const BrowseEventDetailsPage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Need Help Section */}
-                <div className="border-t border-gray-200 pt-4">
+                {/* Support */}
+                <div className="border-t border-gray-100 pt-4">
                   <h3 className="text-lg font-bold text-gray-800 mb-3">Need Help?</h3>
                   <p className="text-sm text-gray-600 mb-4">
                     Have questions about this event? Contact our support team.
                   </p>
-                  <button className="w-full border-2 border-orange-500 text-orange-600 py-2 rounded-lg font-medium hover:bg-orange-50 transition-colors">
+                  <button
+                    onClick={() => navigate('/contact')}
+                    className="w-full border-2 border-orange-500 text-orange-600 py-2 rounded-lg font-medium hover:bg-orange-50 transition-colors"
+                  >
                     Contact Support
                   </button>
                 </div>
@@ -349,26 +423,31 @@ const BrowseEventDetailsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* About and Tickets Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+          {/* About + ticket selection */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-3 space-y-8">
-              {/* About Section with Favorite and Share buttons */}
+
+              {/* About + share/fav actions */}
               <div className="bg-white rounded-2xl shadow-md p-8">
                 <div className="flex items-start justify-between mb-4">
                   <h2 className="text-2xl font-bold text-gray-800">About This Event</h2>
-                  <div className="flex items-center space-x-2">
-                    <button 
-                      onClick={handleFavoriteToggle}
-                      className={`p-2 rounded-lg transition-colors ${
-                        isFavorite 
-                          ? 'bg-orange-100 text-orange-600' 
-                          : 'bg-gray-100 text-gray-600 hover:bg-orange-50'
-                      }`}
-                      title="Add to favorites"
-                    >
-                      <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
-                    </button>
-                    <button 
+                  <div className="flex items-center gap-2">
+                    {/* Favourite toggle — only shown to authenticated users */}
+                    {isAuthenticated && (
+                      <button
+                        onClick={handleFavoriteToggle}
+                        disabled={favLoading}
+                        className={`p-2 rounded-lg transition-colors ${
+                          isFavorite
+                            ? 'bg-orange-100 text-orange-600'
+                            : 'bg-gray-100 text-gray-600 hover:bg-orange-50'
+                        } disabled:opacity-50`}
+                        title={isFavorite ? 'Remove from favourites' : 'Add to favourites'}
+                      >
+                        <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
+                      </button>
+                    )}
+                    <button
                       onClick={handleShare}
                       className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors"
                       title="Share event"
@@ -382,83 +461,26 @@ const BrowseEventDetailsPage: React.FC = () => {
                 </p>
               </div>
 
-              {/* Ticket Types */}
+              {/* Ticket types */}
               <div className="bg-white rounded-2xl shadow-md p-8">
                 <h2 className="text-2xl font-bold text-gray-800 mb-6">Select Tickets</h2>
-                <div className="space-y-4">
-                  {ticketTypes.map((ticket: TicketType) => {
-                    const availableTickets: number = ticket.total_quantity - ticket.quantity_sold;
-                    const isLowStock: boolean = availableTickets <= 10 && availableTickets > 0;
-                    const isSoldOut: boolean = availableTickets <= 0;
-                    const selectedQty: number = selectedTickets[ticket.id] || 0;
-
-                    return (
-                      <div 
-                        key={ticket.id} 
-                        className={`border-2 rounded-xl p-6 transition-all ${
-                          selectedQty > 0 
-                            ? 'border-orange-500 bg-orange-50' 
-                            : isSoldOut 
-                            ? 'border-gray-200 bg-gray-50 opacity-60' 
-                            : 'border-gray-200 hover:border-orange-300'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h3 className="text-xl font-bold text-gray-800">{ticket.name}</h3>
-                              {isLowStock && (
-                                <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">
-                                  Only {availableTickets} left
-                                </span>
-                              )}
-                              {isSoldOut && (
-                                <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
-                                  Sold Out
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-gray-600 text-sm mb-3">{ticket.description}</p>
-                            <div className="flex items-center text-sm text-gray-500">
-                              <Users className="w-4 h-4 mr-1" />
-                              <span>{ticket.quantity_sold} sold / {ticket.total_quantity} available</span>
-                            </div>
-                          </div>
-                          <div className="text-right ml-4">
-                            <div className="text-2xl font-bold text-orange-600 mb-2">
-                              KES {ticket.price.toLocaleString()}
-                            </div>
-                          </div>
-                        </div>
-
-                        {!isSoldOut && (
-                          <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
-                            <span className="text-sm text-gray-600 font-medium">Quantity:</span>
-                            <div className="flex items-center space-x-3">
-                              <button
-                                onClick={() => handleTicketChange(ticket.id, Math.max(0, selectedQty - 1))}
-                                disabled={selectedQty === 0}
-                                className="w-10 h-10 rounded-lg border-2 border-orange-500 text-orange-600 font-bold hover:bg-orange-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                              >
-                                -
-                              </button>
-                              <span className="w-12 text-center font-bold text-lg text-gray-800">
-                                {selectedQty}
-                              </span>
-                              <button
-                                onClick={() => handleTicketChange(ticket.id, Math.min(availableTickets, selectedQty + 1))}
-                                disabled={selectedQty >= availableTickets}
-                                className="w-10 h-10 rounded-lg border-2 border-orange-500 bg-orange-500 text-white font-bold hover:bg-orange-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                              >
-                                +
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                {ticketTypes.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Ticket className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                    <p>No ticket types available for this event yet.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {ticketTypes.map(ticket => (
+                      <TicketRow
+                        key={ticket.id}
+                        ticket={ticket}
+                        selectedQty={selectedTickets[ticket.id] ?? 0}
+                        onChange={handleTicketChange}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

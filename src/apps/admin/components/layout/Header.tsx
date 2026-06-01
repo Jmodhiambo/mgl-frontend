@@ -46,14 +46,7 @@ const TYPE_ICONS = {
   system:  { icon: AlertCircle,   color: 'text-gray-600',    bg: 'bg-gray-100'    },
 };
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
+import { timeAgo } from '@shared/utils/timeAgo';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 

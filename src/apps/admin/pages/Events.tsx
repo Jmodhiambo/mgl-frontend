@@ -11,7 +11,9 @@ import {
   FilterBar, StatusBadge, ConfirmDialog, SectionCard,
   Pagination, TableSkeleton, EmptyState, AlertBanner,
 } from '@admin/components/ui';
-import { listAllEvents, approveEvent, rejectEvent, deleteEvent } from '@admin/services/adminService';
+import {
+  listAllEvents, approveEvent, rejectEvent, deleteEvent,
+} from '@admin/services/adminService';
 import { formatDateTime, formatDate } from '@admin/utils/dummyData';
 import type { AdminEvent } from '@admin/types';
 
@@ -31,22 +33,24 @@ type CreateStep =
 
 const Events: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const [events, setEvents]       = useState<AdminEvent[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [search, setSearch]       = useState('');
-  const [statusFilter, setStatus] = useState('all');
+  const [events, setEvents]           = useState<AdminEvent[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [search, setSearch]           = useState('');
+  const [statusFilter, setStatus]     = useState('all');
   const [approvalFilter, setApproval] = useState(
-    searchParams.get('filter') === 'unapproved' ? 'unapproved' : 'all'
+    searchParams.get('filter') === 'unapproved' ? 'unapproved' : 'all',
   );
-  const [page, setPage]           = useState(1);
-  const [confirm, setConfirm]     = useState<{ action: 'approve' | 'reject' | 'delete'; event: AdminEvent } | null>(null);
-  const [actionLoading, setAL]    = useState(false);
-  const [alert, setAlert]         = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
-  const [detailEvent, setDetail]  = useState<AdminEvent | null>(null);
-  const [createFlow, setCreateFlow] = useState<CreateStep>({ step: 'closed' });
+  const [page, setPage]               = useState(1);
+  const [confirm, setConfirm]         = useState<{ action: 'approve' | 'reject' | 'delete'; event: AdminEvent } | null>(null);
+  const [actionLoading, setAL]        = useState(false);
+  const [alert, setAlert]             = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [detailEvent, setDetail]      = useState<AdminEvent | null>(null);
+  const [createFlow, setCreateFlow]   = useState<CreateStep>({ step: 'closed' });
 
   useEffect(() => {
-    listAllEvents().then(data => { setEvents(data); setLoading(false); });
+    listAllEvents()
+      .then(data => { setEvents(data); setLoading(false); })
+      .catch(() => { setLoading(false); });
   }, []);
 
   const filtered = useMemo(() => events.filter(e => {
@@ -65,22 +69,32 @@ const Events: React.FC = () => {
     setAL(true);
     try {
       const { action, event } = confirm;
+
       if (action === 'approve') {
-        await approveEvent(event.id);
-        setEvents(p => p.map(e => e.id === event.id ? { ...e, is_approved: true } : e));
+        // approveEvent returns the updated EventOut from the backend
+        const updated = await approveEvent(event.id);
+        setEvents(p => p.map(e => e.id === updated.id ? updated : e));
         setAlert({ type: 'success', msg: `"${event.title}" approved.` });
+
       } else if (action === 'reject') {
-        await rejectEvent(event.id);
-        setEvents(p => p.map(e => e.id === event.id ? { ...e, is_approved: false, status: 'cancelled' } : e));
+        // rejectEvent returns the updated EventOut from the backend
+        const updated = await rejectEvent(event.id);
+        setEvents(p => p.map(e => e.id === updated.id ? updated : e));
         setAlert({ type: 'success', msg: `"${event.title}" rejected.` });
+
       } else if (action === 'delete') {
+        // deleteEvent returns void — backend has no response_model
         await deleteEvent(event.id);
         setEvents(p => p.filter(e => e.id !== event.id));
         setAlert({ type: 'success', msg: `"${event.title}" deleted.` });
       }
-    } catch {
-      setAlert({ type: 'error', msg: 'Action failed. Please try again.' });
-    } finally { setAL(false); setConfirm(null); }
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail ?? 'Action failed. Please try again.';
+      setAlert({ type: 'error', msg: detail });
+    } finally {
+      setAL(false);
+      setConfirm(null);
+    }
   };
 
   const handleEventCreated = (newEvent: AdminEvent & { flyer_url?: string }) => {
@@ -90,7 +104,7 @@ const Events: React.FC = () => {
 
   const handleTicketsFinished = (
     event: AdminEvent & { flyer_url?: string },
-    ticketTypes: SavedTicketType[]
+    ticketTypes: SavedTicketType[],
   ) => {
     setCreateFlow({ step: 'closed' });
     setAlert({
@@ -119,7 +133,8 @@ const Events: React.FC = () => {
     ];
     const a = document.createElement('a');
     a.href = 'data:text/csv,' + encodeURIComponent(rows.map(r => r.join(',')).join('\n'));
-    a.download = 'events.csv'; a.click();
+    a.download = 'events.csv';
+    a.click();
   };
 
   const pendingCount = events.filter(e => !e.is_approved).length;
@@ -303,7 +318,9 @@ const Events: React.FC = () => {
           message={`Are you sure you want to ${confirm.action} "${confirm.event.title}"?`}
           confirmLabel={confirm.action.charAt(0).toUpperCase() + confirm.action.slice(1)}
           variant={confirm.action === 'delete' || confirm.action === 'reject' ? 'danger' : 'info'}
-          onConfirm={handleAction} onCancel={() => setConfirm(null)} loading={actionLoading}
+          onConfirm={handleAction}
+          onCancel={() => setConfirm(null)}
+          loading={actionLoading}
         />
       )}
 
@@ -336,6 +353,7 @@ const Events: React.FC = () => {
 };
 
 // ─── Event Actions Dropdown ───────────────────────────────────────────────────
+
 const EventActionsMenu: React.FC<{
   event: AdminEvent;
   onAction: (a: 'approve' | 'reject' | 'delete') => void;
@@ -364,7 +382,10 @@ const EventActionsMenu: React.FC<{
     const close = () => setOpen(false);
     window.addEventListener('scroll', close, true);
     window.addEventListener('resize', close);
-    return () => { window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close); };
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
   }, [open]);
 
   const menu = open && createPortal(
@@ -419,6 +440,7 @@ const EventActionsMenu: React.FC<{
 };
 
 // ─── Event Detail Modal ───────────────────────────────────────────────────────
+
 const EventDetailModal: React.FC<{
   event: AdminEvent & { flyer_url?: string };
   onClose: () => void;

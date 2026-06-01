@@ -2,8 +2,9 @@
 import { useState } from 'react';
 import {
   Ticket, Plus, Trash2, Save, X, DollarSign, Users,
-  CheckCircle, AlertCircle, ChevronDown, ChevronUp, Tag,
+  CheckCircle, AlertCircle, ChevronDown, Tag, Loader2,
 } from 'lucide-react';
+import { createTicketType } from '@admin/services/adminService';
 import type { AdminEvent } from '@admin/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -16,7 +17,7 @@ export interface TicketTypeInput {
 }
 
 export interface SavedTicketType extends TicketTypeInput {
-  _id: string; // local key
+  _id: string; // local key only — never sent to API
 }
 
 interface FieldErrors {
@@ -25,7 +26,7 @@ interface FieldErrors {
   quantity_available?: string;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
@@ -42,7 +43,7 @@ const validateTicket = (t: TicketTypeInput): FieldErrors => {
   return e;
 };
 
-// ─── Ticket Type Row (inline form) ───────────────────────────────────────────
+// ─── Ticket Type Row ──────────────────────────────────────────────────────────
 
 const TicketTypeRow: React.FC<{
   index: number;
@@ -52,7 +53,7 @@ const TicketTypeRow: React.FC<{
   onRemove: (id: string) => void;
   onEditToggle: (id: string) => void;
 }> = ({ index, ticket, isEditing, onSave, onRemove, onEditToggle }) => {
-  const [form, setForm] = useState<TicketTypeInput>({ ...ticket });
+  const [form, setForm]     = useState<TicketTypeInput>({ ...ticket });
   const [errors, setErrors] = useState<FieldErrors>({});
 
   const handleSave = () => {
@@ -67,20 +68,13 @@ const TicketTypeRow: React.FC<{
       errors[key] ? 'border-red-400 bg-red-50' : 'border-gray-300'
     }`;
 
-  // Collapsed (saved) view
+  // ── Collapsed (saved) view ─────────────────────────────────────────────────
   if (!isEditing) {
-    const sold = 0;
-    const total = parseInt(ticket.quantity_available) || 0;
-    const pct = total > 0 ? Math.round((sold / total) * 100) : 0;
-
     return (
       <div className="flex items-center gap-3 px-4 py-3 bg-white border border-gray-100 rounded-xl group hover:border-purple-200 hover:shadow-sm transition-all">
-        {/* Index badge */}
         <div className="w-7 h-7 rounded-full bg-purple-100 text-purple-700 text-xs font-bold flex items-center justify-center flex-shrink-0">
           {index + 1}
         </div>
-
-        {/* Summary */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="font-semibold text-gray-900 text-sm truncate">{ticket.name}</p>
@@ -91,17 +85,11 @@ const TicketTypeRow: React.FC<{
           {ticket.description && (
             <p className="text-xs text-gray-500 truncate mt-0.5">{ticket.description}</p>
           )}
-          <div className="flex items-center gap-3 mt-1.5">
-            <span className="text-xs text-gray-500 flex items-center gap-1">
-              <Users className="w-3 h-3" /> {parseInt(ticket.quantity_available).toLocaleString()} available
-            </span>
-            <div className="flex-1 h-1 bg-gray-100 rounded-full max-w-[80px]">
-              <div className="h-1 bg-purple-400 rounded-full" style={{ width: `${pct}%` }} />
-            </div>
-          </div>
+          <span className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+            <Users className="w-3 h-3" />
+            {parseInt(ticket.quantity_available).toLocaleString()} available
+          </span>
         </div>
-
-        {/* Actions */}
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={() => onEditToggle(ticket._id)}
@@ -123,19 +111,21 @@ const TicketTypeRow: React.FC<{
     );
   }
 
-  // Expanded (editing) view
+  // ── Expanded (editing) view ────────────────────────────────────────────────
   return (
     <div className="border-2 border-purple-300 rounded-xl bg-purple-50/30 p-4 space-y-3">
       <div className="flex items-center justify-between mb-1">
         <span className="text-sm font-semibold text-purple-700 flex items-center gap-1.5">
           <Tag className="w-4 h-4" /> Ticket Type {index + 1}
         </span>
-        <button onClick={() => onRemove(ticket._id)} className="btn-icon text-red-500 hover:bg-red-50">
+        <button
+          onClick={() => onRemove(ticket._id)}
+          className="btn-icon text-red-500 hover:bg-red-50"
+        >
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Name */}
       <div>
         <label className="block text-xs font-medium text-gray-700 mb-1">
           Name <span className="text-red-500">*</span>
@@ -149,7 +139,6 @@ const TicketTypeRow: React.FC<{
         {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
       </div>
 
-      {/* Description */}
       <div>
         <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
         <textarea
@@ -160,7 +149,6 @@ const TicketTypeRow: React.FC<{
         />
       </div>
 
-      {/* Price + Quantity */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -176,7 +164,6 @@ const TicketTypeRow: React.FC<{
           </div>
           {errors.price && <p className="mt-1 text-xs text-red-600">{errors.price}</p>}
         </div>
-
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Quantity <span className="text-red-500">*</span>
@@ -195,19 +182,18 @@ const TicketTypeRow: React.FC<{
         </div>
       </div>
 
-      {/* Save row */}
       <div className="flex justify-end gap-2 pt-1">
         <button
-          onClick={() => { onEditToggle(ticket._id); setErrors({}); }}
-          className="btn-secondary btn-sm flex items-center gap-1.5"
+          onClick={() => onEditToggle(ticket._id)}
+          className="btn-secondary text-xs py-1.5"
         >
-          <ChevronUp className="w-3.5 h-3.5" /> Collapse
+          Discard
         </button>
         <button
           onClick={handleSave}
-          className="btn-primary btn-sm flex items-center gap-1.5"
+          className="btn-primary text-xs py-1.5 flex items-center gap-1.5"
         >
-          <CheckCircle className="w-3.5 h-3.5" /> Save Ticket Type
+          <CheckCircle className="w-3.5 h-3.5" /> Save
         </button>
       </div>
     </div>
@@ -217,26 +203,20 @@ const TicketTypeRow: React.FC<{
 // ─── Main Modal ───────────────────────────────────────────────────────────────
 
 interface CreateTicketTypesModalProps {
-  event: AdminEvent & { flyer_url?: string };
+  event: AdminEvent;
   onClose: () => void;
-  /** Called when admin finishes — passes all confirmed ticket types */
-  onFinish: (event: AdminEvent & { flyer_url?: string }, ticketTypes: SavedTicketType[]) => void;
-  /** Skip ticket types entirely */
-  onSkip: (event: AdminEvent & { flyer_url?: string }) => void;
+  onFinish: (event: AdminEvent, ticketTypes: SavedTicketType[]) => void;
+  onSkip: (event: AdminEvent) => void;
 }
 
 const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
-  event,
-  onClose,
-  onFinish,
-  onSkip,
+  event, onClose, onFinish, onSkip,
 }) => {
   const [tickets, setTickets]     = useState<SavedTicketType[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving]       = useState(false);
   const [saveError, setSaveError] = useState('');
 
-  // Add a new blank ticket type (opens in edit mode)
   const handleAdd = () => {
     const newTicket: SavedTicketType = { ...emptyForm(), _id: uid() };
     setTickets(p => [...p, newTicket]);
@@ -260,7 +240,6 @@ const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
   const allSaved = tickets.every(t => editingId !== t._id);
 
   const handleFinish = async () => {
-    // If there's an open editor, warn
     if (!allSaved) {
       setSaveError('Please save all open ticket types before finishing.');
       return;
@@ -268,21 +247,32 @@ const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
     setSaving(true);
     setSaveError('');
     try {
-      // TODO: replace with real API calls per ticket
-      // for (const t of tickets) { await createTicketType({ event_id: event.id, ...t }); }
-      await new Promise(r => setTimeout(r, 700));
+      // Create each ticket type sequentially so a failure on one stops
+      // the loop immediately rather than partially saving in parallel.
+      // created_at / updated_at are NOT sent — set automatically by the DB.
+      for (const t of tickets) {
+        await createTicketType({
+          event_id:           event.id,
+          name:               t.name,
+          description:        t.description || undefined,
+          price:              parseFloat(t.price),
+          quantity_available: parseInt(t.quantity_available),
+        });
+      }
       onFinish(event, tickets);
-    } catch {
-      setSaveError('Failed to save ticket types. Please try again.');
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail ?? 'Failed to save ticket types. Please try again.';
+      setSaveError(detail);
     } finally {
       setSaving(false);
     }
   };
 
-  const totalCapacity = tickets.reduce((sum, t) => sum + (parseInt(t.quantity_available) || 0), 0);
+  const totalCapacity = tickets.reduce(
+    (s, t) => s + (parseInt(t.quantity_available) || 0), 0,
+  );
   const totalRevenuePotential = tickets.reduce(
-    (sum, t) => sum + (parseFloat(t.price) || 0) * (parseInt(t.quantity_available) || 0),
-    0
+    (s, t) => s + (parseFloat(t.price) || 0) * (parseInt(t.quantity_available) || 0), 0,
   );
 
   return (
@@ -296,7 +286,8 @@ const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
           <div>
             <h3 className="text-lg font-bold text-gray-900">Add Ticket Types</h3>
             <p className="text-sm text-gray-500 mt-0.5">
-              Step 2 of 2 — Ticket types for <span className="font-medium text-gray-700">{event.title}</span>
+              Step 2 of 2 — Ticket types for{' '}
+              <span className="font-medium text-gray-700">{event.title}</span>
             </p>
           </div>
           <button onClick={onClose} className="btn-icon flex-shrink-0 ml-4">
@@ -341,12 +332,14 @@ const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
           </span>
         </div>
 
-        {/* Summary stats (only when tickets exist) */}
+        {/* Summary stats */}
         {tickets.length > 0 && (
           <div className="grid grid-cols-3 gap-3 mb-5">
             <div className="bg-purple-50 rounded-xl p-3 text-center">
               <p className="text-lg font-bold text-purple-700">{tickets.length}</p>
-              <p className="text-xs text-purple-600 mt-0.5">Ticket {tickets.length === 1 ? 'Type' : 'Types'}</p>
+              <p className="text-xs text-purple-600 mt-0.5">
+                Ticket {tickets.length === 1 ? 'Type' : 'Types'}
+              </p>
             </div>
             <div className="bg-blue-50 rounded-xl p-3 text-center">
               <p className="text-lg font-bold text-blue-700">{totalCapacity.toLocaleString()}</p>
@@ -384,9 +377,7 @@ const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
         <button
           onClick={handleAdd}
           disabled={editingId !== null}
-          className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-300 rounded-xl text-sm font-medium text-gray-500
-                     hover:border-purple-400 hover:text-purple-600 hover:bg-purple-50 transition-all
-                     disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-300 rounded-xl text-sm font-medium text-gray-500 hover:border-purple-400 hover:text-purple-600 hover:bg-purple-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Plus className="w-4 h-4" />
           {tickets.length === 0 ? 'Add your first ticket type' : 'Add another ticket type'}
@@ -413,10 +404,7 @@ const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
 
         {/* Footer */}
         <div className="flex gap-3 mt-5 pt-5 border-t border-gray-100">
-          <button
-            onClick={() => onSkip(event)}
-            className="btn-secondary flex-1"
-          >
+          <button onClick={() => onSkip(event)} className="btn-secondary flex-1">
             Skip for Now
           </button>
           <button
@@ -425,15 +413,16 @@ const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
             className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-60"
             title={tickets.length === 0 ? 'Add at least one ticket type or skip' : undefined}
           >
-            {saving
-              ? <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-              : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Save {tickets.length > 0 ? `${tickets.length} Ticket ${tickets.length === 1 ? 'Type' : 'Types'}` : 'Ticket Types'}
-                </>
-              )
-            }
+            {saving ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                Save {tickets.length > 0
+                  ? `${tickets.length} Ticket ${tickets.length === 1 ? 'Type' : 'Types'}`
+                  : 'Ticket Types'}
+              </>
+            )}
           </button>
         </div>
       </div>

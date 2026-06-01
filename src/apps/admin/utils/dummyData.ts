@@ -112,12 +112,12 @@ export const dummyPayments: AdminPayment[] = [
 
 // ─── Contact Messages ─────────────────────────────────────────────────────────
 export const dummyMessages: ContactMessage[] = [
-  { id: 1, reference_id: 'MSG-001', name: 'Alice Kamau',   email: 'alice.k@example.com', phone: undefined, subject: 'Issue with my booking',             category: 'booking', message: 'I booked tickets but never received a confirmation email. Booking ID #145.',                    status: 'open',      created_at: '2025-04-01T10:00:00Z', updated_at: '2025-04-01T10:00:00Z' },
+  { id: 1, reference_id: 'MSG-001', name: 'Alice Kamau',   email: 'alice.k@example.com', phone: undefined, subject: 'Issue with my booking',             category: 'booking', message: 'I booked tickets but never received a confirmation email. Booking ID #145.',                    status: 'new',      created_at: '2025-04-01T10:00:00Z', updated_at: '2025-04-01T10:00:00Z' },
   { id: 2, reference_id: 'MSG-002', name: 'Peter Njuguna', email: 'peter@example.com',   phone: undefined, subject: 'Refund request for cancelled event', category: 'refund',  message: 'The Afrobeats Night event was cancelled. I need a refund for my 3 tickets.',               status: 'responded', created_at: '2025-04-02T09:00:00Z', updated_at: '2025-04-03T14:00:00Z' },
   { id: 3, reference_id: 'MSG-003', name: 'Mary Wanjiku',  email: 'mary@example.com',    phone: undefined, subject: 'How to become an organizer?',        category: 'general', message: 'I want to start hosting events. What is the process to become a verified organizer?',        status: 'closed',    created_at: '2025-04-03T11:00:00Z', updated_at: '2025-04-04T10:00:00Z' },
-  { id: 4, reference_id: 'MSG-004', name: 'John Mwenda',   email: 'john.m@example.com',  phone: undefined, subject: 'Payment failed but amount deducted', category: 'payment', message: 'My M-Pesa was deducted KES 1200 but booking shows as failed. Transaction ID: QH123456.',     status: 'open',      created_at: '2025-04-05T08:30:00Z', updated_at: '2025-04-05T08:30:00Z' },
+  { id: 4, reference_id: 'MSG-004', name: 'John Mwenda',   email: 'john.m@example.com',  phone: undefined, subject: 'Payment failed but amount deducted', category: 'payment', message: 'My M-Pesa was deducted KES 1200 but booking shows as failed. Transaction ID: QH123456.',     status: 'new',      created_at: '2025-04-05T08:30:00Z', updated_at: '2025-04-05T08:30:00Z' },
   { id: 5, reference_id: 'MSG-005', name: 'Spam Bot 9000', email: 'spam@bot.com',        phone: undefined, subject: 'Buy cheap tickets!!!',               category: 'general', message: 'CLICK HERE FOR FREE TICKETS www.scam.com',                                                       status: 'spam',      created_at: '2025-04-05T12:00:00Z', updated_at: '2025-04-05T12:05:00Z' },
-  { id: 6, reference_id: 'MSG-006', name: 'Diana Auma',    email: 'diana@example.com',   phone: undefined, subject: 'Event listing wrong date',           category: 'event',   message: 'The Nakuru Cultural Festival shows wrong start date. It says September 14 but should be 15.', status: 'open',      created_at: '2025-04-06T10:00:00Z', updated_at: '2025-04-06T10:00:00Z' },
+  { id: 6, reference_id: 'MSG-006', name: 'Diana Auma',    email: 'diana@example.com',   phone: undefined, subject: 'Event listing wrong date',           category: 'event',   message: 'The Nakuru Cultural Festival shows wrong start date. It says September 14 but should be 15.', status: 'new',      created_at: '2025-04-06T10:00:00Z', updated_at: '2025-04-06T10:00:00Z' },
 ];
 
 // ─── Audit Logs ───────────────────────────────────────────────────────────────
@@ -163,11 +163,4 @@ export const formatDate = (iso: string): string =>
 export const formatDateTime = (iso: string): string =>
   new Date(iso).toLocaleString('en-KE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-export const timeAgo = (iso: string): string => {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-};
+export { timeAgo } from '@shared/utils/timeAgo';

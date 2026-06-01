@@ -14,6 +14,19 @@ export interface AdminUser {
   profile_picture_url?: string;
 }
 
+export interface CreateEventForm {
+  title: string;
+  description: string;
+  venue: string;
+  city: string;
+  country: string;
+  category: string;
+  start_time: string;
+  end_time: string;
+  organizer_id: number | '';
+  flyer: File | null;
+}
+
 export interface AdminEvent {
   id: number;
   title: string;
@@ -86,19 +99,47 @@ export interface AdminTicketInstance {
   created_at: string;
 }
 
+export interface CreateTicketTypePayload {
+  event_id: number;
+  name: string;
+  description?: string;
+  price: number;
+  quantity_available: number;
+}
+
+// export interface ContactMessage {
+//   id: number;
+//   reference_id: string;
+//   name: string;
+//   email: string;
+//   phone?: string;
+//   subject: string;
+//   category: string;
+//   message: string;
+//   status: 'new' | 'pending' | 'responded' | 'closed' | 'spam';
+//   created_at: string;
+//   updated_at: string;
+//   handled_by?: number;
+// }
+
 export interface ContactMessage {
   id: number;
   reference_id: string;
+  source: string;               // will always be "organizer" from this endpoint
+  event_title?: string | null;  // only populated for organizer messages
+  user_id?: number | null;
   name: string;
   email: string;
-  phone?: string;
+  phone?: string | null;
   subject: string;
   category: string;
   message: string;
   status: 'new' | 'pending' | 'responded' | 'closed' | 'spam';
+  priority: string;
   created_at: string;
   updated_at: string;
-  handled_by?: number;
+  responded_at?: string | null;
+  closed_at?: string | null;
 }
 
 export interface DashboardStats {

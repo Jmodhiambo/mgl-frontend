@@ -1,6 +1,5 @@
 // src/apps/user/pages/BrowseEvents.tsx
 // Authenticated event listing — shown to logged-in users.
-// Unauthenticated users see Events.tsx instead.
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -8,7 +7,6 @@ import {
   Calendar, MapPin, Clock, Search, Filter,
   Ticket, ChevronRight, Heart, TrendingUp,
 } from 'lucide-react';
-import { useAuth } from '@shared/contexts/AuthContext';
 import { EventSEO } from '@shared/components/SEO';
 import {
   getApprovedEvents,
@@ -16,18 +14,15 @@ import {
   addFavorite,
   removeFavorite,
 } from '@user/services/eventService';
-import type { EventOut, Favorite } from '@shared/types/Event';
+import type { EventOut, FavoriteOut } from '@shared/types/Event';
 
 type SortKey = 'date-asc' | 'date-desc' | 'title';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const formatEventDateRange = (start: string, end: string): string => {
   const s = new Date(start);
   const e = new Date(end);
-  if (s.toDateString() === e.toDateString()) {
+  if (s.toDateString() === e.toDateString())
     return s.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  }
   return (
     s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
     ' – ' +
@@ -47,15 +42,15 @@ const sortEvents = (events: EventOut[], key: SortKey): EventOut[] =>
     return a.title.localeCompare(b.title);
   });
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 const BrowseEventsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
 
   const [events, setEvents]               = useState<EventOut[]>([]);
   const [filtered, setFiltered]           = useState<EventOut[]>([]);
-  const [favorites, setFavorites]         = useState<Favorite[]>([]);
+  // favoritedIds: Set of event IDs the user has favourited.
+  // Derived from FavoriteOut[] on load — no need to store the full records here
+  // since BrowseEvents only needs to know which events are hearted.
+  const [favoritedIds, setFavoritedIds]   = useState<Set<number>>(new Set());
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string | null>(null);
   const [searchQuery, setSearchQuery]     = useState('');
@@ -67,13 +62,16 @@ const BrowseEventsPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [eventsData, favData] = await Promise.all([
+      const [eventsData, favsData] = await Promise.all([
         getApprovedEvents(),
-        getFavorites().catch(() => [] as Favorite[]), // favorites non-critical
+        // Non-critical — if favourites fail, the page still works,
+        // hearts just start unset
+        getFavorites().catch((): FavoriteOut[] => []),
       ]);
       setEvents(eventsData);
       setFiltered(sortEvents(eventsData, sortBy));
-      setFavorites(favData);
+      // Extract just the event IDs we need for O(1) isFavorite checks
+      setFavoritedIds(new Set(favsData.map(f => f.event_id)));
     } catch {
       setError('Failed to load events. Please try again.');
     } finally {
@@ -86,40 +84,38 @@ const BrowseEventsPage: React.FC = () => {
     load();
   }, []);
 
-  // Re-filter + sort whenever search or sort changes
   useEffect(() => {
     const q = searchQuery.toLowerCase();
     const base = q
-      ? events.filter(
-          e =>
-            e.title.toLowerCase().includes(q) ||
-            e.venue.toLowerCase().includes(q) ||
-            (e.description ?? '').toLowerCase().includes(q),
+      ? events.filter(e =>
+          e.title.toLowerCase().includes(q) ||
+          e.venue.toLowerCase().includes(q) ||
+          (e.description ?? '').toLowerCase().includes(q),
         )
       : events;
     setFiltered(sortEvents(base, sortBy));
   }, [searchQuery, sortBy, events]);
 
-  const isFavorite = (eventId: number) =>
-    favorites.some(f => f.event_id === eventId);
+  const isFavorite = (eventId: number) => favoritedIds.has(eventId);
 
-  const handleFavoriteToggle = async (
-    ev: React.MouseEvent,
-    eventId: number,
-  ) => {
+  const handleFavoriteToggle = async (ev: React.MouseEvent, eventId: number) => {
     ev.stopPropagation();
-    if (togglingId === eventId) return; // debounce
+    if (togglingId === eventId) return;
     setTogglingId(eventId);
     try {
       if (isFavorite(eventId)) {
         await removeFavorite(eventId);
-        setFavorites(p => p.filter(f => f.event_id !== eventId));
+        setFavoritedIds(prev => {
+          const next = new Set(prev);
+          next.delete(eventId);
+          return next;
+        });
       } else {
         const newFav = await addFavorite(eventId);
-        setFavorites(p => [...p, newFav]);
+        setFavoritedIds(prev => new Set(prev).add(newFav.event_id));
       }
     } catch {
-      // silently ignore — UI stays consistent with server on next load
+      // silently ignore — state stays consistent with server on next load
     } finally {
       setTogglingId(null);
     }
@@ -138,10 +134,7 @@ const BrowseEventsPage: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 pt-16 flex items-center justify-center">
         <div className="text-center space-y-4">
           <p className="text-red-600 font-semibold">{error}</p>
-          <button
-            onClick={load}
-            className="px-6 py-3 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600 transition-colors"
-          >
+          <button onClick={load} className="px-6 py-3 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600">
             Retry
           </button>
         </div>
@@ -155,7 +148,6 @@ const BrowseEventsPage: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
         <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-          {/* Header */}
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-3">
               <TrendingUp className="w-6 h-6 text-orange-600" />
@@ -164,7 +156,6 @@ const BrowseEventsPage: React.FC = () => {
             <p className="text-gray-600">Discover and book tickets for amazing events</p>
           </div>
 
-          {/* Search + sort */}
           <div className="bg-white rounded-xl shadow-md p-4 mb-8">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1 relative">
@@ -195,7 +186,6 @@ const BrowseEventsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Events grid */}
           {filtered.length === 0 ? (
             <div className="text-center py-16">
               <Ticket size={64} className="mx-auto text-gray-400 mb-4" />
@@ -218,8 +208,6 @@ const BrowseEventsPage: React.FC = () => {
                       alt={event.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
-
-                    {/* Favourite button — only rendered for authenticated users */}
                     <button
                       onClick={ev => handleFavoriteToggle(ev, event.id)}
                       disabled={togglingId === event.id}
@@ -228,17 +216,11 @@ const BrowseEventsPage: React.FC = () => {
                         ${hoveredId === event.id || isFavorite(event.id) ? 'opacity-100' : 'opacity-0'}
                         disabled:opacity-50`}
                     >
-                      <Heart
-                        size={18}
-                        fill={isFavorite(event.id) ? 'currentColor' : 'none'}
-                      />
+                      <Heart size={18} fill={isFavorite(event.id) ? 'currentColor' : 'none'} />
                     </button>
-
                     <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-lg">
                       <p className="text-orange-600 font-bold text-sm">
-                        {new Date(event.start_time).toLocaleDateString('en-US', {
-                          month: 'short', day: 'numeric',
-                        })}
+                        {new Date(event.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </p>
                     </div>
                   </div>
@@ -248,7 +230,6 @@ const BrowseEventsPage: React.FC = () => {
                       {event.title}
                     </h3>
                     <p className="text-gray-600 text-sm mb-4 line-clamp-2">{event.description}</p>
-
                     <div className="space-y-2 mb-4">
                       <div className="flex items-center text-gray-600 text-sm">
                         <Calendar size={16} className="mr-2 text-orange-500 flex-shrink-0" />
@@ -263,7 +244,6 @@ const BrowseEventsPage: React.FC = () => {
                         <span className="line-clamp-1">{event.venue}</span>
                       </div>
                     </div>
-
                     <button className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-2.5 rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all flex items-center justify-center gap-2 font-semibold shadow-md">
                       View Details <ChevronRight size={18} />
                     </button>

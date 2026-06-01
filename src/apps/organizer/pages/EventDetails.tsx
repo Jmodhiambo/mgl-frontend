@@ -70,17 +70,17 @@ const EventDetails: React.FC = () => {
 
     const mockEvent: Event = {
       id: 1, // This would come from API
-      title: 'Summer Music Festival 2025',
-      slug: eventSlug || 'summer-music-festival-2025',
+      title: 'Summer Music Festival 2026',
+      slug: eventSlug || 'summer-music-festival-2026',
       venue: 'Kasarani Stadium, Nairobi',
-      start_time: '2025-07-15T14:00:00Z',
-      end_time: '2025-07-15T23:00:00Z',
+      start_time: '2026-07-15T14:00:00Z',
+      end_time: '2026-07-15T23:00:00Z',
       flyer_url: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800',
       description: 'The biggest music festival of the year featuring top artists from across Africa.',
       status: 'upcoming',
       approved: true,
       rejected: false,
-      created_at: '2025-01-01T10:00:00Z'
+      created_at: '2026-01-01T10:00:00Z'
     };
 
     const mockTicketTypes: TicketType[] = [

@@ -1,28 +1,34 @@
 // src/apps/admin/pages/Notifications.tsx
 // ─── API ENDPOINTS USED IN THIS FILE ─────────────────────────────────────────
-// GET    /admin/notifications              → useEffect on mount (loads full list)
-// PATCH  /admin/notifications/:id/read    → markRead()    (Mark read / View → click)
-// PATCH  /admin/notifications/read-all    → markAllRead() (Mark all read button)
-// DELETE /admin/notifications/:id         → dismiss()     (X button on each card)
-// DELETE /admin/notifications/clear-read  → clearRead()   (Clear read button)
+// GET    /admin/notifications              → load full list on mount
+// PATCH  /admin/notifications/:id/read    → markRead()     (Mark read / View →)
+// PATCH  /admin/notifications/read-all    → markAllRead()  (Mark all read button)
+// DELETE /admin/notifications/:id         → dismiss()      (X button on each card)
+// DELETE /admin/notifications/clear-read  → clearRead()    (Clear read button)
 //
-// ─── ENDPOINTS AVAILABLE BUT HANDLED CLIENT-SIDE HERE ────────────────────────
-// GET /admin/notifications/unread        → not called; unread filtering is done
-//                                          locally via the showUnreadOnly toggle
-// GET /admin/notifications/category/:cat → not called; category filtering is done
-//                                          locally via the category tab buttons
+// Client-side only (no extra API calls):
+//   Unread filter  → showUnreadOnly toggle filters the loaded list locally
+//   Category filter → category tabs filter the loaded list locally
 //
-// ─── ENDPOINT USED OUTSIDE THIS FILE ─────────────────────────────────────────
-// GET /admin/notifications/count/unread  → called from Header.tsx to drive the
-//                                          unread badge count in the top nav bar
+// Badge count for Header / Sidebar:
+//   GET /admin/notifications/count/unread → called from AdminLayout (not here)
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Bell, CheckCheck, Trash2, Calendar, Users, CreditCard,
-  MessageSquare, ShieldAlert, Info, X, Filter, Check,
+  MessageSquare, ShieldAlert, Info, X, Filter, Check, RefreshCw,
 } from 'lucide-react';
-// import api from '@shared/api/axiosConfig';
+import {
+  listAdminNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  dismissNotification,
+  clearReadNotifications,
+} from '@admin/services/adminService';
+import { adminEvents } from '@admin/utils/adminEvents';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type NotifCategory = 'all' | 'event' | 'user' | 'payment' | 'message' | 'system';
 type NotifPriority = 'high' | 'medium' | 'low';
@@ -38,45 +44,21 @@ interface Notification {
   action_url?: string;
 }
 
-// ─── Dummy data (remove once API is live) ────────────────────────────────────
-const MOCK_NOTIFICATIONS: Notification[] = [
-  { id: 1,  title: 'New event pending approval',       message: 'Nakuru Cultural Festival submitted by Karen Wambui needs review.',           category: 'event',   priority: 'high',   is_read: false, created_at: '2025-04-06T10:00:00Z', action_url: '/events' },
-  { id: 2,  title: 'Payment dispute opened',           message: 'John Mwenda raised a dispute for KES 1,200 — Transaction #QH123456.',        category: 'payment', priority: 'high',   is_read: false, created_at: '2025-04-05T08:30:00Z', action_url: '/payments' },
-  { id: 3,  title: 'New contact message',              message: 'Diana Auma reported a wrong event date for Nakuru Cultural Festival.',         category: 'message', priority: 'high',   is_read: false, created_at: '2025-04-06T10:00:00Z', action_url: '/messages' },
-  { id: 4,  title: 'User account flagged',             message: "David Kimani's account triggered suspicious activity detection.",             category: 'user',    priority: 'high',   is_read: false, created_at: '2025-04-06T09:00:00Z', action_url: '/users' },
-  { id: 5,  title: 'Event approved successfully',      message: 'Nairobi Jazz Festival (ID #1) has been approved and is now live.',            category: 'event',   priority: 'medium', is_read: true,  created_at: '2025-03-10T12:00:00Z' },
-  { id: 6,  title: 'New organizer registration',       message: 'Karen Wambui has completed their organizer profile setup.',                    category: 'user',    priority: 'medium', is_read: true,  created_at: '2025-03-27T09:30:00Z', action_url: '/users' },
-  { id: 7,  title: 'Weekly revenue milestone',         message: 'Revenue crossed KES 400,000 this month — 6% above target.',                  category: 'payment', priority: 'medium', is_read: true,  created_at: '2025-03-01T08:00:00Z' },
-  { id: 8,  title: 'Session cleanup completed',        message: '42 stale sessions older than 24h were purged from the database.',             category: 'system',  priority: 'low',    is_read: true,  created_at: '2025-04-04T03:00:00Z' },
-  { id: 9,  title: 'Event sold out',                   message: 'Mombasa Beach Party Early Bird tickets (300/300) are fully sold out.',        category: 'event',   priority: 'low',    is_read: true,  created_at: '2025-03-15T14:00:00Z', action_url: '/events' },
-  { id: 10, title: 'New bulk user registrations',      message: '234 new users joined this week — highest weekly growth in 3 months.',         category: 'user',    priority: 'low',    is_read: true,  created_at: '2025-04-01T09:00:00Z' },
-  { id: 11, title: 'Spam message auto-flagged',        message: 'System auto-marked MSG-005 as spam based on content filters.',               category: 'system',  priority: 'low',    is_read: true,  created_at: '2025-04-05T12:05:00Z' },
-  { id: 12, title: 'Refund processed',                 message: 'Refund of KES 6,000 to Carol Njoroge for Tech Summit VIP tickets completed.', category: 'payment', priority: 'medium', is_read: true,  created_at: '2025-04-01T09:05:00Z', action_url: '/payments' },
-];
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const CATEGORY_META: Record<Exclude<NotifCategory, 'all'>, { icon: React.ElementType; color: string; bg: string }> = {
-  event:   { icon: Calendar,      color: 'text-violet-600', bg: 'bg-violet-100' },
-  user:    { icon: Users,         color: 'text-blue-600',   bg: 'bg-blue-100'   },
-  payment: { icon: CreditCard,    color: 'text-emerald-600',bg: 'bg-emerald-100'},
-  message: { icon: MessageSquare, color: 'text-amber-600',  bg: 'bg-amber-100'  },
-  system:  { icon: ShieldAlert,   color: 'text-gray-600',   bg: 'bg-gray-100'   },
+  event:   { icon: Calendar,      color: 'text-violet-600',  bg: 'bg-violet-100'  },
+  user:    { icon: Users,         color: 'text-blue-600',    bg: 'bg-blue-100'    },
+  payment: { icon: CreditCard,    color: 'text-emerald-600', bg: 'bg-emerald-100' },
+  message: { icon: MessageSquare, color: 'text-amber-600',   bg: 'bg-amber-100'   },
+  system:  { icon: ShieldAlert,   color: 'text-gray-600',    bg: 'bg-gray-100'    },
 };
 
 const PRIORITY_META: Record<NotifPriority, { label: string; dot: string }> = {
-  high:   { label: 'High',   dot: 'bg-red-500'    },
-  medium: { label: 'Medium', dot: 'bg-amber-400'  },
-  low:    { label: 'Low',    dot: 'bg-gray-300'   },
+  high:   { label: 'High',   dot: 'bg-red-500'   },
+  medium: { label: 'Medium', dot: 'bg-amber-400' },
+  low:    { label: 'Low',    dot: 'bg-gray-300'  },
 };
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
 
 const CATEGORIES: { value: NotifCategory; label: string }[] = [
   { value: 'all',     label: 'All'      },
@@ -87,35 +69,39 @@ const CATEGORIES: { value: NotifCategory; label: string }[] = [
   { value: 'system',  label: 'System'   },
 ];
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+import { timeAgo } from '@shared/utils/timeAgo';
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 const Notifications: React.FC = () => {
-  const [notifs, setNotifs] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [category, setCategory] = useState<NotifCategory>('all');
-  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [notifs,        setNotifs]    = useState<Notification[]>([]);
+  const [loading,       setLoading]   = useState(true);
+  const [refreshing,    setRefresh]   = useState(false);
+  const [error,         setError]     = useState<string | null>(null);
+  const [category,      setCategory]  = useState<NotifCategory>('all');
+  const [showUnreadOnly, setUnread]   = useState(false);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        // ── LIVE API (uncomment when backend is ready) ──
-        // GET /admin/notifications  → loads the full list; unread/category
-        // filtering is then handled client-side from this single response.
-        // const data: Notification[] = (await api.get('/admin/notifications')).data;
-        // setNotifs(data);
-
-        // ── Dummy data (remove when API is live) ──
-        await new Promise(r => setTimeout(r, 300));
-        setNotifs(MOCK_NOTIFICATIONS);
-      } catch (err) {
-        console.error('Failed to load notifications', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+  const loadNotifications = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    else setRefresh(true);
+    setError(null);
+    try {
+      const data: Notification[] = await listAdminNotifications(200);
+      setNotifs(data);
+    } catch {
+      setError('Failed to load notifications. Please try again.');
+    } finally {
+      setLoading(false);
+      setRefresh(false);
+    }
   }, []);
 
+  useEffect(() => { loadNotifications(); }, [loadNotifications]);
+
+  // ── Derived counts ─────────────────────────────────────────────────────────
   const unreadCount = notifs.filter(n => !n.is_read).length;
 
   const filtered = notifs.filter(n => {
@@ -124,42 +110,59 @@ const Notifications: React.FC = () => {
     return true;
   });
 
-  // ── Actions ────────────────────────────────────────────────────────────────
-
+  // ── Mark one read ──────────────────────────────────────────────────────────
   const markRead = async (id: number) => {
-    // PATCH /admin/notifications/:id/read
-    // Called by: "Mark read" button on each card, and the "View →" link click.
-    // await api.patch(`/admin/notifications/${id}/read`);
+    const prev = notifs;
     setNotifs(p => p.map(n => n.id === id ? { ...n, is_read: true } : n));
+    try {
+      await markNotificationRead(id);
+      adminEvents.emit('badges:refresh');
+    } catch {
+      setNotifs(prev);
+    }
   };
 
+  // ── Mark all read ──────────────────────────────────────────────────────────
   const markAllRead = async () => {
-    // PATCH /admin/notifications/read-all
-    // Called by: "Mark all read" button in the page header (only shown when
-    // unreadCount > 0).
-    // await api.patch('/admin/notifications/read-all');
+    const prev = notifs;
     setNotifs(p => p.map(n => ({ ...n, is_read: true })));
+    try {
+      await markAllNotificationsRead();
+      adminEvents.emit('badges:refresh');
+    } catch {
+      setNotifs(prev);
+    }
   };
 
+  // ── Dismiss one ────────────────────────────────────────────────────────────
   const dismiss = async (id: number) => {
-    // DELETE /admin/notifications/:id
-    // Called by: the X button that appears on hover on each notification card.
-    // await api.delete(`/admin/notifications/${id}`);
+    const prev = notifs;
     setNotifs(p => p.filter(n => n.id !== id));
+    try {
+      await dismissNotification(id);
+      adminEvents.emit('badges:refresh');
+    } catch {
+      setNotifs(prev);
+    }
   };
 
+  // ── Clear all read ─────────────────────────────────────────────────────────
   const clearRead = async () => {
-    // DELETE /admin/notifications/clear-read
-    // Called by: the "Clear read" button in the page header (only shown when
-    // there is at least one read notification in the list).
-    // await api.delete('/admin/notifications/clear-read');
+    const prev = notifs;
     setNotifs(p => p.filter(n => !n.is_read));
+    try {
+      await clearReadNotifications();
+      // No badge refresh needed — clearing read notifs doesn't change unread count
+    } catch {
+      setNotifs(prev);
+    }
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5">
-      {/* Header */}
+
+      {/* ── Page header ── */}
       <div className="page-header">
         <div>
           <h1 className="page-title">Notifications</h1>
@@ -170,22 +173,49 @@ const Notifications: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Refresh */}
+          <button
+            onClick={() => loadNotifications(true)}
+            disabled={refreshing}
+            className="btn-secondary btn-sm flex items-center gap-2 disabled:opacity-60"
+            title="Refresh notifications"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{refreshing ? 'Refreshing…' : 'Refresh'}</span>
+          </button>
           {unreadCount > 0 && (
-            <button onClick={markAllRead}
-              className="btn-secondary btn-sm flex items-center gap-2">
+            <button
+              onClick={markAllRead}
+              className="btn-secondary btn-sm flex items-center gap-2"
+            >
               <CheckCheck className="w-4 h-4" /> Mark all read
             </button>
           )}
-          {notifs.filter(n => n.is_read).length > 0 && (
-            <button onClick={clearRead}
-              className="btn-secondary btn-sm flex items-center gap-2 text-red-600 hover:bg-red-50 hover:border-red-200">
+          {notifs.some(n => n.is_read) && (
+            <button
+              onClick={clearRead}
+              className="btn-secondary btn-sm flex items-center gap-2 text-red-600 hover:bg-red-50 hover:border-red-200"
+            >
               <Trash2 className="w-4 h-4" /> Clear read
             </button>
           )}
         </div>
       </div>
 
-      {/* Loading skeleton */}
+      {/* ── Error state ── */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+          <p className="text-sm text-red-700">{error}</p>
+          <button
+            onClick={() => loadNotifications()}
+            className="text-xs text-red-600 font-semibold hover:underline flex-shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* ── Loading skeleton ── */}
       {loading && (
         <div className="space-y-3">
           {[...Array(5)].map((_, i) => (
@@ -204,18 +234,20 @@ const Notifications: React.FC = () => {
 
       {!loading && (
         <>
-          {/* Stats strip */}
+          {/* ── Category stats strip ── */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {(['event', 'user', 'payment', 'message'] as const).map(cat => {
-              const meta = CATEGORY_META[cat];
-              const Icon = meta.icon;
+              const meta  = CATEGORY_META[cat];
+              const Icon  = meta.icon;
               const count = notifs.filter(n => n.category === cat && !n.is_read).length;
               return (
                 <button
                   key={cat}
                   onClick={() => setCategory(cat)}
                   className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left
-                    ${category === cat ? 'border-purple-300 bg-purple-50 shadow-sm' : 'border-gray-100 bg-white hover:border-purple-200'}`}
+                    ${category === cat
+                      ? 'border-purple-300 bg-purple-50 shadow-sm'
+                      : 'border-gray-100 bg-white hover:border-purple-200'}`}
                 >
                   <div className={`w-9 h-9 rounded-lg ${meta.bg} flex items-center justify-center flex-shrink-0`}>
                     <Icon className={`w-4 h-4 ${meta.color}`} />
@@ -223,7 +255,9 @@ const Notifications: React.FC = () => {
                   <div>
                     <p className="text-xs text-gray-500 capitalize">{cat}</p>
                     <p className="text-sm font-bold text-gray-900">
-                      {count > 0 ? <span className="text-red-600">{count} new</span> : 'All clear'}
+                      {count > 0
+                        ? <span className="text-red-600">{count} new</span>
+                        : 'All clear'}
                     </p>
                   </div>
                 </button>
@@ -231,7 +265,7 @@ const Notifications: React.FC = () => {
             })}
           </div>
 
-          {/* Filter bar */}
+          {/* ── Filter bar ── */}
           <div className="bg-white rounded-xl border border-gray-100 px-4 py-3 flex items-center gap-3 flex-wrap">
             <Filter className="w-4 h-4 text-gray-400 flex-shrink-0" />
             <div className="flex gap-1.5 flex-wrap flex-1">
@@ -255,7 +289,7 @@ const Notifications: React.FC = () => {
             </div>
             <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 ml-auto">
               <div
-                onClick={() => setShowUnreadOnly(p => !p)}
+                onClick={() => setUnread(p => !p)}
                 className="rounded-full transition-all relative cursor-pointer flex-shrink-0"
                 style={{ height: '18px', width: '32px', background: showUnreadOnly ? '#7c3aed' : '#e5e7eb' }}
               >
@@ -266,7 +300,7 @@ const Notifications: React.FC = () => {
             </label>
           </div>
 
-          {/* Notifications list */}
+          {/* ── Notifications list ── */}
           {filtered.length === 0 ? (
             <div className="bg-white rounded-xl border border-gray-100 p-16 text-center">
               <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -280,8 +314,8 @@ const Notifications: React.FC = () => {
           ) : (
             <div className="space-y-2">
               {filtered.map(notif => {
-                const meta = CATEGORY_META[notif.category];
-                const Icon = meta.icon;
+                const meta  = CATEGORY_META[notif.category];
+                const Icon  = meta.icon;
                 const pMeta = PRIORITY_META[notif.priority];
 
                 return (
@@ -292,6 +326,7 @@ const Notifications: React.FC = () => {
                         ? 'border-purple-200 shadow-sm shadow-purple-50'
                         : 'border-gray-100 opacity-75 hover:opacity-100'}`}
                   >
+                    {/* Unread left bar */}
                     {!notif.is_read && (
                       <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-10 bg-purple-500 rounded-r-full" />
                     )}
@@ -308,9 +343,9 @@ const Notifications: React.FC = () => {
                               {notif.title}
                             </p>
                             <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full
-                              ${notif.priority === 'high' ? 'bg-red-100 text-red-700' :
+                              ${notif.priority === 'high'   ? 'bg-red-100 text-red-700'   :
                                 notif.priority === 'medium' ? 'bg-amber-100 text-amber-700' :
-                                'bg-gray-100 text-gray-500'}`}>
+                                                              'bg-gray-100 text-gray-500'}`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${pMeta.dot}`} />
                               {pMeta.label}
                             </span>
@@ -319,28 +354,35 @@ const Notifications: React.FC = () => {
                             {timeAgo(notif.created_at)}
                           </span>
                         </div>
+
                         <p className="text-sm text-gray-500 mt-0.5 leading-relaxed">{notif.message}</p>
 
                         <div className="flex items-center gap-3 mt-2">
                           {notif.action_url && (
-                            <a href={notif.action_url}
+                            <a
+                              href={notif.action_url}
                               onClick={() => markRead(notif.id)}
-                              className="text-xs font-semibold text-purple-600 hover:text-purple-700 transition-colors">
+                              className="text-xs font-semibold text-purple-600 hover:text-purple-700 transition-colors"
+                            >
                               View →
                             </a>
                           )}
                           {!notif.is_read && (
-                            <button onClick={() => markRead(notif.id)}
-                              className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors">
+                            <button
+                              onClick={() => markRead(notif.id)}
+                              className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
+                            >
                               <Check className="w-3 h-3" /> Mark read
                             </button>
                           )}
                         </div>
                       </div>
 
+                      {/* Dismiss X */}
                       <button
                         onClick={() => dismiss(notif.id)}
                         className="opacity-0 group-hover:opacity-100 btn-icon w-6 h-6 flex-shrink-0 transition-opacity"
+                        title="Dismiss"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -351,7 +393,7 @@ const Notifications: React.FC = () => {
             </div>
           )}
 
-          {/* Info note */}
+          {/* ── Info note ── */}
           <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
             <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-blue-700 leading-relaxed">

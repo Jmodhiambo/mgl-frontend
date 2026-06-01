@@ -1,59 +1,7 @@
-/**
- * Event types and interfaces
- */
-
-export interface Event {
-  id: number;
-  title: string;
-  organizer_id: number;
-  description?: string;
-  venue: string;
-  price?: number;
-  start_time: string;
-  end_time: string;
-  original_filename: string;
-  flyer_url: string;
-  status: string;
-  created_at: string;
-  update_at: string;
-}
-
-export interface EventCreate {
-    title: string;
-    description?: string;
-    venue: string;
-    start_time: string;
-    end_time: string;
-}
-
-export interface EventUpdate {
-    title?: string;
-    description?: string;
-    venue?: string;
-    start_time?: string;
-    end_time?: string;
-}
-
-export interface OrganizerEventsResponse extends Event {
-    approved: boolean;
-    rejected: boolean;
-}
-
-export interface EventStatus {
-    status: "upcoming" | "ongoing" | "completed" | "cancelled" | "deleted";
-}
-
-
-
 // src/shared/types/events.ts
 // ─────────────────────────────────────────────────────────────────────────────
 // Single source of truth for all event-related TypeScript types across the
 // user app, organizer app, and admin app.
-//
-// Mirror of the backend schemas in app/schemas/event.py:
-//   EventOut          → public/user-facing
-//   OrganizerEventOut → organizer portal
-//   AdminEventOut     → admin portal
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─── Public (user-facing) ─────────────────────────────────────────────────────
@@ -61,8 +9,6 @@ export interface EventStatus {
 /**
  * Matches backend EventOut.
  * Returned by GET /events and GET /events/{identifier}.
- * Used by Events.tsx and EventDetails.tsx (unauthenticated)
- * and BrowseEvents.tsx and BrowseEventDetails.tsx (authenticated).
  */
 export interface EventOut {
   id: number;
@@ -84,7 +30,6 @@ export interface EventOut {
 
 /**
  * Matches backend TicketTypeOut.
- * Returned by GET /events/{id}/ticket-types and organizer equivalents.
  */
 export interface TicketTypeOut {
   id: number;
@@ -101,19 +46,37 @@ export interface TicketTypeOut {
 
 // ─── Favorites ────────────────────────────────────────────────────────────────
 
-export interface Favorite {
+/**
+ * Matches backend FavoriteOut.
+ * Returned by POST /users/me/favorites (create).
+ * Contains only IDs and timestamps — no embedded event.
+ */
+export interface FavoriteOut {
   id: number;
   user_id: number;
   event_id: number;
   created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Matches backend FavoriteWithEventOut.
+ * Returned by GET /users/me/favorites.
+ * Each record includes the full EventOut so the frontend can render
+ * event cards without a second fetch per favorite.
+ */
+export interface FavoriteWithEventOut {
+  id: number;
+  user_id: number;
+  event_id: number;
+  created_at: string;
+  event: EventOut;
 }
 
 // ─── Organizer portal ─────────────────────────────────────────────────────────
 
 /**
  * Matches backend OrganizerEventOut.
- * Returned by GET /organizers/me/events and related organizer endpoints.
- * Includes city/country/category, approval state, and aggregated stats.
  */
 export interface OrganizerEventOut {
   id: number;
@@ -138,7 +101,6 @@ export interface OrganizerEventOut {
 
 /**
  * Matches backend EventStats.
- * Returned by GET /organizers/me/events/{id}/stats.
  */
 export interface EventStats {
   total_bookings: number;
@@ -148,8 +110,7 @@ export interface EventStats {
 }
 
 /**
- * Minimal booking record used inside EventDetails.
- * Matches backend BookingOut as embedded in EventDetails.
+ * Minimal booking record embedded inside EventDetails.
  */
 export interface BookingOutBrief {
   id: number;
@@ -165,7 +126,6 @@ export interface BookingOutBrief {
 /**
  * Matches backend EventDetails.
  * Returned by GET /organizers/me/events/{id}/details.
- * Single call that bundles event + stats + ticket types + recent bookings.
  */
 export interface EventDetails {
   event: OrganizerEventOut;
@@ -176,7 +136,6 @@ export interface EventDetails {
 
 /**
  * Matches backend TopEvent.
- * Returned by GET /organizers/me/top-events.
  */
 export interface TopEvent {
   id: number;
@@ -191,7 +150,6 @@ export interface TopEvent {
 /**
  * Matches backend AdminEventOut.
  * Extends OrganizerEventOut with organizer identity fields.
- * Returned by all /admin/events and /admin/all-events endpoints.
  */
 export interface AdminEventOut extends OrganizerEventOut {
   organizer_id: number;
@@ -202,3 +160,47 @@ export interface AdminEventOut extends OrganizerEventOut {
 
 /** Maps ticket_type_id → quantity selected by the user. */
 export type SelectedTickets = Record<number, number>;
+
+
+// Old types
+
+// export interface Event {
+//   id: number;
+//   title: string;
+//   organizer_id: number;
+//   description?: string;
+//   venue: string;
+//   price?: number;
+//   start_time: string;
+//   end_time: string;
+//   original_filename: string;
+//   flyer_url: string;
+//   status: string;
+//   created_at: string;
+//   update_at: string;
+// }
+
+// export interface EventCreate {
+//     title: string;
+//     description?: string;
+//     venue: string;
+//     start_time: string;
+//     end_time: string;
+// }
+
+// export interface EventUpdate {
+//     title?: string;
+//     description?: string;
+//     venue?: string;
+//     start_time?: string;
+//     end_time?: string;
+// }
+
+// export interface OrganizerEventsResponse extends Event {
+//     approved: boolean;
+//     rejected: boolean;
+// }
+
+// export interface EventStatus {
+//     status: "upcoming" | "ongoing" | "completed" | "cancelled" | "deleted";
+// }

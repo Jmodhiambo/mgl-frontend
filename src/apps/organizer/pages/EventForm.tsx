@@ -7,20 +7,11 @@ import {
   updateEvent,
   getEventDetails,
 } from '@organizer/services/eventService';
+import type { EventFormData } from '@organizer/types/events';
 
 const CATEGORIES = ['Music', 'Tech', 'Sports', 'Food', 'Comedy', 'Culture', 'Party', 'Other'];
 
-interface EventFormData {
-  title: string;
-  description: string;
-  venue: string;
-  city: string;
-  country: string;
-  category: string;
-  start_time: string;
-  end_time: string;
-  flyer: File | null;
-}
+
 
 interface EventFormProps {
   mode?: 'create' | 'edit';
@@ -47,8 +38,14 @@ const EventForm: React.FC<EventFormProps> = ({ mode = 'create' }) => {
       setLoadingEvent(true);
       getEventDetails(Number(eventId))
         .then(({ event }) => {
-          // datetime-local input expects 'YYYY-MM-DDTHH:MM' format
-          const toLocal = (iso: string) => iso.slice(0, 16);
+          // datetime-local input expects 'YYYY-MM-DDTHH:MM' in local time.
+          // The backend returns UTC — shift to the browser's local timezone
+          // so the organizer sees the correct local time in the edit form.
+          const toLocal = (iso: string) => {
+            const d = new Date(iso);
+            const offset = d.getTimezoneOffset() * 60000;
+            return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+          };
           setFormData({
             title:       event.title,
             description: event.description ?? '',

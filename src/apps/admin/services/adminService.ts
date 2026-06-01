@@ -10,7 +10,7 @@ import api from '@shared/api/axiosConfig';
 import type {
   AdminUser, AdminEvent, AdminBooking, AdminPayment, AdminMe, AdminProfileUpdate,
   ContactMessage, DashboardStats, AuditLog, RefreshSession, PlatformSettings,
-  AdminNotificationPrefs, ContactMessageStats,
+  AdminNotificationPrefs, ContactMessageStats, AdminTicketType, CreateTicketTypePayload
 } from '@admin/types';
 
 import {
@@ -18,7 +18,7 @@ import {
   dummyDashboardStats, dummyRevenueChart, dummyUserGrowthChart, dummyEventCategories,
 } from '@admin/utils/dummyData';
 
-// ─── Settings types ───────────────────────────────────────────────────────────
+// ─── Admin types ───────────────────────────────────────────────────────────
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
@@ -65,29 +65,18 @@ export const updatePlatformSettings = async (
   updates: Partial<Omit<PlatformSettings, 'updated_at' | 'updated_by_user_id'>>,
 ): Promise<PlatformSettings> => {
   return (await api.put('/admin/settings', updates)).data;
-  // return Promise.resolve({
-  //   ...dummyPlatformSettings,
-  //   ...updates,
-  //   updated_at: new Date().toISOString(),
-  // });
 };
 
 // ─── Admin Notification Preferences ──────────────────────────────────────────
 
 export const getAdminNotificationPrefs = async (): Promise<AdminNotificationPrefs> => {
   return (await api.get('/admin/settings/notifications')).data;
-  // return Promise.resolve({ ...dummyNotificationPrefs });
 };
 
 export const updateAdminNotificationPrefs = async (
   updates: Partial<Omit<AdminNotificationPrefs, 'user_id' | 'updated_at'>>,
 ): Promise<AdminNotificationPrefs> => {
   return (await api.put('/admin/settings/notifications', updates)).data;
-  // return Promise.resolve({
-  //   ...dummyNotificationPrefs,
-  //   ...updates,
-  //   updated_at: new Date().toISOString(),
-  // });
 };
 
 // ─── Admin Profile — Update Profile ──────────────────────────────────────────
@@ -107,9 +96,7 @@ export const changeAdminPassword = async (
   await api.patch('/users/me/change-password', { old_password: current_password, new_password });
 };
 
-// ─── Admin Profile — Active Sessions ─────────────────────────────────────────
-// Backed by GET /admin/sessions → RefreshSession rows
- 
+// ─── Admin Profile — Active Sessions ───────────────────────────────────────── 
 export const getMyAdminSessions = async (): Promise<RefreshSession[]> => {
   return (await api.get('/admin/sessions')).data;
 };
@@ -127,9 +114,7 @@ export const revokeAllOtherAdminSessions = async (
 };
 
 // ─── Session Cleanup ──────────────────────────────────────────────────────────
-// Backend: POST /admin/auth/cleanup-sessions?hours={n}
-// Response: { deleted_count: number, active_sessions: number, cleanup_threshold_hours: number }
- 
+
 export const cleanupSessions = async (
   hours = 24,
 ): Promise<{ deleted_count: number; active_sessions: number; cleanup_threshold_hours: number }> => {
@@ -140,14 +125,10 @@ export const cleanupSessions = async (
 
 export const listAllUsers = async (): Promise<AdminUser[]> => {
   return (await api.get('/admin/users')).data;
-  // return Promise.resolve(dummyUsers);
 };
 
 export const getUserById = async (userId: number): Promise<AdminUser> => {
   return (await api.get(`/admin/users/${userId}`)).data;
-  // const user = dummyUsers.find(u => u.id === userId);
-  // if (!user) throw new Error('User not found');
-  // return Promise.resolve(user);
 };
 
 export const deleteUser = async (_userId: number): Promise<boolean> => {
@@ -157,14 +138,10 @@ export const deleteUser = async (_userId: number): Promise<boolean> => {
 
 export const activateUser = async (userId: number): Promise<AdminUser> => {
   return (await api.patch(`/admin/users/${userId}/activate`)).data;
-  // const user = dummyUsers.find(u => u.id === userId)!;
-  // return Promise.resolve({ ...user, is_active: true });
 };
 
 export const deactivateUser = async (userId: number): Promise<AdminUser> => {
   return (await api.patch(`/admin/users/${userId}/deactivate`)).data;
-  // const user = dummyUsers.find(u => u.id === userId)!;
-  // return Promise.resolve({ ...user, is_active: false });
 };
 
 export const verifyUserEmail = async (userId: number): Promise<AdminUser> => {
@@ -180,11 +157,6 @@ export const updateUserRole = async (
 
 export const searchUsersByName = async (name: string): Promise<AdminUser[]> => {
   return (await api.get(`/admin/users/search?name=${name}`)).data;
-  // return Promise.resolve(
-  //   dummyUsers.filter(u =>
-  //     `${u.first_name} ${u.last_name}`.toLowerCase().includes(name.toLowerCase())
-  //   )
-  // );
 };
 
 export const updateUserEmail = async (userId: number, newEmail: string): Promise<AdminUser> => {
@@ -202,45 +174,106 @@ export const resendVerificationEmail = async (
   return (await api.post(`/admin/users/${userId}/resend-verification`)).data;
 };
 
+export const listOrganizers = async (): Promise<AdminUser[]> => {
+  // The existing listAllUsers endpoint returns everyone; filter server-side
+  // if your backend supports it, otherwise filter client-side:
+  const users = await listAllUsers();
+  return users.filter(u => u.role === 'organizer');
+  // If the backend later exposes GET /admin/users?role=organizer, use that:
+  // return (await api.get('/admin/users?role=organizer')).data;
+};
+
 // ─── Events ───────────────────────────────────────────────────────────────────
 
 export const listAllEvents = async (): Promise<AdminEvent[]> => {
-  // return (await api.get('/admin/events')).data;
-  return Promise.resolve(dummyEvents);
+  return (await api.get('/admin/all-events')).data;
 };
-
+ 
 export const getEventById = async (eventId: number): Promise<AdminEvent> => {
-  // return (await api.get(`/admin/events/${eventId}`)).data;
-  const event = dummyEvents.find(e => e.id === eventId);
-  if (!event) throw new Error('Event not found');
-  return Promise.resolve(event);
+  return (await api.get(`/admin/events/${eventId}`)).data;
 };
 
-export const approveEvent = async (_eventId: number): Promise<boolean> => {
-  // return (await api.patch(`/admin/events/${_eventId}/approve`)).data;
-  return Promise.resolve(true);
+export const createEvent = async (
+  form: {
+    title: string;
+    description: string;
+    venue: string;
+    city: string;
+    country: string;
+    category: string;
+    start_time: string;   // ISO string
+    end_time: string;     // ISO string
+    organizer_id: number;
+    flyer: File | null;
+  },
+): Promise<AdminEvent> => {
+  const fd = new FormData();
+  fd.append('title',        form.title);
+  fd.append('description',  form.description);
+  fd.append('venue',        form.venue);
+  fd.append('city',         form.city);
+  fd.append('country',      form.country);
+  fd.append('category',     form.category);
+  fd.append('start_time',   form.start_time);
+  fd.append('end_time',     form.end_time);
+  fd.append('organizer_id', String(form.organizer_id));
+  if (form.flyer) fd.append('flyer', form.flyer);
+ 
+  return (
+    await api.post('/admin/events', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  ).data;
 };
-
-export const rejectEvent = async (_eventId: number): Promise<boolean> => {
-  // return (await api.patch(`/admin/events/${_eventId}/reject`)).data;
-  return Promise.resolve(true);
+ 
+export const approveEvent = async (eventId: number): Promise<AdminEvent> => {
+  return (await api.patch(`/admin/events/${eventId}/approve`)).data;
 };
-
-export const deleteEvent = async (_eventId: number): Promise<boolean> => {
-  // return (await api.delete(`/admin/events/${_eventId}`)).data;
-  return Promise.resolve(true);
+ 
+export const rejectEvent = async (eventId: number): Promise<AdminEvent> => {
+  return (await api.patch(`/admin/events/${eventId}/reject`)).data;
 };
+ 
 
+export const deleteEvent = async (eventId: number): Promise<void> => {
+  await api.delete(`/admin/events/${eventId}`);
+};
+ 
 export const getUnapprovedEvents = async (): Promise<AdminEvent[]> => {
-  // return (await api.get('/admin/events/unapproved')).data;
-  return Promise.resolve(dummyEvents.filter(e => !e.is_approved));
+  return (await api.get('/admin/events/unapproved')).data;
 };
-
+ 
 export const getEventsByOrganizer = async (organizerId: number): Promise<AdminEvent[]> => {
-  // return (await api.get(`/admin/events/organizer/${organizerId}`)).data;
-  return Promise.resolve(dummyEvents.filter(e => e.organizer_id === organizerId));
-};
+  return (await api.get(`/admin/events/organizer/${organizerId}`)).data;
+}; 
 
+// ─── Ticket Types ─────────────────────────────────────────────────────────────
+ 
+export const createTicketType = async (
+  payload: CreateTicketTypePayload,
+): Promise<AdminTicketType> => {
+  return (await api.post('/admin/ticket-types', payload)).data;
+};
+ 
+export const updateTicketType = async (
+  ticketTypeId: number,
+  payload: Partial<Omit<CreateTicketTypePayload, 'event_id'>>,
+): Promise<AdminTicketType> => {
+  return (await api.put(`/admin/ticket-types/${ticketTypeId}`, payload)).data;
+};
+ 
+export const deleteTicketType = async (ticketTypeId: number): Promise<void> => {
+  await api.delete(`/admin/ticket-types/${ticketTypeId}`);
+};
+ 
+export const getTicketTypeById = async (ticketTypeId: number): Promise<AdminTicketType> => {
+  return (await api.get(`/admin/ticket-types/${ticketTypeId}`)).data;
+};
+ 
+export const getTicketTypesByEvent = async (eventId: number): Promise<AdminTicketType[]> => {
+  return (await api.get(`/admin/events/${eventId}/ticket-types`)).data;
+};
+ 
 // ─── Bookings ─────────────────────────────────────────────────────────────────
 
 export const listAllBookings = async (): Promise<AdminBooking[]> => {
@@ -288,14 +321,10 @@ type ContactMessageStatus = 'new' | 'pending' | 'responded' | 'closed' | 'spam';
 
 export const listContactMessages = async (): Promise<ContactMessage[]> => {
   return (await api.get('/admin/contact')).data;
-  // return Promise.resolve(dummyMessages);
 };
 
 export const getContactMessage = async (messageId: number): Promise<ContactMessage> => {
   return (await api.get(`/admin/contact/${messageId}`)).data;
-  // const msg = dummyMessages.find(m => m.id === messageId);
-  // if (!msg) throw new Error('Message not found');
-  // return Promise.resolve(msg);
 };
 
 export const updateContactMessageStatus = async (
@@ -303,13 +332,10 @@ export const updateContactMessageStatus = async (
   status: ContactMessageStatus,
 ): Promise<ContactMessage> => {
   return (await api.patch(`/admin/contact/${messageId}/status`, { status })).data;
-  // const msg = dummyMessages.find(m => m.id === messageId)!;
-  // return Promise.resolve({ ...msg, status });
 };
 
 export const deleteContactMessage = async (messageId: number): Promise<void> => {
   await api.delete(`/admin/contact/${messageId}`);
-  // return Promise.resolve();
 };
 
 export const getContactMessageStats = async (): Promise<ContactMessageStats> => {
@@ -320,7 +346,6 @@ export const getContactMessageStats = async (): Promise<ContactMessageStats> => 
 
 export const getUnreadNotificationCount = async (): Promise<number> => {
   return (await api.get('/admin/notifications/count/unread')).data;
-  // return Promise.resolve(3);
 };
 
 export const listAdminNotifications = async (limit = 50, offset = 0) => {
@@ -337,6 +362,10 @@ export const markAllNotificationsRead = async () => {
 
 export const dismissNotification = async (notificationId: number) => {
   return (await api.delete(`/admin/notifications/${notificationId}`)).data;
+};
+
+export const clearReadNotifications = async (): Promise<{ deleted: number; message: string }> => {
+  return (await api.delete('/admin/notifications/clear-read')).data;
 };
 
 // ─── Audit Logs (full list — AuditLogs.tsx page) ─────────────────────────────

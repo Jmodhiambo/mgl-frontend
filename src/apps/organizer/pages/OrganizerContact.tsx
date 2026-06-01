@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Mail, Phone, MessageSquare, Send, AlertCircle, CheckCircle, Clock, HelpCircle } from 'lucide-react';
 import { executeRecaptcha, loadRecaptchaScript, RECAPTCHA_CONFIG } from '@shared/config/recaptcha';
 import { WHATSAPP_URL, SUPPORT_PHONE_NUMBER, ORGANIZER_EMAIL } from '@shared/components/ENV';
+import { submitOrganizerContactMessage, OrganizerContactMessageCreate } from '@shared/api/organizer/orgContactApi';
 
 interface ContactFormData {
   name: string;
@@ -11,20 +12,21 @@ interface ContactFormData {
   subject: string;
   category: string;
   message: string;
-  event_id: string;
+  event_title: string;
 }
 
+const INITIAL_FORM: ContactFormData = {
+  name: '',
+  email: '',
+  phone: '',
+  subject: '',
+  category: 'event_management',
+  message: '',
+  event_title: '',
+};
+
 const OrganizerContact: React.FC = () => {
-  const [formData, setFormData] = useState<ContactFormData>({
-    name: '',
-    email: '',
-    phone: '',
-    subject: '',
-    category: 'event_management',
-    message: '',
-    event_id: ''
-  });
-  
+  const [formData, setFormData] = useState<ContactFormData>(INITIAL_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
@@ -32,25 +34,18 @@ const OrganizerContact: React.FC = () => {
   const [recaptchaLoaded, setRecaptchaLoaded] = useState(false);
 
   useEffect(() => {
-    const initRecaptcha = async () => {
-      try {
-        await loadRecaptchaScript();
-        setRecaptchaLoaded(true);
-      } catch (error) {
+    loadRecaptchaScript()
+      .then(() => setRecaptchaLoaded(true))
+      .catch((error) => {
         console.error('Failed to load reCAPTCHA:', error);
         setRecaptchaLoaded(false);
-      }
-    };
-    initRecaptcha();
+      });
   }, []);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const validateForm = (): boolean => {
@@ -75,7 +70,7 @@ const OrganizerContact: React.FC = () => {
 
   const handleSubmit = async () => {
     setErrorMessage('');
-    
+
     if (!validateForm()) {
       setSubmitStatus('error');
       return;
@@ -93,28 +88,18 @@ const OrganizerContact: React.FC = () => {
     try {
       const recaptchaToken = await executeRecaptcha(RECAPTCHA_CONFIG.action.contact);
 
-      // TODO: Replace with actual API call
-      // const response = await submitOrganizerContactMessage({
-      //   ...formData,
-      //   recaptcha_token: recaptchaToken
-      // });
+      const submissionData: OrganizerContactMessageCreate = {
+        ...formData,
+        // Only include event_title if the organizer actually filled it in
+        event_title: formData.event_title.trim() || undefined,
+        recaptcha_token: recaptchaToken,
+      };
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      const mockReferenceId = `ORG-${Date.now().toString().slice(-8)}`;
+      const response = await submitOrganizerContactMessage(submissionData);
 
       setSubmitStatus('success');
-      setReferenceId(mockReferenceId);
-      
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        subject: '',
-        category: 'event_management',
-        message: '',
-        event_id: ''
-      });
+      setReferenceId(response.reference_id);
+      setFormData(INITIAL_FORM);
 
       setTimeout(() => {
         setSubmitStatus('idle');
@@ -124,8 +109,8 @@ const OrganizerContact: React.FC = () => {
       console.error('Contact form error:', error);
       setSubmitStatus('error');
       setErrorMessage(
-        error instanceof Error 
-          ? error.message 
+        error instanceof Error
+          ? error.message
           : 'Failed to send message. Please try again or contact us directly.'
       );
     } finally {
@@ -177,9 +162,9 @@ const OrganizerContact: React.FC = () => {
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">WhatsApp</h3>
             <p className="text-gray-600 text-sm mb-3">Priority support for organizers</p>
-            <a 
-              href={WHATSAPP_URL} 
-              target="_blank" 
+            <a
+              href={WHATSAPP_URL}
+              target="_blank"
               rel="noopener noreferrer"
               className="text-blue-600 hover:text-blue-700 font-medium"
             >
@@ -193,7 +178,7 @@ const OrganizerContact: React.FC = () => {
           {/* Contact Form */}
           <div className="bg-white rounded-xl shadow-lg p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Send Us a Message</h2>
-            
+
             {submitStatus === 'success' && referenceId && (
               <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-start gap-3">
@@ -299,21 +284,21 @@ const OrganizerContact: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="event_id" className="block text-sm font-medium text-gray-700 mb-2">
-                  Event ID (Optional)
+                <label htmlFor="event_title" className="block text-sm font-medium text-gray-700 mb-2">
+                  Event Name (Optional)
                 </label>
                 <input
                   type="text"
-                  id="event_id"
-                  name="event_id"
-                  value={formData.event_id}
+                  id="event_title"
+                  name="event_title"
+                  value={formData.event_title}
                   onChange={handleChange}
                   disabled={isSubmitting}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  placeholder="e.g., 12345"
+                  placeholder="e.g., Summer Music Festival 2025"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  If your inquiry is about a specific event, provide the Event ID for faster assistance.
+                  If your inquiry is about a specific event, enter its name for faster assistance.
                 </p>
               </div>
 
@@ -388,7 +373,6 @@ const OrganizerContact: React.FC = () => {
 
           {/* Support Info */}
           <div className="space-y-6">
-            {/* Response Time */}
             <div className="bg-white rounded-xl shadow-md p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -417,7 +401,6 @@ const OrganizerContact: React.FC = () => {
               </div>
             </div>
 
-            {/* Common Topics */}
             <div className="bg-white rounded-xl shadow-md p-6">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Common Support Topics</h3>
               <div className="space-y-3">
@@ -440,7 +423,6 @@ const OrganizerContact: React.FC = () => {
               </div>
             </div>
 
-            {/* Department Contacts */}
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-md p-6 text-white">
               <h3 className="text-xl font-bold mb-4">Direct Department Contacts</h3>
               <div className="space-y-3 text-sm">
