@@ -67,33 +67,51 @@ const Events: React.FC = () => {
   const handleAction = async () => {
     if (!confirm) return;
     setAL(true);
-    try {
-      const { action, event } = confirm;
+    const { action, event } = confirm;
 
+    // ── Optimistic update — flip the badge immediately so the UI feels instant ──
+    if (action === 'approve') {
+      setEvents(p => p.map(e => e.id === event.id ? { ...e, is_approved: true } : e));
+    } else if (action === 'reject') {
+      setEvents(p => p.map(e => e.id === event.id ? { ...e, is_approved: false, is_active: false } : e));
+    } else if (action === 'delete') {
+      setEvents(p => p.filter(e => e.id !== event.id));
+    }
+
+    // Close the confirm dialog right away so the user sees the table update
+    setConfirm(null);
+
+    try {
       if (action === 'approve') {
-        // approveEvent returns the updated EventOut from the backend
+        // Server confirms and returns the canonical updated record
         const updated = await approveEvent(event.id);
         setEvents(p => p.map(e => e.id === updated.id ? updated : e));
         setAlert({ type: 'success', msg: `"${event.title}" approved.` });
 
       } else if (action === 'reject') {
-        // rejectEvent returns the updated EventOut from the backend
         const updated = await rejectEvent(event.id);
         setEvents(p => p.map(e => e.id === updated.id ? updated : e));
         setAlert({ type: 'success', msg: `"${event.title}" rejected.` });
 
       } else if (action === 'delete') {
-        // deleteEvent returns void — backend has no response_model
         await deleteEvent(event.id);
-        setEvents(p => p.filter(e => e.id !== event.id));
         setAlert({ type: 'success', msg: `"${event.title}" deleted.` });
       }
     } catch (err: any) {
+      // Roll back optimistic change on failure
+      if (action === 'approve') {
+        setEvents(p => p.map(e => e.id === event.id ? { ...e, is_approved: false } : e));
+      } else if (action === 'reject') {
+        setEvents(p => p.map(e => e.id === event.id ? { ...e, is_approved: true, is_active: true } : e));
+      } else if (action === 'delete') {
+        // Re-add the event at the front; a full reload would be more accurate
+        // but this keeps the user from losing context entirely.
+        setEvents(p => [event, ...p]);
+      }
       const detail = err?.response?.data?.detail ?? 'Action failed. Please try again.';
       setAlert({ type: 'error', msg: detail });
     } finally {
       setAL(false);
-      setConfirm(null);
     }
   };
 

@@ -9,7 +9,9 @@ import type {
   TicketTypeOut,
   FavoriteOut,
   FavoriteWithEventOut,
-} from '@shared/types/Event';
+  OrganizerEventOut,
+  CoOrganizerWithEvent,
+  } from '@shared/types/Event';
 
 // ─── Events ───────────────────────────────────────────────────────────────────
 
@@ -79,3 +81,30 @@ export const addFavorite = async (eventId: number): Promise<FavoriteOut> =>
  */
 export const removeFavorite = async (eventId: number): Promise<void> =>
   await api.delete(`/users/me/favorites/${eventId}`);
+
+// ─── Organizing & Co-organizing ──────────────────────────────────────────────
+
+/**
+ * Fetch the current organizer's own events with booking/revenue stats.
+ * Only called when the user's role is 'organizer'; returns an empty array
+ * for any other role so Promise.allSettled in MyEvents stays uniform.
+ *
+ * Backend: GET /organizers/me/events → list[OrganizerEventOut]
+ */
+export const getMyOrganizerEvents = async (
+  role: string | undefined,
+): Promise<OrganizerEventOut[]> => {
+  if (role !== 'organizer') return [];
+  return (await api.get<OrganizerEventOut[]>('/organizers/me/events')).data;
+};
+ 
+/**
+ * Fetch all events the current user is co-organising, bundled with the
+ * co-organizer relationship metadata (invited_by, create_co_organizer, created_at).
+ * Available to any authenticated user regardless of role.
+ *
+ * Backend: GET /users/me/events/co-organizing → list[CoOrganizerWithEvent]
+ */
+export const getCoOrganizingEvents = async (): Promise<CoOrganizerWithEvent[]> => {
+  return (await api.get<CoOrganizerWithEvent[]>('/users/me/events/co-organizing')).data;
+};

@@ -3,10 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
 import { Search, Ticket, User, DollarSign, Download, CheckCircle, Clock, XCircle } from 'lucide-react';
-import BookingDetailsModal from '@organizer/components/BookingViewPage/BookingDetailsModal';
-import EmailModal from '@organizer/components/BookingViewPage/EmailModal';
-import BulkActionBar from '@organizer/components/BookingViewPage/BulkActionBar';
-import BookingsTable from '@organizer/components/BookingViewPage/BookingsTable';
+import BookingDetailsModal from '@organizer/components/modals/bookings/BookingDetailsModal';
+import EmailModal from '@organizer/components/modals/bookings/EmailModal';
+import BulkActionBar from '@organizer/components/modals/bookings/BulkActionBar';
+import BookingsTable from '@organizer/components/modals/bookings/BookingsTable';
 
 interface Booking {
   id: number;

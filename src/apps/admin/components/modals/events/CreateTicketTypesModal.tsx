@@ -7,6 +7,34 @@ import {
 import { createTicketType } from '@admin/services/adminService';
 import type { AdminEvent } from '@admin/types';
 
+// ─── Helper ───────────────────────────────────────────────────────────────────
+
+/**
+ * Safely converts any FastAPI error response into a human-readable string.
+ *
+ * FastAPI 422 Unprocessable Entity returns:
+ *   { detail: [ { type, loc, msg, input, url }, … ] }
+ *
+ * FastAPI 4xx/5xx with a plain message returns:
+ *   { detail: "Some string" }
+ *
+ * Passing either shape (or undefined) to this function always yields a string
+ * that is safe to render as a React child.
+ */
+function parseApiError(err: any, fallback: string): string {
+  const raw = err?.response?.data?.detail;
+  if (Array.isArray(raw)) {
+    return raw
+      .map((e: any) => {
+        const field = Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : 'field';
+        return `${field}: ${e.msg}`;
+      })
+      .join('; ');
+  }
+  if (typeof raw === 'string') return raw;
+  return fallback;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface TicketTypeInput {
@@ -261,8 +289,7 @@ const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
       }
       onFinish(event, tickets);
     } catch (err: any) {
-      const detail = err?.response?.data?.detail ?? 'Failed to save ticket types. Please try again.';
-      setSaveError(detail);
+      setSaveError(parseApiError(err, 'Failed to save ticket types. Please try again.'));
     } finally {
       setSaving(false);
     }
@@ -396,8 +423,8 @@ const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
 
         {/* Save error */}
         {saveError && (
-          <div className="mt-3 flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <div className="mt-3 flex items-start gap-2 text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <p className="text-xs">{saveError}</p>
           </div>
         )}

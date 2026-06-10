@@ -1,7 +1,6 @@
 // src/organizer/pages/OrganizerContact.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Mail, Phone, MessageSquare, Send, AlertCircle, CheckCircle, Clock, HelpCircle } from 'lucide-react';
-import { executeRecaptcha, loadRecaptchaScript, RECAPTCHA_CONFIG } from '@shared/config/recaptcha';
 import { WHATSAPP_URL, SUPPORT_PHONE_NUMBER, ORGANIZER_EMAIL } from '@shared/components/ENV';
 import { submitOrganizerContactMessage, OrganizerContactMessageCreate } from '@shared/api/organizer/orgContactApi';
 
@@ -31,16 +30,6 @@ const OrganizerContact: React.FC = () => {
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [referenceId, setReferenceId] = useState('');
-  const [recaptchaLoaded, setRecaptchaLoaded] = useState(false);
-
-  useEffect(() => {
-    loadRecaptchaScript()
-      .then(() => setRecaptchaLoaded(true))
-      .catch((error) => {
-        console.error('Failed to load reCAPTCHA:', error);
-        setRecaptchaLoaded(false);
-      });
-  }, []);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -76,23 +65,16 @@ const OrganizerContact: React.FC = () => {
       return;
     }
 
-    if (!recaptchaLoaded) {
-      setErrorMessage('Security verification not loaded. Please refresh the page.');
-      setSubmitStatus('error');
-      return;
-    }
-
     setIsSubmitting(true);
     setSubmitStatus('idle');
 
     try {
-      const recaptchaToken = await executeRecaptcha(RECAPTCHA_CONFIG.action.contact);
-
       const submissionData: OrganizerContactMessageCreate = {
         ...formData,
         // Only include event_title if the organizer actually filled it in
         event_title: formData.event_title.trim() || undefined,
-        recaptcha_token: recaptchaToken,
+        // recaptcha_token is not required for organizer submissions —
+        // the backend skips verification since the organizer is already authenticated
       };
 
       const response = await submitOrganizerContactMessage(submissionData);
@@ -341,7 +323,7 @@ const OrganizerContact: React.FC = () => {
 
               <button
                 onClick={handleSubmit}
-                disabled={isSubmitting || !recaptchaLoaded}
+                disabled={isSubmitting}
                 className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
@@ -356,18 +338,6 @@ const OrganizerContact: React.FC = () => {
                   </>
                 )}
               </button>
-
-              <p className="text-xs text-gray-500 text-center">
-                This site is protected by reCAPTCHA and the Google{' '}
-                <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                  Privacy Policy
-                </a>{' '}
-                and{' '}
-                <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                  Terms of Service
-                </a>{' '}
-                apply.
-              </p>
             </div>
           </div>
 

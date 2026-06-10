@@ -629,3 +629,5 @@ const MessageDetailModal: React.FC<{
     </div>
   );
 };
+
+export default Messages;

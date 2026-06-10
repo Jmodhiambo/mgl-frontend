@@ -295,7 +295,7 @@ const HelpCenterPage: React.FC = () => {
             <p className="text-sm text-gray-600">Quick answers to common questions</p>
           </Link>
           <Link
-            to="/refund-policy"
+            to="/refund"
             className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow text-center group"
           >
             <h3 className="font-semibold text-gray-900 group-hover:text-orange-600 transition-colors mb-2">

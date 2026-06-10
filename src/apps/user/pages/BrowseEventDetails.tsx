@@ -30,6 +30,21 @@ const baseUrl = import.meta.env.VITE_BASE_URL ?? 'https://mgltickets.com';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/**
+ * Safely converts any FastAPI error response into a human-readable string.
+ * FastAPI 422 returns { detail: [{type, loc, msg, input}, …] }.
+ * FastAPI 4xx/5xx returns { detail: "string" }.
+ */
+function parseApiError(err: any, fallback: string): string {
+  const raw = err?.response?.data?.detail;
+  if (Array.isArray(raw))
+    return raw
+      .map((e: any) => `${Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : 'field'}: ${e.msg}`)
+      .join('; ');
+  if (typeof raw === 'string') return raw;
+  return fallback;
+}
+
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
@@ -139,6 +154,7 @@ const BrowseEventDetailsPage: React.FC = () => {
   const [error, setError]               = useState<string | null>(null);
   const [isFavorite, setIsFavorite]     = useState(false);
   const [favLoading, setFavLoading]     = useState(false);
+  const [favError, setFavError]         = useState<string | null>(null);
 
   // ── Restore ticket selection from login redirect state ────────────────────
   useEffect(() => {
@@ -162,15 +178,13 @@ const BrowseEventDetailsPage: React.FC = () => {
       const eventData = await getEventByIdentifier(identifier);
       const [ticketsData, favData] = await Promise.all([
         getTicketTypesByEvent(eventData.id),
-        getFavorites().catch(() => []),
+        getFavorites().catch(() => [] as { event_id: number }[]),
       ]);
       setEvent(eventData);
       setTicketTypes(ticketsData);
-      // Check if this event is already favourited
-      const isFav = favData.some(f => f.event_id === eventData.id);
-      setIsFavorite(isFav);
-    } catch {
-      setError('Event not found or failed to load. Please try again.');
+      setIsFavorite(favData.some(f => f.event_id === eventData.id));
+    } catch (err: any) {
+      setError(parseApiError(err, 'Event not found or failed to load. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -178,18 +192,19 @@ const BrowseEventDetailsPage: React.FC = () => {
 
   useEffect(() => {
     // Only fetch if we don't already have the event from navigation state
-    if (!event) load();
-    else {
+    if (!event) {
+      load();
+    } else {
       // Event was pre-filled from state — still load tickets and fav status
       (async () => {
         try {
           const [ticketsData, favData] = await Promise.all([
             getTicketTypesByEvent(event.id),
-            getFavorites().catch(() => []),
+            getFavorites().catch(() => [] as { event_id: number }[]),
           ]);
           setTicketTypes(ticketsData);
           setIsFavorite(favData.some(f => f.event_id === event.id));
-        } catch { /* non-critical */ }
+        } catch { /* non-critical — tickets may still be empty */ }
       })();
     }
   }, [load]);
@@ -233,6 +248,7 @@ const BrowseEventDetailsPage: React.FC = () => {
   const handleFavoriteToggle = async () => {
     if (!event || favLoading) return;
     setFavLoading(true);
+    setFavError(null);
     try {
       if (isFavorite) {
         await removeFavorite(event.id);
@@ -241,8 +257,11 @@ const BrowseEventDetailsPage: React.FC = () => {
         await addFavorite(event.id);
         setIsFavorite(true);
       }
-    } catch { /* silently ignore */ }
-    finally { setFavLoading(false); }
+    } catch (err: any) {
+      setFavError(parseApiError(err, 'Could not update favourite. Please try again.'));
+    } finally {
+      setFavLoading(false);
+    }
   };
 
   // ── Share ──────────────────────────────────────────────────────────────────
@@ -313,6 +332,14 @@ const BrowseEventDetailsPage: React.FC = () => {
           >
             <ChevronLeft className="w-5 h-5 mr-1" /> Back to Events
           </button>
+
+          {/* Favourite error banner */}
+          {favError && (
+            <div className="mb-6 flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-700">{favError}</p>
+            </div>
+          )}
 
           {/* Hero grid: flyer + sidebar card */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">

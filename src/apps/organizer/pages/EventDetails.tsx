@@ -1,207 +1,175 @@
-import React, { useState, useEffect } from 'react';
+// src/apps/organizer/pages/EventDetails.tsx
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, Clock, Edit, Trash2, Users, DollarSign, Ticket, ArrowLeft, Plus, Eye, XCircle, TrendingUp, CheckCircle } from 'lucide-react';
+import {
+  Calendar, MapPin, Clock, Edit, Trash2, Users, DollarSign,
+  Ticket, ArrowLeft, Plus, Eye, XCircle, TrendingUp,
+  CheckCircle, AlertCircle, Loader2,
+} from 'lucide-react';
+import { getEventDetails, updateEventStatus } from '@organizer/services/eventService';
+import type { OrganizerEventOut, TicketTypeOut, EventStats } from '@shared/types/Event';
+import type { Booking as BookingOut } from '@shared/types/Booking';
 
-interface Event {
-  id: number;
-  title: string;
-  slug: string;
-  venue: string;
-  start_time: string;
-  end_time: string;
-  flyer_url: string;
-  description: string;
-  status: string;
-  approved: boolean;
-  rejected: boolean;
-  created_at: string;
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function parseApiError(err: any, fallback: string): string {
+  const raw = err?.response?.data?.detail;
+  if (Array.isArray(raw))
+    return raw.map((e: any) => `${Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : 'field'}: ${e.msg}`).join('; ');
+  if (typeof raw === 'string') return raw;
+  return fallback;
 }
 
-interface TicketType {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  quantity_available: number;
-  quantity_sold: number;
-  is_active: boolean;
-}
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+  });
 
-interface Booking {
-  id: number;
-  customer_name: string;
-  customer_email: string;
-  ticket_type_name: string;
-  quantity: number;
-  total_price: number;
-  status: string;
-  created_at: string;
-}
+const formatTime = (iso: string) =>
+  new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-interface EventStats {
-  total_bookings: number;
-  total_revenue: number;
-  tickets_sold: number;
-  tickets_remaining: number;
-}
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+const StatusBadge: React.FC<{ event: OrganizerEventOut }> = ({ event }) => {
+  if (!event.is_approved)
+    return <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-full">Pending Approval</span>;
+  const colours: Record<string, string> = {
+    upcoming:  'bg-blue-100 text-blue-700',
+    ongoing:   'bg-green-100 text-green-700',
+    completed: 'bg-gray-100 text-gray-700',
+    cancelled: 'bg-red-100 text-red-700',
+  };
+  return (
+    <span className={`px-3 py-1 text-sm font-medium rounded-full ${colours[event.status] ?? 'bg-gray-100 text-gray-700'}`}>
+      {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
+    </span>
+  );
+};
+
+const BookingStatusBadge: React.FC<{ status: string }> = ({ status }) => {
+  const map: Record<string, { cls: string; icon: React.ReactNode }> = {
+    confirmed: { cls: 'bg-green-100 text-green-700', icon: <CheckCircle className="w-3 h-3" /> },
+    pending:   { cls: 'bg-yellow-100 text-yellow-700', icon: <Clock className="w-3 h-3" /> },
+    cancelled: { cls: 'bg-red-100 text-red-700', icon: <XCircle className="w-3 h-3" /> },
+  };
+  const { cls, icon } = map[status] ?? { cls: 'bg-gray-100 text-gray-700', icon: null };
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${cls}`}>
+      {icon}{status.charAt(0).toUpperCase() + status.slice(1)}
+    </span>
+  );
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 const EventDetails: React.FC = () => {
-  const { eventSlug } = useParams<{ eventSlug: string }>();
-  const navigate = useNavigate();
-  
-  const [event, setEvent] = useState<Event | null>(null);
-  const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
-  const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
-  const [stats, setStats] = useState<EventStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { eventId } = useParams<{ eventId: string }>();
+  const navigate    = useNavigate();
+
+  const [event,          setEvent]          = useState<OrganizerEventOut | null>(null);
+  const [stats,          setStats]          = useState<EventStats | null>(null);
+  const [ticketTypes,    setTicketTypes]    = useState<TicketTypeOut[]>([]);
+  const [recentBookings, setRecentBookings] = useState<BookingOut[]>([]);
+  const [loading,        setLoading]        = useState(true);
+  const [error,          setError]          = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [actionLoading,  setActionLoading]  = useState(false);
+  const [actionError,    setActionError]    = useState<string | null>(null);
 
-  useEffect(() => {
-    loadEventDetails();
-  }, [eventSlug]);
-
-  const loadEventDetails = async () => {
+  const load = useCallback(async () => {
+    if (!eventId) return;
     setLoading(true);
-    // TODO: Replace with actual API calls
-    // const eventData = await getEventBySlug(eventSlug);
-    // const ticketsData = await getTicketTypesByEvent(eventData.id);
-    // const bookingsData = await getRecentBookingsByEvent(eventData.id, 5);
-    // const statsData = await getEventStats(eventData.id);
+    setError(null);
+    try {
+      // Single call — returns event + stats + ticket_types + recent_bookings
+      const details = await getEventDetails(Number(eventId));
+      setEvent(details.event);
+      setStats(details.stats);
+      setTicketTypes(details.ticket_types);
+      setRecentBookings(details.recent_bookings);
+    } catch (err: any) {
+      setError(parseApiError(err, 'Failed to load event details. Please try again.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [eventId]);
 
-    const mockEvent: Event = {
-      id: 1, // This would come from API
-      title: 'Summer Music Festival 2026',
-      slug: eventSlug || 'summer-music-festival-2026',
-      venue: 'Kasarani Stadium, Nairobi',
-      start_time: '2026-07-15T14:00:00Z',
-      end_time: '2026-07-15T23:00:00Z',
-      flyer_url: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800',
-      description: 'The biggest music festival of the year featuring top artists from across Africa.',
-      status: 'upcoming',
-      approved: true,
-      rejected: false,
-      created_at: '2026-01-01T10:00:00Z'
-    };
+  useEffect(() => { load(); }, [load]);
 
-    const mockTicketTypes: TicketType[] = [
-      { id: 1, name: 'VIP Pass', description: 'Front row access, complimentary drinks', price: 5000, quantity_available: 50, quantity_sold: 23, is_active: true },
-      { id: 2, name: 'Regular Admission', description: 'General admission', price: 1500, quantity_available: 500, quantity_sold: 342, is_active: true },
-      { id: 3, name: 'Student Ticket', description: 'Valid student ID required', price: 1000, quantity_available: 200, quantity_sold: 156, is_active: true },
-    ];
-
-    const mockBookings: Booking[] = [
-      { id: 1, customer_name: 'John Doe', customer_email: 'john@example.com', ticket_type_name: 'VIP Pass', quantity: 2, total_price: 10000, status: 'confirmed', created_at: '2025-01-24T10:30:00Z' },
-      { id: 2, customer_name: 'Jane Smith', customer_email: 'jane@example.com', ticket_type_name: 'Regular Admission', quantity: 4, total_price: 6000, status: 'confirmed', created_at: '2025-01-24T09:15:00Z' },
-      { id: 3, customer_name: 'Mike Johnson', customer_email: 'mike@example.com', ticket_type_name: 'Student Ticket', quantity: 2, total_price: 2000, status: 'pending', created_at: '2025-01-23T16:45:00Z' },
-    ];
-
-    const mockStats: EventStats = {
-      total_bookings: 89,
-      total_revenue: 445000,
-      tickets_sold: 521,
-      tickets_remaining: 229
-    };
-
-    setEvent(mockEvent);
-    setTicketTypes(mockTicketTypes);
-    setRecentBookings(mockBookings);
-    setStats(mockStats);
-    setLoading(false);
+  const handleCancel = async () => {
+    if (!event) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      await updateEventStatus(event.id, 'cancelled');
+      setEvent(p => p ? { ...p, status: 'cancelled' } : p);
+    } catch (err: any) {
+      setActionError(parseApiError(err, 'Failed to cancel event.'));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long',
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const handleDelete = async () => {
+    if (!event) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      await updateEventStatus(event.id, 'deleted');
+      navigate('/events');
+    } catch (err: any) {
+      setActionError(parseApiError(err, 'Failed to delete event.'));
+      setActionLoading(false);
+      setShowDeleteModal(false);
+    }
   };
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      upcoming: 'bg-blue-100 text-blue-700',
-      ongoing: 'bg-green-100 text-green-700',
-      completed: 'bg-gray-100 text-gray-700',
-      cancelled: 'bg-red-100 text-red-700'
-    };
-
-    return (
-      <span className={`px-3 py-1 rounded-full text-sm font-medium ${styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-700'}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
-  };
-
-  const getBookingStatusBadge = (status: string) => {
-    const styles = {
-      confirmed: 'bg-green-100 text-green-700',
-      pending: 'bg-yellow-100 text-yellow-700',
-      cancelled: 'bg-red-100 text-red-700'
-    };
-
-    return (
-      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${styles[status as keyof typeof styles]}`}>
-        {status === 'confirmed' && <CheckCircle className="w-3 h-3" />}
-        {status === 'pending' && <Clock className="w-3 h-3" />}
-        {status === 'cancelled' && <XCircle className="w-3 h-3" />}
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
-  };
-
-  const handleDeleteEvent = async () => {
-    // TODO: API call to delete event
-    // await deleteEvent(event.id);
-    navigate('/events');
-  };
-
-  const handleCancelEvent = async () => {
-    // TODO: API call to cancel event
-    // await updateEventStatus(event.id, 'cancelled');
-    navigate('/events');
-  };
+  // ── States ────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+        <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
       </div>
     );
   }
 
-  if (!event) {
+  if (error || !event) {
     return (
-      <div className="text-center py-12">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Event Not Found</h2>
-        <button
-          onClick={() => navigate('/events')}
-          className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all"
-        >
-          Back to Events
-        </button>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <AlertCircle className="w-12 h-12 text-red-400 mx-auto" />
+          <p className="text-red-600 font-semibold">{error ?? 'Event not found.'}</p>
+          <button onClick={() => navigate('/events')} className="px-6 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600">
+            Back to Events
+          </button>
+        </div>
       </div>
     );
   }
+
+  const canCancel = event.status !== 'cancelled' && event.status !== 'completed' && event.status !== 'deleted';
 
   return (
-    <div>
-      {/* Back Button */}
-      <button
-        onClick={() => navigate('/events')}
-        className="flex items-center text-gray-600 hover:text-blue-600 transition-colors mb-6"
-      >
-        <ArrowLeft className="w-5 h-5 mr-1" />
-        Back to Events
+    <div className="space-y-8">
+
+      {/* Back */}
+      <button onClick={() => navigate('/events')} className="flex items-center text-gray-600 hover:text-blue-600 transition-colors">
+        <ArrowLeft className="w-5 h-5 mr-1" /> Back to Events
       </button>
 
+      {/* Action error banner */}
+      {actionError && (
+        <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-red-700">{actionError}</p>
+        </div>
+      )}
+
       {/* Event Header */}
-      <div className="bg-white rounded-2xl shadow-md overflow-hidden mb-8">
+      <div className="bg-white rounded-2xl shadow-md overflow-hidden">
         <div className="md:flex">
-          <div className="md:w-1/3">
+          <div className="md:w-1/3 flex-shrink-0">
             <img
               src={event.flyer_url}
               alt={event.title}
@@ -210,192 +178,214 @@ const EventDetails: React.FC = () => {
           </div>
           <div className="p-6 md:w-2/3">
             <div className="flex items-start justify-between mb-4">
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold text-gray-800 mb-2">{event.title}</h1>
-                {getStatusBadge(event.status)}
+              <div className="flex-1 min-w-0">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2 leading-tight">{event.title}</h1>
+                <StatusBadge event={event} />
               </div>
-              <div className="flex gap-2 ml-4">
+              <div className="flex gap-2 ml-4 flex-shrink-0">
                 <button
-                  onClick={() => navigate(`/events/${event.slug}/edit`)}
+                  onClick={() => navigate(`/events/${event.id}/edit`)}
                   className="p-2 border-2 border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                  title="Edit Event"
                 >
                   <Edit className="w-5 h-5" />
                 </button>
+                {canCancel && (
+                  <button
+                    onClick={handleCancel}
+                    disabled={actionLoading}
+                    className="p-2 border-2 border-orange-400 text-orange-500 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50"
+                    title="Cancel Event"
+                  >
+                    <XCircle className="w-5 h-5" />
+                  </button>
+                )}
                 <button
                   onClick={() => setShowDeleteModal(true)}
                   className="p-2 border-2 border-red-500 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                  title="Delete Event"
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            <div className="space-y-3 mb-6">
-              <div className="flex items-center text-gray-600">
-                <Calendar className="w-5 h-5 mr-3 text-blue-500" />
-                <span>{formatDate(event.start_time)}</span>
+            <div className="space-y-2 mb-5 text-gray-600">
+              <div className="flex items-center gap-3">
+                <Calendar className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                <span className="text-sm">{formatDate(event.start_time)}</span>
               </div>
-              <div className="flex items-center text-gray-600">
-                <MapPin className="w-5 h-5 mr-3 text-blue-500" />
-                <span>{event.venue}</span>
+              <div className="flex items-center gap-3">
+                <Clock className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                <span className="text-sm">{formatTime(event.start_time)} – {formatTime(event.end_time)}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <MapPin className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                <span className="text-sm">{event.venue}, {event.city}</span>
               </div>
             </div>
 
-            <p className="text-gray-600 mb-6">{event.description}</p>
+            {event.description && (
+              <p className="text-gray-600 text-sm leading-relaxed mb-5">{event.description}</p>
+            )}
 
             <div className="flex gap-3">
               <button
                 onClick={() => navigate(`/events/${event.id}/tickets`)}
-                className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center"
+                className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2.5 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center text-sm"
               >
-                <Ticket className="w-5 h-5 mr-2" />
-                Manage Tickets
+                <Ticket className="w-4 h-4 mr-2" /> Manage Tickets
               </button>
               <button
                 onClick={() => navigate(`/events/${event.id}/bookings`)}
-                className="flex-1 border-2 border-blue-500 text-blue-600 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center justify-center"
+                className="flex-1 border-2 border-blue-500 text-blue-600 py-2.5 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center justify-center text-sm"
               >
-                <Eye className="w-5 h-5 mr-2" />
-                View Bookings
+                <Eye className="w-4 h-4 mr-2" /> View Bookings
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <div className="flex items-center justify-between mb-2">
-            <Ticket className="w-8 h-8 text-blue-500" />
-            <TrendingUp className="w-4 h-4 text-green-500" />
+      {/* Stats — sourced from EventDetails.stats (tickets_sold + remaining)
+          and EventDetails.event (total_bookings + total_revenue) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Total Bookings', value: event.total_bookings, icon: <Ticket className="w-6 h-6 text-blue-500" />, extra: <TrendingUp className="w-4 h-4 text-green-500" /> },
+          { label: 'Revenue',        value: `KES ${event.total_revenue.toLocaleString()}`, icon: <DollarSign className="w-6 h-6 text-green-500" />, valueClass: 'text-green-600' },
+          { label: 'Tickets Sold',   value: stats?.tickets_sold ?? '—', icon: <Users className="w-6 h-6 text-blue-500" /> },
+          { label: 'Remaining',      value: stats?.tickets_remaining ?? '—', icon: <Ticket className="w-6 h-6 text-purple-500" /> },
+        ].map(({ label, value, icon, extra, valueClass }) => (
+          <div key={label} className="bg-white rounded-xl shadow-md p-5">
+            <div className="flex items-center justify-between mb-3">
+              {icon}
+              {extra}
+            </div>
+            <p className="text-gray-500 text-xs mb-1">{label}</p>
+            <p className={`text-2xl font-bold ${valueClass ?? 'text-gray-800'}`}>{value}</p>
           </div>
-          <p className="text-gray-600 text-sm mb-1">Total Bookings</p>
-          <p className="text-3xl font-bold text-gray-800">{stats?.total_bookings}</p>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <div className="flex items-center justify-between mb-2">
-            <DollarSign className="w-8 h-8 text-green-500" />
-          </div>
-          <p className="text-gray-600 text-sm mb-1">Total Revenue</p>
-          <p className="text-3xl font-bold text-green-600">KES {stats?.total_revenue.toLocaleString()}</p>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <div className="flex items-center justify-between mb-2">
-            <Users className="w-8 h-8 text-blue-500" />
-          </div>
-          <p className="text-gray-600 text-sm mb-1">Tickets Sold</p>
-          <p className="text-3xl font-bold text-gray-800">{stats?.tickets_sold}</p>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <div className="flex items-center justify-between mb-2">
-            <Ticket className="w-8 h-8 text-purple-500" />
-          </div>
-          <p className="text-gray-600 text-sm mb-1">Remaining</p>
-          <p className="text-3xl font-bold text-gray-800">{stats?.tickets_remaining}</p>
-        </div>
+        ))}
       </div>
 
-      {/* Ticket Types and Recent Bookings */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {/* Ticket Types + Recent Bookings */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
         {/* Ticket Types */}
         <div className="bg-white rounded-xl shadow-md p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-800">Ticket Types</h2>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-bold text-gray-800">Ticket Types</h2>
             <button
               onClick={() => navigate(`/events/${event.id}/tickets`)}
-              className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center"
+              className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
             >
-              <Plus className="w-4 h-4 mr-1" />
-              Add Type
+              <Plus className="w-4 h-4" /> Add Type
             </button>
           </div>
 
-          <div className="space-y-4">
-            {ticketTypes.map((ticket) => (
-              <div key={ticket.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h3 className="font-semibold text-gray-800">{ticket.name}</h3>
-                    <p className="text-sm text-gray-600">{ticket.description}</p>
+          {ticketTypes.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <Ticket className="w-10 h-10 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No ticket types yet</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {ticketTypes.map(ticket => (
+                <div key={ticket.id} className="border border-gray-100 rounded-lg p-4 hover:border-blue-200 transition-colors">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-gray-800 text-sm">{ticket.name}</h3>
+                      {ticket.description && (
+                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{ticket.description}</p>
+                      )}
+                    </div>
+                    <span className="text-sm font-bold text-blue-600 flex-shrink-0 ml-3">
+                      KES {ticket.price.toLocaleString()}
+                    </span>
                   </div>
-                  <span className="text-lg font-bold text-blue-600">
-                    KES {ticket.price.toLocaleString()}
-                  </span>
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Sold: {ticket.quantity_sold} / {ticket.quantity_available}</span>
+                    <span className={ticket.is_active ? 'text-green-600 font-medium' : 'text-red-500'}>
+                      {ticket.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  {/* Capacity bar */}
+                  <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-400 rounded-full transition-all"
+                      style={{ width: `${Math.min(100, (ticket.quantity_sold / ticket.quantity_available) * 100)}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Sold: {ticket.quantity_sold} / {ticket.quantity_available}</span>
-                  <span className={ticket.is_active ? 'text-green-600' : 'text-red-600'}>
-                    {ticket.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Recent Bookings */}
         <div className="bg-white rounded-xl shadow-md p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-800">Recent Bookings</h2>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-bold text-gray-800">Recent Bookings</h2>
             <button
               onClick={() => navigate(`/events/${event.id}/bookings`)}
-              className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
             >
               View All
             </button>
           </div>
 
-          <div className="space-y-4">
-            {recentBookings.map((booking) => (
-              <div key={booking.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <p className="font-semibold text-gray-800">{booking.customer_name}</p>
-                    <p className="text-sm text-gray-600">{booking.customer_email}</p>
+          {recentBookings.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <Users className="w-10 h-10 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No bookings yet</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentBookings.map(booking => (
+                <div key={booking.id} className="border border-gray-100 rounded-lg p-4 hover:border-blue-200 transition-colors">
+                  <div className="flex justify-between items-start mb-1.5">
+                    <div>
+                      <p className="font-semibold text-gray-800 text-sm">Booking #{booking.id}</p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(booking.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </p>
+                    </div>
+                    <BookingStatusBadge status={booking.status} />
                   </div>
-                  {getBookingStatusBadge(booking.status)}
+                  <div className="flex justify-between text-xs mt-1">
+                    <span className="text-gray-500">{booking.quantity}× ticket</span>
+                    <span className="font-bold text-green-600">KES {booking.total_price.toLocaleString()}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">
-                    {booking.quantity}x {booking.ticket_type_name}
-                  </span>
-                  <span className="font-bold text-green-600">
-                    KES {booking.total_price.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Delete Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
             <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full mx-auto mb-4">
               <Trash2 className="w-6 h-6 text-red-600" />
             </div>
             <h3 className="text-xl font-bold text-gray-800 text-center mb-2">Delete Event?</h3>
-            <p className="text-gray-600 text-center mb-6">
-              Are you sure you want to delete "{event.title}"? This action cannot be undone.
+            <p className="text-gray-600 text-center text-sm mb-6">
+              Are you sure you want to delete <span className="font-semibold">"{event.title}"</span>? This cannot be undone.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteModal(false)}
-                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
-                onClick={handleDeleteEvent}
-                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
+                onClick={handleDelete}
+                disabled={actionLoading}
+                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                Delete
+                {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete'}
               </button>
             </div>
           </div>

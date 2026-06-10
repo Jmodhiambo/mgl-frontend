@@ -3,24 +3,38 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Calendar, MapPin, Clock, Search, Heart, Users, ExternalLink,
   TrendingUp, X, DollarSign, Ticket, Eye, BarChart3,
-  AlertTriangle, CheckCircle, Lock, RefreshCw,
+  AlertTriangle, CheckCircle, Lock, RefreshCw, UserCheck,
 } from 'lucide-react';
 import { MyEventsSEO } from '@shared/components/SEO';
 import { useAuth } from '@shared/contexts/AuthContext';
 import { useOrganizerProfile, FIELD_LABELS } from '@user/hooks/useOrganizerProfile';
 import {
   getFavorites,
+  getMyOrganizerEvents,
+  getCoOrganizingEvents,
   removeFavorite,
 } from '@user/services/eventService';
-import api from '@shared/api/axiosConfig';
+
 import type { EventOut, OrganizerEventOut, FavoriteWithEventOut } from '@shared/types/Event';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-// Co-organizer events — currently the backend exposes the event via the
-// CoOrganizer model. We model this the same as OrganizerEventOut for now;
-// the backend can extend this later.
-type CoOrganizerEvent = OrganizerEventOut;
+/**
+ * Mirrors the backend CoOrganizerWithEvent schema.
+ *
+ * A co-organizer is NOT a role — any user (user / organizer / admin) can be
+ * invited as a co-organizer for an event. The relationship record carries the
+ * invite metadata alongside the full event object.
+ *
+ * Backend: GET /users/me/events/co-organizing → list[CoOrganizerWithEvent]
+ */
+interface CoOrganizerWithEvent {
+  co_organizer_id:     number;   // CoOrganizer.id (the join-table row)
+  invited_by:          number;   // user_id of whoever sent the invite
+  create_co_organizer: boolean;  // may this co-organizer further invite others?
+  created_at:          string;   // ISO — when the co-organizer relationship was created
+  event:               OrganizerEventOut;
+}
 
 type AnyEvent = EventOut | OrganizerEventOut;
 
@@ -49,49 +63,44 @@ const MyEventsPage: React.FC = () => {
   const missingFields    = orgStatus?.missing_fields ?? [];
 
   // ── Data state ─────────────────────────────────────────────────────────────
-  const [favoriteEvents, setFavoriteEvents]           = useState<EventOut[]>([]);
-  const [organizingEvents, setOrganizingEvents]       = useState<OrganizerEventOut[]>([]);
-  const [coOrganizingEvents, setCoOrganizingEvents]   = useState<CoOrganizerEvent[]>([]);
-  const [loading, setLoading]                         = useState(true);
-  const [error, setError]                             = useState<string | null>(null);
+  const [favoriteEvents, setFavoriteEvents]         = useState<EventOut[]>([]);
+  const [organizingEvents, setOrganizingEvents]     = useState<OrganizerEventOut[]>([]);
+  const [coOrganizingEvents, setCoOrganizingEvents] = useState<CoOrganizerWithEvent[]>([]);
+  const [loading, setLoading]                       = useState(true);
+  const [error, setError]                           = useState<string | null>(null);
 
   // ── UI state ───────────────────────────────────────────────────────────────
   const [filterType, setFilterType]                   = useState<FilterTab>('all');
   const [searchTerm, setSearchTerm]                   = useState('');
   const [filteredEvents, setFilteredEvents]           = useState<AnyEvent[]>([]);
   const [showOrganizerPrompt, setShowOrganizerPrompt] = useState(false);
-  const [selectedEvent, setSelectedEvent]             = useState<OrganizerEventOut | null>(null);
-  const [selectedEventType, setSelectedEventType]     = useState<'organizer' | 'co-organizer' | null>(null);
+
+  // selectedEvent carries the OrganizerEventOut for the stats modal
+  const [selectedEvent, setSelectedEvent]         = useState<OrganizerEventOut | null>(null);
+  const [selectedEventType, setSelectedEventType] = useState<'organizer' | 'co-organizer' | null>(null);
+  // selectedCoOrg carries the full CoOrganizerWithEvent when the modal is for a co-organizer event
+  const [selectedCoOrg, setSelectedCoOrg]         = useState<CoOrganizerWithEvent | null>(null);
 
   // ── Load data ──────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // Fetch in parallel — favorites, organizer events, co-organizer events
-      const [favData, orgEvents, coOrgEvents] = await Promise.allSettled([
-        // favorites: list of Favorite records → we need the event objects
+      const [favData, orgEvents, coOrgData] = await Promise.allSettled([
+        // Favorites: returns FavoriteWithEventOut[] — each has an embedded event
         getFavorites(),
-        // organizer's own events with stats
-        user?.role === 'organizer'
-          ? api.get<OrganizerEventOut[]>('/organizers/me/events').then(r => r.data)
-          : Promise.resolve([] as OrganizerEventOut[]),
-        // co-organizer events — endpoint TBD, currently returns same shape
-        user?.role === 'organizer'
-          ? api.get<CoOrganizerEvent[]>('/organizers/me/co-events').then(r => r.data).catch(() => [] as CoOrganizerEvent[])
-          : Promise.resolve([] as CoOrganizerEvent[]),
+        getMyOrganizerEvents(user?.role),
+        getCoOrganizingEvents(),
       ]);
 
-      // GET /users/me/favorites returns FavoriteWithEventOut[] —
-      // each record has an embedded `event: EventOut` loaded via
-      // selectinload in the repo. Map directly to EventOut[].
+      // Map FavoriteWithEventOut[] → EventOut[]
       let favEvents: EventOut[] = [];
       if (favData.status === 'fulfilled') {
         favEvents = (favData.value as FavoriteWithEventOut[]).map(f => f.event);
       }
 
       const orgEventsData  = orgEvents.status  === 'fulfilled' ? orgEvents.value  : [];
-      const coOrgEventsData = coOrgEvents.status === 'fulfilled' ? coOrgEvents.value : [];
+      const coOrgEventsData = coOrgData.status === 'fulfilled' ? coOrgData.value  : [];
 
       setFavoriteEvents(favEvents);
       setOrganizingEvents(orgEventsData);
@@ -110,11 +119,14 @@ const MyEventsPage: React.FC = () => {
 
   // ── Filter + search ────────────────────────────────────────────────────────
   useEffect(() => {
+    // For co-organizer events, flatten to the embedded event for filtering
+    const coOrgFlat = coOrganizingEvents.map(c => c.event);
+
     let base: AnyEvent[] = [];
-    if (filterType === 'all')            base = [...favoriteEvents, ...organizingEvents, ...coOrganizingEvents];
+    if (filterType === 'all')            base = [...favoriteEvents, ...organizingEvents, ...coOrgFlat];
     else if (filterType === 'favorites')     base = favoriteEvents;
     else if (filterType === 'organizing')    base = organizingEvents;
-    else if (filterType === 'co-organizing') base = coOrganizingEvents;
+    else if (filterType === 'co-organizing') base = coOrgFlat;
 
     const q = searchTerm.toLowerCase();
     if (q) {
@@ -127,9 +139,10 @@ const MyEventsPage: React.FC = () => {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   const getEventTab = (id: number): FilterTab => {
-    if (favoriteEvents.some(e => e.id === id))    return 'favorites';
-    if (organizingEvents.some(e => e.id === id))  return 'organizing';
-    return 'co-organizing';
+    if (favoriteEvents.some(e => e.id === id))              return 'favorites';
+    if (organizingEvents.some(e => e.id === id))            return 'organizing';
+    if (coOrganizingEvents.some(c => c.event.id === id))    return 'co-organizing';
+    return 'favorites';
   };
 
   const getStatusColor = (status: string) => {
@@ -155,12 +168,28 @@ const MyEventsPage: React.FC = () => {
       window.location.href = `/browse-events/${event.slug}`;
       return;
     }
+    if (tab === 'co-organizing') {
+      // Co-organizer: any role — look up the full CoOrganizerWithEvent record
+      const coOrg = coOrganizingEvents.find(c => c.event.id === event.id) ?? null;
+      setSelectedCoOrg(coOrg);
+      setSelectedEvent(event as OrganizerEventOut);
+      setSelectedEventType('co-organizer');
+      return;
+    }
+    // organizing
     if (!user?.role || user.role !== 'organizer') {
       setShowOrganizerPrompt(true);
       return;
     }
+    setSelectedCoOrg(null);
     setSelectedEvent(event as OrganizerEventOut);
-    setSelectedEventType(tab === 'organizing' ? 'organizer' : 'co-organizer');
+    setSelectedEventType('organizer');
+  };
+
+  const closeModal = () => {
+    setSelectedEvent(null);
+    setSelectedEventType(null);
+    setSelectedCoOrg(null);
   };
 
   const counts = {
@@ -285,9 +314,13 @@ const MyEventsPage: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredEvents.map(event => {
-                const tab      = getEventTab(event.id);
+                const tab       = getEventTab(event.id);
                 const showStats = isOrganizerEvent(event) && tab !== 'favorites';
                 const isFav     = tab === 'favorites';
+                const isCoOrg   = tab === 'co-organizing';
+                const coOrg     = isCoOrg
+                  ? coOrganizingEvents.find(c => c.event.id === event.id)
+                  : undefined;
 
                 return (
                   <div
@@ -316,8 +349,10 @@ const MyEventsPage: React.FC = () => {
                           {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
                         </span>
                         <span className="px-3 py-1 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-200 flex items-center gap-1">
-                          {isFav ? <Heart className="w-3 h-3 fill-current text-red-500" /> : <Users className="w-3 h-3" />}
-                          {isFav ? 'Favourite' : tab === 'organizing' ? 'Organizer' : 'Co-Organizer'}
+                          {isFav    && <Heart className="w-3 h-3 fill-current text-red-500" />}
+                          {!isFav && !isCoOrg && <Users className="w-3 h-3" />}
+                          {isCoOrg  && <UserCheck className="w-3 h-3 text-blue-500" />}
+                          {isFav ? 'Favourite' : isCoOrg ? 'Co-Organizer' : 'Organizer'}
                         </span>
                       </div>
                     </div>
@@ -341,7 +376,7 @@ const MyEventsPage: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Stats bar for organizer events */}
+                      {/* Stats bar for organizer / co-organizer events */}
                       {showStats && isOrganizerEvent(event) && (
                         <div className="pt-4 border-t border-gray-200">
                           <div className="grid grid-cols-2 gap-4">
@@ -353,12 +388,7 @@ const MyEventsPage: React.FC = () => {
                               <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
                                 <div
                                   className="bg-gradient-to-r from-orange-500 to-orange-600 h-1.5 rounded-full"
-                                  style={{
-                                    width: `${Math.min(
-                                      100,
-                                      event.total_bookings > 0 ? 100 : 0,
-                                    )}%`,
-                                  }}
+                                  style={{ width: `${event.total_bookings > 0 ? 100 : 0}%` }}
                                 />
                               </div>
                             </div>
@@ -370,6 +400,20 @@ const MyEventsPage: React.FC = () => {
                               </div>
                             </div>
                           </div>
+                        </div>
+                      )}
+
+                      {/* Co-organizer invite metadata shown on the card */}
+                      {isCoOrg && coOrg && (
+                        <div className="pt-3 border-t border-gray-100 mt-3">
+                          <p className="text-xs text-gray-400">
+                            Invited to co-organise · {formatDate(coOrg.created_at)}
+                            {coOrg.create_co_organizer && (
+                              <span className="ml-2 px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px] font-medium">
+                                Can invite others
+                              </span>
+                            )}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -388,16 +432,16 @@ const MyEventsPage: React.FC = () => {
               <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-start justify-between">
                 <div className="flex-1">
                   <h3 className="text-2xl font-bold text-gray-800 mb-1">{selectedEvent.title}</h3>
-                  <p className="text-sm text-gray-500">
-                    {selectedEventType === 'organizer' ? 'Event Organizer' : 'Co-Organizer'}
+                  <p className="text-sm text-gray-500 flex items-center gap-1.5">
+                    {selectedEventType === 'organizer'
+                      ? <><Users className="w-3.5 h-3.5" /> Event Organizer</>
+                      : <><UserCheck className="w-3.5 h-3.5 text-blue-500" /> Co-Organizer</>
+                    }
                     {' · '}
                     {formatDate(selectedEvent.start_time)}
                   </p>
                 </div>
-                <button
-                  onClick={() => { setSelectedEvent(null); setSelectedEventType(null); }}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
+                <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 transition-colors">
                   <X className="w-6 h-6" />
                 </button>
               </div>
@@ -421,6 +465,23 @@ const MyEventsPage: React.FC = () => {
                     <span>{selectedEvent.venue}</span>
                   </div>
                 </div>
+
+                {/* Co-organizer relationship info */}
+                {selectedEventType === 'co-organizer' && selectedCoOrg && (
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl px-5 py-4 mb-6 text-sm">
+                    <p className="font-semibold text-blue-800 mb-1 flex items-center gap-1.5">
+                      <UserCheck className="w-4 h-4" /> Co-Organizer Access
+                    </p>
+                    <p className="text-blue-700">
+                      You were invited to co-organise this event on {formatDate(selectedCoOrg.created_at)}.
+                    </p>
+                    {selectedCoOrg.create_co_organizer && (
+                      <p className="text-blue-600 mt-1 text-xs">
+                        You have permission to invite additional co-organisers to this event.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Stats grid */}
                 <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 mb-6">

@@ -1,11 +1,27 @@
 // src/apps/admin/components/modals/events/CreateEventModal.tsx
 import { useState, useEffect } from 'react';
-import { Plus, Upload, User, X, Loader2 } from 'lucide-react';
+import { Plus, Upload, User, X, Loader2, AlertCircle } from 'lucide-react';
 import { listOrganizers, createEvent } from '@admin/services/adminService';
 import { toUTC } from '@shared/utils/toUTC';
 import type { AdminEvent, AdminUser, CreateEventForm } from '@admin/types';
 
 const CATEGORIES = ['Music', 'Tech', 'Sports', 'Food', 'Comedy', 'Culture', 'Party', 'Other'];
+
+// ─── Helper ───────────────────────────────────────────────────────────────────
+
+function parseApiError(err: any, fallback: string): string {
+  const raw = err?.response?.data?.detail;
+  if (Array.isArray(raw)) {
+    return raw
+      .map((e: any) => {
+        const field = Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : 'field';
+        return `${field}: ${e.msg}`;
+      })
+      .join('; ');
+  }
+  if (typeof raw === 'string') return raw;
+  return fallback;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -17,8 +33,9 @@ interface CreateEventModalProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onCreated }) => {
-  const [organizers, setOrganizers]         = useState<AdminUser[]>([]);
-  const [organizersLoading, setOrgLoading]  = useState(true);
+  const [organizers, setOrganizers]        = useState<AdminUser[]>([]);
+  const [organizersLoading, setOrgLoading] = useState(true);
+  const [apiError, setApiError]            = useState<string | null>(null);
 
   // Load real organizer list on mount
   useEffect(() => {
@@ -80,6 +97,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onCreated 
   const handleSubmit = async () => {
     if (!validate()) return;
     setLoading(true);
+    setApiError(null);
     try {
       // Convert datetime-local strings from browser local time → UTC ISO strings.
       // The backend stores in UTC; sending local time without conversion would
@@ -100,8 +118,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onCreated 
       // Backend returns AdminEventOut with flyer_url already set
       onCreated(newEvent);
     } catch (err: any) {
-      const detail = err?.response?.data?.detail ?? 'Failed to create event. Try again.';
-      setErrors({ title: detail });
+      setApiError(parseApiError(err, 'Failed to create event. Try again.'));
     } finally {
       setLoading(false);
     }
@@ -152,6 +169,14 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onCreated 
             in their dashboard and can edit details before it goes live.
           </p>
         </div>
+
+        {/* API error banner — rendered ABOVE the form fields so it's immediately visible */}
+        {apiError && (
+          <div className="mb-5 flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-red-700 leading-relaxed">{apiError}</p>
+          </div>
+        )}
 
         <div className="space-y-4">
 

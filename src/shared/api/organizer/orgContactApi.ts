@@ -1,6 +1,6 @@
 // src/shared/api/organizer/orgContactApi.ts
 //
-// Calls POST /organizer/contact — requires organizer auth (cookie-based, sent automatically).
+// Calls POST /organizers/me/contact — requires organizer auth (cookie-based, sent automatically).
 
 import api from '@shared/api/axiosConfig';
 
@@ -12,7 +12,7 @@ export interface OrganizerContactMessageCreate {
   category: string;
   message: string;
   event_title?: string;    // organizer-specific: human-readable title, no lookup needed by admin
-  recaptcha_token: string;
+  recaptcha_token?: string;
 }
 
 export interface ContactMessageOut {
@@ -38,6 +38,6 @@ export interface ContactMessageOut {
 export const submitOrganizerContactMessage = async (
   data: OrganizerContactMessageCreate
 ): Promise<ContactMessageOut> => {
-  const response = await api.post<ContactMessageOut>('/organizer/contact', data);
+  const response = await api.post<ContactMessageOut>('/organizers/me/contact', data);
   return response.data;
 };

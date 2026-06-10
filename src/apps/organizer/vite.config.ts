@@ -23,6 +23,8 @@ export default defineConfig(({ mode }) => {
       alias: {
         "@shared": path.resolve(__dirname, "../../shared"),
         "@organizer": path.resolve(__dirname, "./"),
+        "@user": path.resolve(__dirname, "../user"),
+        "@admin": path.resolve(__dirname, "../admin"),
       },
     },
     

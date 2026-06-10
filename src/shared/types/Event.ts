@@ -161,6 +161,25 @@ export interface AdminEventOut extends OrganizerEventOut {
 /** Maps ticket_type_id → quantity selected by the user. */
 export type SelectedTickets = Record<number, number>;
 
+// ─── Co-Organizer (MyEvents page on User app) ─────────────────────────────────────────────────────────────
+
+/**
+ * Mirrors the backend CoOrganizerWithEvent schema.
+ *
+ * A co-organizer is NOT a role — any user (user / organizer / admin) can be
+ * invited. The relationship record carries the invite metadata alongside the
+ * full event object.
+ *
+ * Backend: GET /users/me/events/co-organizing → list[CoOrganizerWithEvent]
+ */
+export interface CoOrganizerWithEvent {
+  co_organizer_id:     number;   // CoOrganizer.id — the join-table row
+  invited_by:          number;   // user_id of whoever sent the invite
+  create_co_organizer: boolean;  // may this co-organizer further invite others?
+  created_at:          string;   // ISO — when the relationship was created
+  event:               OrganizerEventOut;
+}
+
 
 // Old types
 
