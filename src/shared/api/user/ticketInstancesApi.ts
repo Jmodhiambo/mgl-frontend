@@ -1,18 +1,115 @@
-/**
- * User Ticket Instance API Module
- */
+// src/shared/services/ticketInstanceService.ts
+// ─────────────────────────────────────────────────────────────────────────────
+// Ticket instance API calls — user and admin scopes.
+// Organizer access to ticket instances is intentionally absent
+// (see ticket_instances_organizer.py — organizers use bookings instead).
+//
+// Ticket instances are auto-generated server-side after payment confirmation.
+// Users never create them directly — they only read and display them.
+// ─────────────────────────────────────────────────────────────────────────────
 
 import api from '@shared/api/axiosConfig';
-import type { TicketInstance } from '@shared/types/TicketInstance';
 
-// Get all Ticket Instances for a User
-export const getTicketInstances = async (): Promise<TicketInstance[]> => {
-  const response = await api.get<TicketInstance[]>(`/users/me/ticket-instances`);
-  return response.data;
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export interface TicketInstanceOut {
+  id: number;
+  booking_id: number;
+  ticket_type_id: number;
+  user_id: number;
+  code: string;              // unique QR/ticket code
+  status: string;            // issued | used | cancelled
+  price: number;
+  issued_to: string | null;
+  created_at: string;
+  updated_at: string;
+  used_at: string | null;
 }
 
-// Get a Ticket Instance by ID
-export const getTicketInstance = async (ti_id: number): Promise<TicketInstance> => {
-  const response = await api.get<TicketInstance>(`/users/me/ticket-instances/${ti_id}`);
-  return response.data;
+// Enriched shape for MyTickets.tsx — backend join adds event context
+export interface TicketInstanceEnriched extends TicketInstanceOut {
+  event_title: string;
+  event_date: string;
+  venue: string;
+  ticket_type_name: string;
 }
+
+export interface TicketInstanceUpdate {
+  status?: string;
+  issued_to?: string;
+  seat_number?: number;
+  used_at?: string;
+}
+
+// Admin create — code is generated server-side, not passed from frontend
+export interface TicketInstanceAdminCreate {
+  booking_id: number;
+  ticket_type_id: number;
+  user_id: number;
+  price: number;
+  status?: string;
+  issued_to?: string;
+  seat_number?: number;
+}
+
+// ── User ──────────────────────────────────────────────────────────────────────
+
+export const getUserTicketInstances = async (): Promise<TicketInstanceOut[]> => {
+  return (await api.get('/users/me/ticket-instances')).data;
+};
+
+export const getUserTicketInstanceById = async (
+  ticketInstanceId: number,
+): Promise<TicketInstanceOut> => {
+  return (
+    await api.get(`/users/me/ticket-instances/${ticketInstanceId}`)
+  ).data;
+};
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+
+export const admin_listTicketInstances =
+  async (): Promise<TicketInstanceOut[]> => {
+    return (await api.get('/admin/ticket-instances')).data;
+  };
+
+export const admin_getTicketInstanceById = async (
+  ticketInstanceId: number,
+): Promise<TicketInstanceOut> => {
+  return (
+    await api.get(`/admin/ticket-instances/${ticketInstanceId}`)
+  ).data;
+};
+
+export const admin_getTicketInstancesByUser = async (
+  userId: number,
+): Promise<TicketInstanceOut[]> => {
+  return (
+    await api.get(`/admin/ticket-instances/users/${userId}`)
+  ).data;
+};
+
+export const admin_getTicketInstancesByStatus = async (
+  status: string,
+): Promise<TicketInstanceOut[]> => {
+  return (
+    await api.get(`/admin/ticket-instances/status/${status}`)
+  ).data;
+};
+
+export const admin_updateTicketInstance = async (
+  ticketInstanceId: number,
+  data: TicketInstanceUpdate,
+): Promise<TicketInstanceOut> => {
+  return (
+    await api.put(`/admin/ticket-instances/${ticketInstanceId}`, data)
+  ).data;
+};
+
+export const admin_deleteTicketInstance = async (
+  ticketInstanceId: number,
+): Promise<{ detail: string }> => {
+  return (
+    await api.delete(`/admin/ticket-instances/${ticketInstanceId}`)
+  ).data;
+};

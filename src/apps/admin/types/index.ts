@@ -70,11 +70,18 @@ export interface AdminPayment {
   id: number;
   booking_id: number;
   amount: number;
-  status: 'pending' | 'completed' | 'failed' | 'refunded';
+  currency: string;
   method: string;
+  status: 'pending' | 'completed' | 'failed' | 'refunded';
+  // M-Pesa fields — all nullable; only populated after Daraja callback arrives
+  mpesa_phone: string | null;
+  mpesa_ref: string | null;         // MpesaReceiptNumber — present only on success
+  mpesa_checkout_request_id: string | null;
+  callback_payload: string | null;
   created_at: string;
   updated_at: string;
-  user_name?: string;
+  // Enriched field from backend joined query (booking → user)
+  user_name: string;                // display name for the admin payments table
 }
 
 export interface AdminTicketType {
@@ -83,11 +90,12 @@ export interface AdminTicketType {
   name: string;
   description?: string;
   price: number;
-  quantity: number;
+  total_quantity: number;      // the ceiling — set at creation, raised by organizer
+  quantity_available: number;  // computed server-side: total_quantity - quantity_sold
   quantity_sold: number;
-  sale_start?: string;
-  sale_end?: string;
   is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AdminTicketInstance {

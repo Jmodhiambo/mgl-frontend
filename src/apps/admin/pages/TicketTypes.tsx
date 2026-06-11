@@ -2,16 +2,20 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Tag, Download, X } from 'lucide-react';
 import {
-  FilterBar, SectionCard, Pagination, TableSkeleton, EmptyState,
+  FilterBar, SectionCard, Pagination, TableSkeleton, EmptyState, AlertBanner,
 } from '@admin/components/ui';
-import { dummyTicketTypes, dummyEvents, formatKES } from '@admin/utils/dummyData';
-import type { AdminTicketType } from '@admin/types';
+import { admin_getEventTicketTypes } from '@shared/api/user/ticketTypesApi';
+import { formatKES } from '@admin/utils/dummyData';
+import { listAllEvents } from '@admin/services/adminService';
+import type { AdminTicketType, AdminEvent } from '@admin/types';
 
 const PAGE_SIZE = 15;
 
 const TicketTypes: React.FC = () => {
   const [tickets, setTickets]     = useState<AdminTicketType[]>([]);
+  const [events, setEvents]       = useState<AdminEvent[]>([]);
   const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
   const [search, setSearch]       = useState('');
   const [eventFilter, setEvent]   = useState('all');
   const [activeFilter, setActive] = useState('all');
@@ -19,47 +23,64 @@ const TicketTypes: React.FC = () => {
   const [detail, setDetail]       = useState<AdminTicketType | null>(null);
 
   useEffect(() => {
-    setTimeout(() => { setTickets(dummyTicketTypes); setLoading(false); }, 400);
+    // Load events list first, then load ticket types for each event
+    listAllEvents()
+      .then(async evts => {
+        setEvents(evts);
+        // Load ticket types for all events in parallel
+        const allTickets = await Promise.all(
+          evts.map(e => admin_getEventTicketTypes(e.id).catch(() => []))
+        );
+        setTickets(allTickets.flat() as AdminTicketType[]);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError('Failed to load ticket types.');
+        setLoading(false);
+      });
   }, []);
 
-  const eventOptions = useMemo(() => {
-    const ids = [...new Set(tickets.map(t => t.event_id))];
-    return ids.map(id => ({ id, title: dummyEvents.find(e => e.id === id)?.title ?? `Event #${id}` }));
-  }, [tickets]);
+  const eventOptions = useMemo(() =>
+    events.map(e => ({ id: e.id, title: e.title })),
+    [events],
+  );
 
   const filtered = useMemo(() => {
     return tickets.filter(t => {
-      const eventTitle = dummyEvents.find(e => e.id === t.event_id)?.title ?? '';
+      const eventTitle = events.find(e => e.id === t.event_id)?.title ?? '';
       if (search && !`${t.name} ${eventTitle}`.toLowerCase().includes(search.toLowerCase())) return false;
       if (eventFilter !== 'all' && String(t.event_id) !== eventFilter) return false;
       if (activeFilter === 'active' && !t.is_active) return false;
       if (activeFilter === 'inactive' && t.is_active) return false;
       return true;
     });
-  }, [tickets, search, eventFilter, activeFilter]);
+  }, [tickets, events, search, eventFilter, activeFilter]);
 
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const totals = useMemo(() => ({
-    totalSold: tickets.reduce((s, t) => s + t.quantity_sold, 0),
+    totalSold:    tickets.reduce((s, t) => s + t.quantity_sold, 0),
     totalRevenue: tickets.reduce((s, t) => s + t.price * t.quantity_sold, 0),
-    avgFillRate: tickets.length
-      ? Math.round(tickets.reduce((s, t) => s + (t.quantity_sold / t.quantity) * 100, 0) / tickets.length)
+    avgFillRate:  tickets.length
+      ? Math.round(tickets.reduce((s, t) => s + (t.quantity_sold / t.total_quantity) * 100, 0) / tickets.length)
       : 0,
   }), [tickets]);
 
   const exportCSV = () => {
     const rows = [
-      ['ID','Event','Name','Price','Qty','Sold','Remaining','Active'],
+      ['ID', 'Event', 'Name', 'Price', 'Total Qty', 'Sold', 'Available', 'Active'],
       ...filtered.map(t => [
         t.id,
-        dummyEvents.find(e => e.id === t.event_id)?.title ?? t.event_id,
-        t.name, t.price, t.quantity, t.quantity_sold,
-        t.quantity - t.quantity_sold, t.is_active,
+        events.find(e => e.id === t.event_id)?.title ?? t.event_id,
+        t.name, t.price, t.total_quantity, t.quantity_sold,
+        t.quantity_available, t.is_active,
       ]),
     ];
     const csv = rows.map(r => r.join(',')).join('\n');
-    const a = document.createElement('a'); a.href='data:text/csv,'+encodeURIComponent(csv); a.download='ticket-types.csv'; a.click();
+    const a = document.createElement('a');
+    a.href = 'data:text/csv,' + encodeURIComponent(csv);
+    a.download = 'ticket-types.csv';
+    a.click();
   };
 
   return (
@@ -67,14 +88,15 @@ const TicketTypes: React.FC = () => {
       <div className="page-header">
         <div>
           <h1 className="page-title">Ticket Types</h1>
-          <p className="page-subtitle">{tickets.length} ticket types across {dummyEvents.length} events</p>
+          <p className="page-subtitle">{tickets.length} ticket types across {events.length} events</p>
         </div>
         <button onClick={exportCSV} className="btn-secondary btn-sm flex items-center gap-2">
           <Download className="w-4 h-4" /> <span className="hidden sm:inline">Export</span>
         </button>
       </div>
 
-      {/* Summary */}
+      {error && <AlertBanner type="error" message={error} onClose={() => setError(null)} />}
+
       <div className="grid grid-cols-3 gap-4 stagger">
         <div className="card-sm text-center overflow-hidden">
           <p className="text-xs text-gray-500 mb-1">Total Sold</p>
@@ -120,26 +142,18 @@ const TicketTypes: React.FC = () => {
           <EmptyState icon={Tag} title="No ticket types found" />
         ) : (
           <>
-            {/* ── Desktop table ── */}
             <div className="hidden md:block table-wrapper rounded-none border-0">
               <table className="admin-table">
                 <thead>
                   <tr>
-                    <th>#</th>
-                    <th>Name</th>
-                    <th>Event</th>
-                    <th>Price</th>
-                    <th>Capacity</th>
-                    <th>Sold</th>
-                    <th>Fill Rate</th>
-                    <th>Status</th>
-                    <th>Details</th>
+                    <th>#</th><th>Name</th><th>Event</th><th>Price</th>
+                    <th>Capacity</th><th>Sold</th><th>Fill Rate</th><th>Status</th><th>Details</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginated.map(t => {
-                    const event = dummyEvents.find(e => e.id === t.event_id);
-                    const fillRate = Math.round((t.quantity_sold / t.quantity) * 100);
+                    const event = events.find(e => e.id === t.event_id);
+                    const fillRate = Math.round((t.quantity_sold / t.total_quantity) * 100);
                     return (
                       <tr key={t.id}>
                         <td className="text-gray-400 text-xs">#{t.id}</td>
@@ -152,17 +166,16 @@ const TicketTypes: React.FC = () => {
                         <td className="text-sm text-gray-700 max-w-[180px]">
                           <p className="truncate">{event?.title ?? `Event #${t.event_id}`}</p>
                         </td>
-                        <td className="font-semibold text-emerald-700 whitespace-nowrap">
-                          {formatKES(t.price)}
-                        </td>
-                        <td className="text-sm text-gray-700">{t.quantity.toLocaleString()}</td>
+                        <td className="font-semibold text-emerald-700 whitespace-nowrap">{formatKES(t.price)}</td>
+                        <td className="text-sm text-gray-700">{t.total_quantity.toLocaleString()}</td>
                         <td className="text-sm font-semibold text-gray-900">{t.quantity_sold.toLocaleString()}</td>
                         <td>
                           <div className="flex items-center gap-2 min-w-[80px]">
                             <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                               <div
-                                className={`h-full rounded-full transition-all
-                                  ${fillRate >= 90 ? 'bg-red-500' : fillRate >= 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                className={`h-full rounded-full transition-all ${
+                                  fillRate >= 90 ? 'bg-red-500' : fillRate >= 70 ? 'bg-amber-500' : 'bg-emerald-500'
+                                }`}
                                 style={{ width: `${fillRate}%` }}
                               />
                             </div>
@@ -175,10 +188,8 @@ const TicketTypes: React.FC = () => {
                             : <span className="badge-gray">Inactive</span>}
                         </td>
                         <td>
-                          <button
-                            onClick={() => setDetail(t)}
-                            className="text-xs text-purple-600 hover:text-purple-700 font-medium"
-                          >
+                          <button onClick={() => setDetail(t)}
+                            className="text-xs text-purple-600 hover:text-purple-700 font-medium">
                             View →
                           </button>
                         </td>
@@ -189,11 +200,10 @@ const TicketTypes: React.FC = () => {
               </table>
             </div>
 
-            {/* ── Mobile card list ── */}
             <div className="md:hidden divide-y divide-gray-100">
               {paginated.map(t => {
-                const event = dummyEvents.find(e => e.id === t.event_id);
-                const fillRate = Math.round((t.quantity_sold / t.quantity) * 100);
+                const event = events.find(e => e.id === t.event_id);
+                const fillRate = Math.round((t.quantity_sold / t.total_quantity) * 100);
                 return (
                   <div key={t.id} className="p-4 space-y-2">
                     <div className="flex items-start justify-between gap-2">
@@ -204,22 +214,17 @@ const TicketTypes: React.FC = () => {
                         </p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        {t.is_active
-                          ? <span className="badge-success">Active</span>
-                          : <span className="badge-gray">Inactive</span>}
-                        <button
-                          onClick={() => setDetail(t)}
-                          className="text-xs text-purple-600 hover:text-purple-700 font-medium whitespace-nowrap"
-                        >
+                        {t.is_active ? <span className="badge-success">Active</span> : <span className="badge-gray">Inactive</span>}
+                        <button onClick={() => setDetail(t)}
+                          className="text-xs text-purple-600 hover:text-purple-700 font-medium whitespace-nowrap">
                           View →
                         </button>
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-4">
                       <span className="font-bold text-emerald-700 text-sm">{formatKES(t.price)}</span>
-                      <span className="text-xs text-gray-500">{t.quantity_sold} / {t.quantity} sold</span>
+                      <span className="text-xs text-gray-500">{t.quantity_sold} / {t.total_quantity} sold</span>
                     </div>
-                    {/* Fill rate bar */}
                     <div className="flex items-center gap-2">
                       <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                         <div
@@ -234,7 +239,13 @@ const TicketTypes: React.FC = () => {
               })}
             </div>
 
-            <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} total={filtered.length} limit={PAGE_SIZE} onPageChange={setPage} />
+            <Pagination
+              page={page}
+              totalPages={Math.ceil(filtered.length / PAGE_SIZE)}
+              total={filtered.length}
+              limit={PAGE_SIZE}
+              onPageChange={setPage}
+            />
           </>
         )}
       </SectionCard>
@@ -242,7 +253,7 @@ const TicketTypes: React.FC = () => {
       {detail && (
         <TicketDetailModal
           ticket={detail}
-          eventTitle={dummyEvents.find(e => e.id === detail.event_id)?.title}
+          eventTitle={events.find(e => e.id === detail.event_id)?.title}
           onClose={() => setDetail(null)}
         />
       )}
@@ -250,14 +261,13 @@ const TicketTypes: React.FC = () => {
   );
 };
 
-// ─── Ticket Detail Modal ──────────────────────────────────────────────────────
 const TicketDetailModal: React.FC<{
   ticket: AdminTicketType;
   eventTitle?: string;
   onClose: () => void;
 }> = ({ ticket, eventTitle, onClose }) => {
-  const fillRate = Math.round((ticket.quantity_sold / ticket.quantity) * 100);
-  const remaining = ticket.quantity - ticket.quantity_sold;
+  const fillRate  = Math.round((ticket.quantity_sold / ticket.total_quantity) * 100);
+  const remaining = ticket.quantity_available;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -281,16 +291,16 @@ const TicketDetailModal: React.FC<{
         </div>
 
         <div className="grid grid-cols-2 gap-4 mb-5">
-          {[
+          {([
             ['Ticket Type ID', `#${ticket.id}`],
             ['Event ID', `#${ticket.event_id}`],
-            ['Total Capacity', ticket.quantity.toLocaleString()],
+            ['Total Capacity', ticket.total_quantity.toLocaleString()],
             ['Tickets Sold', ticket.quantity_sold.toLocaleString()],
             ['Remaining', remaining.toLocaleString()],
             ['Fill Rate', `${fillRate}%`],
             ['Status', ticket.is_active ? 'Active' : 'Inactive'],
             ['Revenue', formatKES(ticket.price * ticket.quantity_sold)],
-          ].map(([label, value]) => (
+          ] as [string, string][]).map(([label, value]) => (
             <div key={label}>
               <p className="text-xs text-gray-500 mb-0.5">{label}</p>
               <p className="text-sm font-semibold text-gray-900">{value}</p>
@@ -304,13 +314,14 @@ const TicketDetailModal: React.FC<{
           </div>
           <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-700
-                ${fillRate >= 90 ? 'bg-red-500' : fillRate >= 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+              className={`h-full rounded-full transition-all duration-700 ${
+                fillRate >= 90 ? 'bg-red-500' : fillRate >= 70 ? 'bg-amber-500' : 'bg-emerald-500'
+              }`}
               style={{ width: `${fillRate}%` }}
             />
           </div>
           <p className="text-xs text-gray-400 mt-1">
-            {remaining} tickets remaining of {ticket.quantity} total
+            {remaining} tickets remaining of {ticket.total_quantity} total
           </p>
         </div>
 

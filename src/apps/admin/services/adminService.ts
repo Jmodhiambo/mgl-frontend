@@ -14,7 +14,7 @@ import type {
 } from '@admin/types';
 
 import {
-  dummyEvents, dummyBookings, dummyPayments,
+  dummyBookings, dummyPayments,
   dummyDashboardStats, dummyRevenueChart, dummyUserGrowthChart, dummyEventCategories,
 } from '@admin/utils/dummyData';
 
@@ -277,8 +277,7 @@ export const getTicketTypesByEvent = async (eventId: number): Promise<AdminTicke
 // ─── Bookings ─────────────────────────────────────────────────────────────────
 
 export const listAllBookings = async (): Promise<AdminBooking[]> => {
-  // return (await api.get('/admin/bookings')).data;
-  return Promise.resolve(dummyBookings);
+  return (await api.get('/admin/bookings')).data;
 };
 
 export const getBookingById = async (bookingId: number): Promise<AdminBooking> => {
@@ -306,8 +305,7 @@ export const getRecentBookings = async (limit = 10): Promise<AdminBooking[]> => 
 // ─── Payments ─────────────────────────────────────────────────────────────────
 
 export const listAllPayments = async (): Promise<AdminPayment[]> => {
-  // return (await api.get('/admin/payments')).data;
-  return Promise.resolve(dummyPayments);
+  return (await api.get('/admin/payments')).data;
 };
 
 export const countPayments = async (): Promise<number> => {

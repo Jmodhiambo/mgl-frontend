@@ -1,8 +1,15 @@
-import React, { useState, useEffect } from 'react';
+// src/apps/user/pages/Checkout.tsx
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, Clock, CreditCard, ShieldCheck, Ticket, Phone, CheckCircle, AlertCircle, ChevronLeft, X, FileText, RefreshCw } from 'lucide-react';
+import {
+  Calendar, MapPin, Clock, ShieldCheck, Ticket, Phone,
+  CheckCircle, AlertCircle, ChevronLeft, X, FileText, RefreshCw, Loader2,
+} from 'lucide-react';
 import { CheckoutSEO, BookingSEO } from '@shared/components/SEO';
 import { TermsContent, RefundContent } from '@shared/pages';
+import { useAuth } from '@shared/contexts/AuthContext';
+import { createBooking } from '@shared/api/user/bookingsApi';
+import { initiateMpesaPayment, pollPaymentStatus } from '@shared/api/user/paymentsApi';
 
 interface Event {
   id: number;
@@ -19,12 +26,6 @@ interface TicketItem {
   price: number;
 }
 
-interface UserInfo {
-  name: string;
-  email: string;
-  phone: string;
-}
-
 interface BookingData {
   eventId: number;
   tickets: TicketItem[];
@@ -37,167 +38,131 @@ interface FormErrors {
   general?: string;
 }
 
-type PaymentMethod = 'mpesa' | 'card';
+// Payment step shown in UI after STK push is sent
+type PaymentStep = 'form' | 'awaiting_pin' | 'complete' | 'failed';
 
 const CheckoutBookingPage: React.FC = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const [event, setEvent] = useState<Event | null>(null);
+  const location  = useLocation();
+  const navigate  = useNavigate();
+  const { user }  = useAuth();
+
+  const [event, setEvent]             = useState<Event | null>(null);
   const [bookingData, setBookingData] = useState<BookingData | null>(null);
-  const [userInfo, setUserInfo] = useState<UserInfo>({ name: '', email: '', phone: '' });
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('mpesa');
-  const [phoneNumber, setPhoneNumber] = useState<string>('');
-  const [agreedToTerms, setAgreedToTerms] = useState<boolean>(false);
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [bookingComplete, setBookingComplete] = useState<boolean>(false);
-  const [errors, setErrors] = useState<FormErrors>({});
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [agreedToTerms, setAgreed]    = useState(false);
+  const [errors, setErrors]           = useState<FormErrors>({});
+  const [paymentStep, setPaymentStep] = useState<PaymentStep>('form');
+  const [paymentId, setPaymentId]     = useState<number | null>(null);
   const [modalContent, setModalContent] = useState<'terms' | 'refund' | null>(null);
+  const [statusMessage, setStatusMessage] = useState('');
+
+  // Store poll cancel fn so we can clean up on unmount
+  const cancelPollRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => { cancelPollRef.current?.(); }, []);
 
   useEffect(() => {
     document.title = 'Checkout - MGLTickets';
-    
-    // Get booking data from navigation state
     const state = location.state as { bookingData?: BookingData; event?: Event };
-    
-    if (!state?.bookingData || !state?.event) {
-      navigate('/events');
-      return;
-    }
-
+    if (!state?.bookingData || !state?.event) { navigate('/events'); return; }
     setBookingData(state.bookingData);
     setEvent(state.event);
+    // Pre-fill phone from user profile if available
+    if (user?.phone_number) setPhoneNumber(user.phone_number);
+  }, [location, navigate, user]);
 
-    // TODO: Fetch user info from API
-    // const fetchUserInfo = async () => {
-    //   const response = await fetch('/api/users/me', {
-    //     headers: { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` }
-    //   });
-    //   const data = await response.json();
-    //   setUserInfo(data);
-    //   setPhoneNumber(data.phone);
-    // };
-    // fetchUserInfo();
+  const calculateSubtotal = () =>
+    bookingData?.tickets.reduce((s, t) => s + t.price * t.quantity, 0) ?? 0;
 
-    // Mock user data
-    const mockUser: UserInfo = {
-      name: "John Doe",
-      email: "john.doe@example.com",
-      phone: "+254712345678"
-    };
-    setUserInfo(mockUser);
-    setPhoneNumber(mockUser.phone);
-  }, [location, navigate]);
+  const calculateFees = () => Math.round(calculateSubtotal() * 0.03);
+  const calculateTotal = () => calculateSubtotal() + calculateFees();
 
-  const calculateSubtotal = (): number => {
-    if (!bookingData) return 0;
-    return bookingData.tickets.reduce((sum: number, ticket: TicketItem) => 
-      sum + (ticket.price * ticket.quantity), 0
-    );
-  };
-
-  const calculateFees = (): number => {
-    return Math.round(calculateSubtotal() * 0.03);
-  };
-
-  const calculateTotal = (): number => {
-    return calculateSubtotal() + calculateFees();
-  };
-
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long',
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric' 
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
     });
-  };
 
-  const formatTime = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
-  };
+  const formatTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
-
-    if (!phoneNumber || phoneNumber.trim() === '') {
+    if (!phoneNumber.trim()) {
       newErrors.phoneNumber = 'Phone number is required';
     } else if (!/^(\+254|0)[17]\d{8}$/.test(phoneNumber.trim())) {
       newErrors.phoneNumber = 'Invalid Kenyan phone number format';
     }
-
-    if (!agreedToTerms) {
-      newErrors.terms = 'You must agree to the terms and conditions';
-    }
-
+    if (!agreedToTerms) newErrors.terms = 'You must agree to the terms and conditions';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleCheckout = async (): Promise<void> => {
-    if (!validateForm()) {
-      return;
-    }
-
-    setIsProcessing(true);
+  const handleCheckout = async () => {
+    if (!validateForm() || !bookingData || !event) return;
+    setPaymentStep('form');
+    setErrors({});
 
     try {
-      // TODO: Replace with actual API calls
-      // 1. Create booking
-      // const bookingResponse = await fetch('/api/users/me/bookings', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-      //   },
-      //   body: JSON.stringify({
-      //     user_id: userId,
-      //     ticket_type_id: bookingData.tickets[0].ticket_type_id,
-      //     quantity: bookingData.tickets.reduce((sum, t) => sum + t.quantity, 0),
-      //     total_price: calculateTotal()
-      //   })
-      // });
-      // const booking = await bookingResponse.json();
-      
-      // 2. Create payment
-      // const paymentResponse = await fetch('/api/users/me/payments', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-      //   },
-      //   body: JSON.stringify({
-      //     booking_id: booking.id,
-      //     amount: calculateTotal(),
-      //     currency: 'KES',
-      //     method: paymentMethod,
-      //     mpesa_ref: 'generated-ref'
-      //   })
-      // });
+      // 1. Create booking — one booking per ticket type
+      //    Backend derives user_id from token and event_id from ticket_type
+      //    For simplicity when multiple ticket types exist, we create one booking
+      //    per ticket type. A future improvement could batch them.
+      const totalQuantity = bookingData.tickets.reduce((s, t) => s + t.quantity, 0);
+      const primaryTicket = bookingData.tickets[0];
 
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setBookingComplete(true);
-    } catch (error) {
-      console.error('Checkout error:', error);
-      setErrors({ general: 'Failed to process payment. Please try again.' });
-    } finally {
-      setIsProcessing(false);
+      const booking = await createBooking({
+        ticket_type_id: primaryTicket.ticket_type_id,
+        quantity: totalQuantity,
+        total_price: calculateTotal(),
+      });
+
+      // 2. Initiate M-Pesa STK push
+      const stkResponse = await initiateMpesaPayment({
+        booking_id: booking.id,
+        phone_number: phoneNumber.trim(),
+      });
+
+      setPaymentId(stkResponse.payment_id);
+      setPaymentStep('awaiting_pin');
+      setStatusMessage(stkResponse.message);
+
+      // 3. Start polling for payment result
+      const cancelPoll = pollPaymentStatus(stkResponse.payment_id, {
+        onPending: () =>
+          setStatusMessage('Waiting for M-PESA confirmation...'),
+        onComplete: () => {
+          setPaymentStep('complete');
+        },
+        onFailed: () => {
+          setPaymentStep('failed');
+          setErrors({ general: 'Payment failed or was cancelled. Please try again.' });
+        },
+        onTimeout: () => {
+          setPaymentStep('failed');
+          setErrors({ general: 'Payment confirmation timed out. Check your M-PESA messages and contact support if charged.' });
+        },
+        intervalMs: 3000,
+        maxAttempts: 10,
+      });
+
+      cancelPollRef.current = cancelPoll;
+
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to process payment. Please try again.';
+      setErrors({ general: msg });
+      setPaymentStep('form');
     }
   };
 
   if (!bookingData || !event) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent" />
       </div>
     );
   }
 
-  if (bookingComplete) {
+  // ── Booking complete screen ────────────────────────────────────────────────
+  if (paymentStep === 'complete') {
     return (
       <>
         <BookingSEO />
@@ -207,9 +172,7 @@ const CheckoutBookingPage: React.FC = () => {
               <CheckCircle className="w-12 h-12 text-green-600" />
             </div>
             <h2 className="text-3xl font-bold text-gray-800 mb-3">Booking Confirmed!</h2>
-            <p className="text-gray-600 mb-6">
-              Your tickets have been sent to {userInfo.email}
-            </p>
+            <p className="text-gray-600 mb-6">Your tickets have been sent to {user?.email}</p>
             <div className="bg-orange-50 rounded-xl p-6 mb-6 text-left">
               <h3 className="font-semibold text-gray-800 mb-3">Booking Details</h3>
               <div className="space-y-2 text-sm">
@@ -220,7 +183,7 @@ const CheckoutBookingPage: React.FC = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Total Tickets:</span>
                   <span className="font-medium text-gray-800">
-                    {bookingData.tickets.reduce((sum: number, t: TicketItem) => sum + t.quantity, 0)}
+                    {bookingData.tickets.reduce((s, t) => s + t.quantity, 0)}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -230,13 +193,13 @@ const CheckoutBookingPage: React.FC = () => {
               </div>
             </div>
             <div className="space-y-3">
-              <button 
+              <button
                 onClick={() => navigate('/my-tickets')}
                 className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all"
               >
                 View My Tickets
               </button>
-              <button 
+              <button
                 onClick={() => navigate('/browse-events')}
                 className="w-full border-2 border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-all"
               >
@@ -249,19 +212,47 @@ const CheckoutBookingPage: React.FC = () => {
     );
   }
 
+  // ── Awaiting PIN screen ────────────────────────────────────────────────────
+  if (paymentStep === 'awaiting_pin') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Phone className="w-8 h-8 text-orange-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-3">Check Your Phone</h2>
+          <p className="text-gray-600 mb-2">{statusMessage}</p>
+          <p className="text-sm text-gray-500 mb-8">
+            Enter your M-PESA PIN to complete the payment of{' '}
+            <span className="font-bold text-orange-600">KES {calculateTotal().toLocaleString()}</span>
+          </p>
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <Loader2 className="w-5 h-5 text-orange-500 animate-spin" />
+            <span className="text-sm text-gray-600">Waiting for confirmation...</span>
+          </div>
+          <button
+            onClick={() => { cancelPollRef.current?.(); setPaymentStep('form'); }}
+            className="text-sm text-gray-500 hover:text-gray-700 underline"
+          >
+            Cancel and try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Main checkout form ─────────────────────────────────────────────────────
   return (
     <>
       <CheckoutSEO />
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
-        {/* Header */}
         <header className="bg-white shadow-sm border-b border-orange-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <button 
+            <button
               onClick={() => navigate(`/events/${event.id}`)}
               className="flex items-center text-gray-600 hover:text-orange-600 transition-colors"
             >
-              <ChevronLeft className="w-5 h-5 mr-1" />
-              Back to Event Details
+              <ChevronLeft className="w-5 h-5 mr-1" /> Back to Event Details
             </button>
           </div>
         </header>
@@ -273,9 +264,8 @@ const CheckoutBookingPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Column - Forms */}
+            {/* Left — Contact + Payment method */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Contact Information */}
               <div className="bg-white rounded-xl shadow-md p-6">
                 <h3 className="text-xl font-bold text-gray-800 mb-4">Contact Information</h3>
                 <div className="space-y-4">
@@ -283,7 +273,7 @@ const CheckoutBookingPage: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
                     <input
                       type="text"
-                      value={userInfo.name}
+                      value={user?.name ?? ''}
                       disabled
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
                     />
@@ -292,20 +282,17 @@ const CheckoutBookingPage: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
                     <input
                       type="email"
-                      value={userInfo.email}
+                      value={user?.email ?? ''}
                       disabled
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">M-PESA Phone Number</label>
                     <input
                       type="tel"
                       value={phoneNumber}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                        setPhoneNumber(e.target.value);
-                        setErrors({ ...errors, phoneNumber: undefined });
-                      }}
+                      onChange={e => { setPhoneNumber(e.target.value); setErrors(p => ({ ...p, phoneNumber: undefined })); }}
                       placeholder="+254712345678"
                       className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 ${
                         errors.phoneNumber ? 'border-red-500' : 'border-gray-300'
@@ -313,89 +300,42 @@ const CheckoutBookingPage: React.FC = () => {
                     />
                     {errors.phoneNumber && (
                       <p className="mt-2 text-sm text-red-600 flex items-center">
-                        <AlertCircle className="w-4 h-4 mr-1" />
-                        {errors.phoneNumber}
+                        <AlertCircle className="w-4 h-4 mr-1" /> {errors.phoneNumber}
                       </p>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* Payment Method */}
+              {/* M-Pesa info */}
               <div className="bg-white rounded-xl shadow-md p-6">
                 <h3 className="text-xl font-bold text-gray-800 mb-4">Payment Method</h3>
-                <div className="space-y-3">
-                  <div
-                    onClick={() => setPaymentMethod('mpesa')}
-                    className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${
-                      paymentMethod === 'mpesa'
-                        ? 'border-orange-500 bg-orange-50'
-                        : 'border-gray-200 hover:border-orange-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mr-3">
-                          <Phone className="w-6 h-6 text-green-600" />
-                        </div>
-                        <div>
-                          <div className="font-semibold text-gray-800">M-PESA</div>
-                          <div className="text-sm text-gray-600">Pay via M-PESA STK Push</div>
-                        </div>
-                      </div>
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        paymentMethod === 'mpesa'
-                          ? 'border-orange-500 bg-orange-500'
-                          : 'border-gray-300'
-                      }`}>
-                        {paymentMethod === 'mpesa' && (
-                          <div className="w-2 h-2 bg-white rounded-full"></div>
-                        )}
-                      </div>
+                <div className="border-2 border-orange-500 bg-orange-50 rounded-xl p-4">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                      <Phone className="w-6 h-6 text-green-600" />
                     </div>
-                  </div>
-
-                  <div
-                    onClick={() => setPaymentMethod('card')}
-                    className={`border-2 rounded-xl p-4 cursor-pointer transition-all opacity-50 ${
-                      paymentMethod === 'card'
-                        ? 'border-orange-500 bg-orange-50'
-                        : 'border-gray-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                          <CreditCard className="w-6 h-6 text-blue-600" />
-                        </div>
-                        <div>
-                          <div className="font-semibold text-gray-800">Credit/Debit Card</div>
-                          <div className="text-sm text-gray-600">Coming soon</div>
-                        </div>
-                      </div>
+                    <div>
+                      <div className="font-semibold text-gray-800">M-PESA</div>
+                      <div className="text-sm text-gray-600">Pay via M-PESA STK Push</div>
                     </div>
                   </div>
                 </div>
-
-                {paymentMethod === 'mpesa' && (
-                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                    <div className="flex items-start">
-                      <ShieldCheck className="w-5 h-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm text-blue-800">
-                        <p className="font-medium mb-1">How M-PESA payment works:</p>
-                        <ol className="list-decimal list-inside space-y-1 text-blue-700">
-                          <li>Enter your M-PESA phone number</li>
-                          <li>You'll receive an STK push on your phone</li>
-                          <li>Enter your M-PESA PIN to complete payment</li>
-                          <li>Tickets will be sent to your email instantly</li>
-                        </ol>
-                      </div>
+                <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                  <div className="flex items-start">
+                    <ShieldCheck className="w-5 h-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-blue-800">
+                      <p className="font-medium mb-1">How M-PESA payment works:</p>
+                      <ol className="list-decimal list-inside space-y-1 text-blue-700">
+                        <li>Enter your M-PESA phone number above</li>
+                        <li>Click "Complete Payment" — you'll receive an STK push</li>
+                        <li>Enter your M-PESA PIN on your phone</li>
+                        <li>Tickets will be sent to your email instantly</li>
+                      </ol>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
-
-              {/* Terms and Conditions - REMOVED from here, now below button in order summary */}
 
               {errors.general && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start">
@@ -405,46 +345,29 @@ const CheckoutBookingPage: React.FC = () => {
               )}
             </div>
 
-            {/* Right Column - Order Summary */}
+            {/* Right — Order summary */}
             <div className="lg:col-span-1">
               <div className="bg-white rounded-xl shadow-md p-6 sticky top-4">
                 <h3 className="text-xl font-bold text-gray-800 mb-4">Order Summary</h3>
 
-                {/* Event Info */}
                 <div className="mb-6">
-                  <img
-                    src={event.flyer_url}
-                    alt={event.title}
-                    className="w-full h-32 object-cover rounded-lg mb-3"
-                  />
+                  <img src={event.flyer_url} alt={event.title} className="w-full h-32 object-cover rounded-lg mb-3" />
                   <h4 className="font-semibold text-gray-800 mb-2">{event.title}</h4>
                   <div className="space-y-1 text-sm text-gray-600">
-                    <div className="flex items-center">
-                      <Calendar className="w-4 h-4 mr-2" />
-                      {formatDate(event.start_time)}
-                    </div>
-                    <div className="flex items-center">
-                      <Clock className="w-4 h-4 mr-2" />
-                      {formatTime(event.start_time)}
-                    </div>
-                    <div className="flex items-center">
-                      <MapPin className="w-4 h-4 mr-2" />
-                      {event.venue}
-                    </div>
+                    <div className="flex items-center"><Calendar className="w-4 h-4 mr-2" />{formatDate(event.start_time)}</div>
+                    <div className="flex items-center"><Clock className="w-4 h-4 mr-2" />{formatTime(event.start_time)}</div>
+                    <div className="flex items-center"><MapPin className="w-4 h-4 mr-2" />{event.venue}</div>
                   </div>
                 </div>
 
-                {/* Tickets */}
                 <div className="border-t border-gray-200 pt-4 mb-4">
                   <h4 className="font-semibold text-gray-800 mb-3">Tickets</h4>
                   <div className="space-y-3">
-                    {bookingData.tickets.map((ticket: TicketItem, index: number) => (
-                      <div key={index} className="flex justify-between text-sm">
+                    {bookingData.tickets.map((ticket, i) => (
+                      <div key={i} className="flex justify-between text-sm">
                         <div>
                           <div className="font-medium text-gray-800">{ticket.name}</div>
-                          <div className="text-gray-600">
-                            {ticket.quantity} × KES {ticket.price.toLocaleString()}
-                          </div>
+                          <div className="text-gray-600">{ticket.quantity} × KES {ticket.price.toLocaleString()}</div>
                         </div>
                         <div className="font-semibold text-gray-800">
                           KES {(ticket.quantity * ticket.price).toLocaleString()}
@@ -454,15 +377,12 @@ const CheckoutBookingPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Pricing */}
                 <div className="border-t border-gray-200 pt-4 space-y-2 text-sm mb-4">
                   <div className="flex justify-between text-gray-600">
-                    <span>Subtotal</span>
-                    <span>KES {calculateSubtotal().toLocaleString()}</span>
+                    <span>Subtotal</span><span>KES {calculateSubtotal().toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-gray-600">
-                    <span>Processing Fee</span>
-                    <span>KES {calculateFees().toLocaleString()}</span>
+                    <span>Processing Fee (3%)</span><span>KES {calculateFees().toLocaleString()}</span>
                   </div>
                   <div className="border-t border-gray-200 pt-2 flex justify-between font-bold text-gray-800 text-lg">
                     <span>Total</span>
@@ -470,72 +390,46 @@ const CheckoutBookingPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Checkout Button */}
                 <button
                   onClick={handleCheckout}
-                  disabled={isProcessing}
-                  className={`w-full py-4 rounded-xl font-semibold transition-all flex items-center justify-center ${
-                    isProcessing
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg'
-                  }`}
+                  disabled={paymentStep !== 'form'}
+                  className="w-full py-4 rounded-xl font-semibold transition-all flex items-center justify-center bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isProcessing ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck className="w-5 h-5 mr-2" />
-                      Complete Payment
-                    </>
-                  )}
+                  <ShieldCheck className="w-5 h-5 mr-2" /> Complete Payment
                 </button>
 
-                {/* Terms Checkbox - right below the button for easy visibility */}
+                {/* Terms checkbox */}
                 <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
                   <div className="flex items-start gap-3">
                     <input
                       type="checkbox"
                       id="terms"
                       checked={agreedToTerms}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                        setAgreedToTerms(e.target.checked);
-                        setErrors({ ...errors, terms: undefined });
-                      }}
+                      onChange={e => { setAgreed(e.target.checked); setErrors(p => ({ ...p, terms: undefined })); }}
                       className="mt-0.5 w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500 cursor-pointer flex-shrink-0"
                     />
                     <label htmlFor="terms" className="text-xs text-gray-600 leading-relaxed cursor-pointer">
                       I agree to the{' '}
-                      <button
-                        type="button"
-                        onClick={() => setModalContent('terms')}
-                        className="text-orange-600 hover:text-orange-700 font-medium underline underline-offset-2"
-                      >
+                      <button type="button" onClick={() => setModalContent('terms')}
+                        className="text-orange-600 hover:text-orange-700 font-medium underline underline-offset-2">
                         Terms &amp; Conditions
                       </button>
                       {' '}and{' '}
-                      <button
-                        type="button"
-                        onClick={() => setModalContent('refund')}
-                        className="text-orange-600 hover:text-orange-700 font-medium underline underline-offset-2"
-                      >
+                      <button type="button" onClick={() => setModalContent('refund')}
+                        className="text-orange-600 hover:text-orange-700 font-medium underline underline-offset-2">
                         Refund Policy
                       </button>
                     </label>
                   </div>
                   {errors.terms && (
                     <p className="mt-2 text-xs text-red-600 flex items-center gap-1 pl-7">
-                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                      {errors.terms}
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {errors.terms}
                     </p>
                   )}
                 </div>
 
                 <div className="mt-3 flex items-center justify-center text-xs text-gray-500">
-                  <ShieldCheck className="w-4 h-4 mr-1" />
-                  Secure payment powered by MGLTickets
+                  <ShieldCheck className="w-4 h-4 mr-1" /> Secure payment powered by MGLTickets
                 </div>
               </div>
             </div>
@@ -545,65 +439,35 @@ const CheckoutBookingPage: React.FC = () => {
 
       {/* Legal Modal */}
       {modalContent && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          onClick={() => setModalContent(null)}
-        >
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setModalContent(null)}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-
-          {/* Modal Panel */}
-          <div
-            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                  {modalContent === 'terms'
-                    ? <FileText className="w-4 h-4 text-orange-600" />
-                    : <RefreshCw className="w-4 h-4 text-orange-600" />
-                  }
+                  {modalContent === 'terms' ? <FileText className="w-4 h-4 text-orange-600" /> : <RefreshCw className="w-4 h-4 text-orange-600" />}
                 </div>
                 <h2 className="text-lg font-bold text-gray-900">
                   {modalContent === 'terms' ? 'Terms & Conditions' : 'Refund Policy'}
                 </h2>
               </div>
-              <button
-                onClick={() => setModalContent(null)}
-                className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                aria-label="Close"
-              >
+              <button onClick={() => setModalContent(null)} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
                 <X className="w-5 h-5" />
               </button>
             </div>
-
-            {/* Scrollable Content */}
             <div className="overflow-y-auto flex-1">
               {modalContent === 'terms' ? <TermsContent /> : <RefundContent />}
             </div>
-
-            {/* Modal Footer */}
             <div className="px-6 py-4 border-t border-gray-100 flex-shrink-0 flex items-center justify-between gap-3">
-              <p className="text-xs text-gray-500">
-                Read the full policy before agreeing
-              </p>
+              <p className="text-xs text-gray-500">Read the full policy before agreeing</p>
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setModalContent(null)}
-                  className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
+                <button onClick={() => setModalContent(null)}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
                   Close
                 </button>
                 <button
-                  onClick={() => {
-                    setAgreedToTerms(true);
-                    setErrors({ ...errors, terms: undefined });
-                    setModalContent(null);
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all"
-                >
+                  onClick={() => { setAgreed(true); setErrors(p => ({ ...p, terms: undefined })); setModalContent(null); }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg hover:from-orange-600 hover:to-orange-700">
                   I Agree
                 </button>
               </div>

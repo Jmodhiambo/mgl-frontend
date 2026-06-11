@@ -5,7 +5,7 @@ import {
   FilterBar, StatusBadge, ConfirmDialog, SectionCard,
   Pagination, TableSkeleton, EmptyState, AlertBanner,
 } from '@admin/components/ui';
-import { listAllBookings, deleteBooking } from '@admin/services/adminService';
+import { admin_listAllBookings, admin_deleteBooking } from '@shared/api/user/bookingsApi';
 import { formatDateTime, formatKES } from '@admin/utils/dummyData';
 import type { AdminBooking } from '@admin/types';
 
@@ -15,21 +15,24 @@ const PAGE_SIZE = 10;
 const Bookings: React.FC = () => {
   const [bookings, setBookings]   = useState<AdminBooking[]>([]);
   const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
   const [search, setSearch]       = useState('');
   const [statusFilter, setStatus] = useState('all');
   const [page, setPage]           = useState(1);
   const [confirm, setConfirm]     = useState<{ booking: AdminBooking } | null>(null);
   const [actionLoading, setAL]    = useState(false);
-  const [alert, setAlert]         = useState<{ type: 'success'|'error'; msg: string } | null>(null);
+  const [alert, setAlert]         = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [detail, setDetail]       = useState<AdminBooking | null>(null);
 
   useEffect(() => {
-    listAllBookings().then(data => { setBookings(data); setLoading(false); });
+    admin_listAllBookings()
+      .then(data => { setBookings(data as AdminBooking[]); setLoading(false); })
+      .catch(() => { setError('Failed to load bookings.'); setLoading(false); });
   }, []);
 
   const filtered = useMemo(() => {
     return bookings.filter(b => {
-      const str = `${b.customer_name} ${b.customer_email} ${b.event_title}`.toLowerCase();
+      const str = `${b.customer_name ?? ''} ${b.customer_email ?? ''} ${b.event_title ?? ''}`.toLowerCase();
       if (search && !str.includes(search.toLowerCase())) return false;
       if (statusFilter !== 'all' && b.status !== statusFilter) return false;
       return true;
@@ -50,7 +53,7 @@ const Bookings: React.FC = () => {
     if (!confirm) return;
     setAL(true);
     try {
-      await deleteBooking(confirm.booking.id);
+      await admin_deleteBooking(confirm.booking.id);
       setBookings(p => p.filter(b => b.id !== confirm.booking.id));
       setAlert({ type: 'success', msg: 'Booking deleted successfully.' });
     } catch {
@@ -62,17 +65,28 @@ const Bookings: React.FC = () => {
   };
 
   const exportCSV = () => {
-    const rows = [['ID','Customer','Email','Event','Ticket','Qty','Total','Status','Date'],...filtered.map(b => [b.id,b.customer_name,b.customer_email,b.event_title,b.ticket_type_name,b.quantity,b.total_price,b.status,b.created_at])];
+    const rows = [
+      ['ID', 'Customer', 'Email', 'Event', 'Ticket', 'Qty', 'Total', 'Status', 'Date'],
+      ...filtered.map(b => [
+        b.id, b.customer_name ?? '', b.customer_email ?? '',
+        b.event_title ?? '', b.ticket_type_name ?? '',
+        b.quantity, b.total_price, b.status, b.created_at,
+      ]),
+    ];
     const csv = rows.map(r => r.join(',')).join('\n');
-    const a = document.createElement('a'); a.href = 'data:text/csv,' + encodeURIComponent(csv); a.download = 'bookings.csv'; a.click();
+    const a = document.createElement('a');
+    a.href = 'data:text/csv,' + encodeURIComponent(csv);
+    a.download = 'bookings.csv';
+    a.click();
   };
 
-  const statusColorMap: Record<string, string> = {
-    confirmed: 'bg-emerald-50 border-emerald-200',
-    pending:   'bg-amber-50 border-amber-200',
-    cancelled: 'bg-red-50 border-red-200',
-    refunded:  'bg-purple-50 border-purple-200',
-  };
+  if (error) {
+    return (
+      <div className="space-y-5">
+        <AlertBanner type="error" message={error} onClose={() => setError(null)} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -111,7 +125,11 @@ const Bookings: React.FC = () => {
         filters={
           <select value={statusFilter} onChange={e => { setStatus(e.target.value); setPage(1); }}
             className="select-field w-auto min-w-[130px]">
-            {STATUS_OPTS.map(s => <option key={s} value={s}>{s === 'all' ? 'All Status' : s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+            {STATUS_OPTS.map(s => (
+              <option key={s} value={s}>
+                {s === 'all' ? 'All Status' : s.charAt(0).toUpperCase() + s.slice(1)}
+              </option>
+            ))}
           </select>
         }
       />
@@ -128,15 +146,8 @@ const Bookings: React.FC = () => {
               <table className="admin-table">
                 <thead>
                   <tr>
-                    <th>#</th>
-                    <th>Customer</th>
-                    <th>Event</th>
-                    <th>Ticket Type</th>
-                    <th>Qty</th>
-                    <th>Total</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                    <th>Actions</th>
+                    <th>#</th><th>Customer</th><th>Event</th><th>Ticket Type</th>
+                    <th>Qty</th><th>Total</th><th>Status</th><th>Date</th><th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -164,7 +175,11 @@ const Bookings: React.FC = () => {
                           <button onClick={() => setDetail(b)} className="btn-icon btn-sm" title="View">
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button onClick={() => setConfirm({ booking: b })} className="btn-icon btn-sm text-red-400 hover:text-red-600 hover:bg-red-50" title="Delete">
+                          <button
+                            onClick={() => setConfirm({ booking: b })}
+                            className="btn-icon btn-sm text-red-400 hover:text-red-600 hover:bg-red-50"
+                            title="Delete"
+                          >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -188,7 +203,11 @@ const Bookings: React.FC = () => {
                       <button onClick={() => setDetail(b)} className="btn-icon btn-sm" title="View">
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button onClick={() => setConfirm({ booking: b })} className="btn-icon btn-sm text-red-400 hover:text-red-600 hover:bg-red-50" title="Delete">
+                      <button
+                        onClick={() => setConfirm({ booking: b })}
+                        className="btn-icon btn-sm text-red-400 hover:text-red-600 hover:bg-red-50"
+                        title="Delete"
+                      >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -199,14 +218,22 @@ const Bookings: React.FC = () => {
                       <StatusBadge status={b.status} />
                       <span className="text-xs text-gray-500">{b.ticket_type_name} · Qty {b.quantity}</span>
                     </div>
-                    <span className="font-bold text-emerald-700 text-sm whitespace-nowrap">{formatKES(b.total_price)}</span>
+                    <span className="font-bold text-emerald-700 text-sm whitespace-nowrap">
+                      {formatKES(b.total_price)}
+                    </span>
                   </div>
                   <p className="text-xs text-gray-400">{formatDateTime(b.created_at)}</p>
                 </div>
               ))}
             </div>
 
-            <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} total={filtered.length} limit={PAGE_SIZE} onPageChange={setPage} />
+            <Pagination
+              page={page}
+              totalPages={Math.ceil(filtered.length / PAGE_SIZE)}
+              total={filtered.length}
+              limit={PAGE_SIZE}
+              onPageChange={setPage}
+            />
           </>
         )}
       </SectionCard>
@@ -241,7 +268,7 @@ const BookingDetailModal: React.FC<{ booking: AdminBooking; onClose: () => void 
           <p className="text-2xl font-bold text-purple-800 mt-2">{formatKES(booking.total_price)}</p>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          {[
+          {([
             ['Customer', booking.customer_name],
             ['Email', booking.customer_email],
             ['Event', booking.event_title],
@@ -249,7 +276,7 @@ const BookingDetailModal: React.FC<{ booking: AdminBooking; onClose: () => void 
             ['Quantity', booking.quantity],
             ['Booked On', formatDateTime(booking.created_at)],
             ['Last Updated', formatDateTime(booking.updated_at)],
-          ].map(([label, value]) => (
+          ] as [string, string | number][]).map(([label, value]) => (
             <div key={label}>
               <p className="text-xs text-gray-500 mb-0.5">{label}</p>
               <p className="text-sm font-medium text-gray-900">{value}</p>
