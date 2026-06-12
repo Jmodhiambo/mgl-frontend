@@ -13,7 +13,7 @@ import {
   updateAdminNotificationPrefs,
   cleanupSessions,
 } from '@admin/services/adminService';
-import type { PlatformSettings, AdminNotificationPrefs } from '@admin/services/adminService';
+import type { PlatformSettings, AdminNotificationPrefs } from '@admin/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

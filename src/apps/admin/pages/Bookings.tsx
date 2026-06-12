@@ -6,7 +6,7 @@ import {
   Pagination, TableSkeleton, EmptyState, AlertBanner,
 } from '@admin/components/ui';
 import { admin_listAllBookings, admin_deleteBooking } from '@shared/api/user/bookingsApi';
-import { formatDateTime, formatKES } from '@admin/utils/dummyData';
+import { formatDateTime, formatKES } from '@admin/utils/format';
 import type { AdminBooking } from '@admin/types';
 
 const STATUS_OPTS = ['all', 'pending', 'confirmed', 'cancelled', 'refunded'];

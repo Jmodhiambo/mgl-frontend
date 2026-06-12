@@ -15,9 +15,9 @@ import {
   getUserGrowthChart, getEventCategories,
 } from '@admin/services/adminService';
 import {
-  dummyBookingStatuses, dummyEventCategories,
-  formatKES, dummyDashboardStats,
+  dummyBookingStatuses, dummyEventCategories, dummyDashboardStats,
 } from '@admin/utils/dummyData';
+import { formatKES } from '@admin/utils/format';
 import type { DashboardStats } from '@admin/types';
 
 const Analytics: React.FC = () => {

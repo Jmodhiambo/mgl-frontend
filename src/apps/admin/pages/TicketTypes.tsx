@@ -5,7 +5,7 @@ import {
   FilterBar, SectionCard, Pagination, TableSkeleton, EmptyState, AlertBanner,
 } from '@admin/components/ui';
 import { admin_getEventTicketTypes } from '@shared/api/user/ticketTypesApi';
-import { formatKES } from '@admin/utils/dummyData';
+import { formatKES } from '@admin/utils/format';
 import { listAllEvents } from '@admin/services/adminService';
 import type { AdminTicketType, AdminEvent } from '@admin/types';
 

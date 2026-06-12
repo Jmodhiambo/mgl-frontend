@@ -14,7 +14,7 @@ import {
   listAllUsers, deleteUser, activateUser, deactivateUser,
   resendVerificationEmail, updateUserRole
 } from '@admin/services/adminService';
-import { formatDateTime } from '@admin/utils/dummyData';
+import { formatDateTime } from '@admin/utils/format';
 import type { AdminUser } from '@admin/types';
 import UpdateEmailModal from '@admin/components/modals/users/UpdateEmailModal';
 

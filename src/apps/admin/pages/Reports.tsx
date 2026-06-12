@@ -11,8 +11,8 @@ import { FileText, Download, Calendar, Users, Ticket, CreditCard, BarChart3, Che
 import { SectionCard, AlertBanner } from '@admin/components/ui';
 import {
   dummyUsers, dummyEvents, dummyBookings, dummyPayments,
-  formatKES, formatDate,
 } from '@admin/utils/dummyData';
+import { formatDate } from '@admin/utils/format';
 
 type ReportType = 'users' | 'events' | 'bookings' | 'payments' | 'revenue';
 

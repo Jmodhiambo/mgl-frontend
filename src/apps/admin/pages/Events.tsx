@@ -14,7 +14,7 @@ import {
 import {
   listAllEvents, approveEvent, rejectEvent, deleteEvent,
 } from '@admin/services/adminService';
-import { formatDateTime, formatDate } from '@admin/utils/dummyData';
+import { formatDateTime, formatDate } from '@admin/utils/format';
 import type { AdminEvent } from '@admin/types';
 
 import CreateEventModal from '@admin/components/modals/events/CreateEventModal';

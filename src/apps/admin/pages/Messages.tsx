@@ -6,7 +6,7 @@ import {
   Pagination, TableSkeleton, EmptyState, AlertBanner,
 } from '@admin/components/ui';
 import { listContactMessages, updateContactMessageStatus, deleteContactMessage } from '@admin/services/adminService';
-import { formatDateTime } from '@admin/utils/dummyData';
+import { formatDateTime } from '@admin/utils/format';
 import type { ContactMessage } from '@admin/types';
 import { adminEvents } from '@admin/utils/adminEvents';
 

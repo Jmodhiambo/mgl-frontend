@@ -110,15 +110,15 @@ export const dummyPayments: AdminPayment[] = [
   { id: 8, booking_id: 8, amount: 10000, status: 'completed', method: 'Bank Transfer', created_at: '2025-03-25T10:03:00Z', updated_at: '2025-03-25T10:03:00Z', user_name: 'Grace Achieng'  },
 ];
 
-// ─── Contact Messages ─────────────────────────────────────────────────────────
-export const dummyMessages: ContactMessage[] = [
-  { id: 1, reference_id: 'MSG-001', name: 'Alice Kamau',   email: 'alice.k@example.com', phone: undefined, subject: 'Issue with my booking',             category: 'booking', message: 'I booked tickets but never received a confirmation email. Booking ID #145.',                    status: 'new',      created_at: '2025-04-01T10:00:00Z', updated_at: '2025-04-01T10:00:00Z' },
-  { id: 2, reference_id: 'MSG-002', name: 'Peter Njuguna', email: 'peter@example.com',   phone: undefined, subject: 'Refund request for cancelled event', category: 'refund',  message: 'The Afrobeats Night event was cancelled. I need a refund for my 3 tickets.',               status: 'responded', created_at: '2025-04-02T09:00:00Z', updated_at: '2025-04-03T14:00:00Z' },
-  { id: 3, reference_id: 'MSG-003', name: 'Mary Wanjiku',  email: 'mary@example.com',    phone: undefined, subject: 'How to become an organizer?',        category: 'general', message: 'I want to start hosting events. What is the process to become a verified organizer?',        status: 'closed',    created_at: '2025-04-03T11:00:00Z', updated_at: '2025-04-04T10:00:00Z' },
-  { id: 4, reference_id: 'MSG-004', name: 'John Mwenda',   email: 'john.m@example.com',  phone: undefined, subject: 'Payment failed but amount deducted', category: 'payment', message: 'My M-Pesa was deducted KES 1200 but booking shows as failed. Transaction ID: QH123456.',     status: 'new',      created_at: '2025-04-05T08:30:00Z', updated_at: '2025-04-05T08:30:00Z' },
-  { id: 5, reference_id: 'MSG-005', name: 'Spam Bot 9000', email: 'spam@bot.com',        phone: undefined, subject: 'Buy cheap tickets!!!',               category: 'general', message: 'CLICK HERE FOR FREE TICKETS www.scam.com',                                                       status: 'spam',      created_at: '2025-04-05T12:00:00Z', updated_at: '2025-04-05T12:05:00Z' },
-  { id: 6, reference_id: 'MSG-006', name: 'Diana Auma',    email: 'diana@example.com',   phone: undefined, subject: 'Event listing wrong date',           category: 'event',   message: 'The Nakuru Cultural Festival shows wrong start date. It says September 14 but should be 15.', status: 'new',      created_at: '2025-04-06T10:00:00Z', updated_at: '2025-04-06T10:00:00Z' },
-];
+// // ─── Contact Messages ─────────────────────────────────────────────────────────
+// export const dummyMessages: ContactMessage[] = [
+//   { id: 1, reference_id: 'MSG-001', name: 'Alice Kamau',   email: 'alice.k@example.com', phone: undefined, subject: 'Issue with my booking',             category: 'booking', message: 'I booked tickets but never received a confirmation email. Booking ID #145.',                    status: 'new',      created_at: '2025-04-01T10:00:00Z', updated_at: '2025-04-01T10:00:00Z' },
+//   { id: 2, reference_id: 'MSG-002', name: 'Peter Njuguna', email: 'peter@example.com',   phone: undefined, subject: 'Refund request for cancelled event', category: 'refund',  message: 'The Afrobeats Night event was cancelled. I need a refund for my 3 tickets.',               status: 'responded', created_at: '2025-04-02T09:00:00Z', updated_at: '2025-04-03T14:00:00Z' },
+//   { id: 3, reference_id: 'MSG-003', name: 'Mary Wanjiku',  email: 'mary@example.com',    phone: undefined, subject: 'How to become an organizer?',        category: 'general', message: 'I want to start hosting events. What is the process to become a verified organizer?',        status: 'closed',    created_at: '2025-04-03T11:00:00Z', updated_at: '2025-04-04T10:00:00Z' },
+//   { id: 4, reference_id: 'MSG-004', name: 'John Mwenda',   email: 'john.m@example.com',  phone: undefined, subject: 'Payment failed but amount deducted', category: 'payment', message: 'My M-Pesa was deducted KES 1200 but booking shows as failed. Transaction ID: QH123456.',     status: 'new',      created_at: '2025-04-05T08:30:00Z', updated_at: '2025-04-05T08:30:00Z' },
+//   { id: 5, reference_id: 'MSG-005', name: 'Spam Bot 9000', email: 'spam@bot.com',        phone: undefined, subject: 'Buy cheap tickets!!!',               category: 'general', message: 'CLICK HERE FOR FREE TICKETS www.scam.com',                                                       status: 'spam',      created_at: '2025-04-05T12:00:00Z', updated_at: '2025-04-05T12:05:00Z' },
+//   { id: 6, reference_id: 'MSG-006', name: 'Diana Auma',    email: 'diana@example.com',   phone: undefined, subject: 'Event listing wrong date',           category: 'event',   message: 'The Nakuru Cultural Festival shows wrong start date. It says September 14 but should be 15.', status: 'new',      created_at: '2025-04-06T10:00:00Z', updated_at: '2025-04-06T10:00:00Z' },
+// ];
 
 // ─── Audit Logs ───────────────────────────────────────────────────────────────
 export const dummyAuditLogs: AuditLog[] = [
@@ -132,16 +132,16 @@ export const dummyAuditLogs: AuditLog[] = [
   { id: 8, admin_id: 1, admin_name: 'Alice Mwangi', action: 'user_verified',       target_type: 'user',    target_id: 6,  details: {},                                       created_at: '2025-04-06T15:00:00Z' },
 ];
 
-// ─── Ticket Types ─────────────────────────────────────────────────────────────
-export const dummyTicketTypes: AdminTicketType[] = [
-  { id: 1, event_id: 1, name: 'General Admission', price: 1200, quantity: 500, quantity_sold: 350, is_active: true  },
-  { id: 2, event_id: 2, name: 'VIP',               price: 3000, quantity: 100, quantity_sold: 80,  is_active: true  },
-  { id: 3, event_id: 3, name: 'Early Bird',        price: 400,  quantity: 300, quantity_sold: 300, is_active: false },
-  { id: 4, event_id: 3, name: 'Regular',           price: 500,  quantity: 400, quantity_sold: 380, is_active: false },
-  { id: 5, event_id: 5, name: 'Standard',          price: 500,  quantity: 250, quantity_sold: 210, is_active: true  },
-  { id: 6, event_id: 6, name: '10KM',              price: 600,  quantity: 500, quantity_sold: 420, is_active: true  },
-  { id: 7, event_id: 6, name: 'Full Marathon',     price: 2000, quantity: 300, quantity_sold: 250, is_active: true  },
-];
+// // ─── Ticket Types ─────────────────────────────────────────────────────────────
+// export const dummyTicketTypes: AdminTicketType[] = [
+//   { id: 1, event_id: 1, name: 'General Admission', price: 1200, total_quantity: 500, quantity_sold: 350, is_active: true  },
+//   { id: 2, event_id: 2, name: 'VIP',               price: 3000, total_quantity: 100, quantity_sold: 80,  is_active: true  },
+//   { id: 3, event_id: 3, name: 'Early Bird',        price: 400,  total_quantity: 300, quantity_sold: 300, is_active: false },
+//   { id: 4, event_id: 3, name: 'Regular',           price: 500,  total_quantity: 400, quantity_sold: 380, is_active: false },
+//   { id: 5, event_id: 5, name: 'Standard',          price: 500,  total_quantity: 250, quantity_sold: 210, is_active: true  },
+//   { id: 6, event_id: 6, name: '10KM',              price: 600,  total_quantity: 500, quantity_sold: 420, is_active: true  },
+//   { id: 7, event_id: 6, name: 'Full Marathon',     price: 2000, total_quantity: 300, quantity_sold: 250, is_active: true  },
+// ];
 
 // ─── Activity Feed ────────────────────────────────────────────────────────────
 export const dummyActivityFeed = [

@@ -14,8 +14,7 @@ import type {
 } from '@admin/types';
 
 import {
-  dummyBookings, dummyPayments,
-  dummyDashboardStats, dummyRevenueChart, dummyUserGrowthChart, dummyEventCategories,
+  dummyBookings,dummyDashboardStats, dummyRevenueChart, dummyUserGrowthChart, dummyEventCategories,
 } from '@admin/utils/dummyData';
 
 // ─── Admin types ───────────────────────────────────────────────────────────
@@ -309,8 +308,7 @@ export const listAllPayments = async (): Promise<AdminPayment[]> => {
 };
 
 export const countPayments = async (): Promise<number> => {
-  // return (await api.get('/admin/payments/count')).data;
-  return Promise.resolve(dummyPayments.length);
+  return (await api.get('/admin/payments/count')).data;
 };
 
 // ─── Contact Messages ─────────────────────────────────────────────────────────

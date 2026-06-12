@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { ClipboardList, Download, RefreshCw, AlertCircle } from 'lucide-react';
 import { FilterBar, SectionCard, Pagination, TableSkeleton, EmptyState } from '@admin/components/ui';
-import { formatDateTime } from '@admin/utils/dummyData';
+import { formatDateTime } from '@admin/utils/format';
 import { listAuditLogs } from '@admin/services/adminService';
 import type { AuditLog } from '@admin/types';
 

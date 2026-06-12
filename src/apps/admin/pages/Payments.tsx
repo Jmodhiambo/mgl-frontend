@@ -6,7 +6,7 @@ import {
   Pagination, TableSkeleton, EmptyState, AlertBanner,
 } from '@admin/components/ui';
 import { admin_listAllPayments } from '@shared/api/user/paymentsApi';
-import { formatDateTime, formatKES } from '@admin/utils/dummyData';
+import { formatDateTime, formatKES } from '@admin/utils/format';
 import type { AdminPayment } from '@admin/types';
 
 const STATUS_OPTS = ['all', 'pending', 'completed', 'failed', 'refunded'];
