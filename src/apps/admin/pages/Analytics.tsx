@@ -1,49 +1,74 @@
 // src/apps/admin/pages/Analytics.tsx
-// ─── NOTE: New endpoints needed in backend ─────────────────────────────────
-// ⚠️  GET /admin/analytics/dashboard      → DashboardStats aggregate
-// ⚠️  GET /admin/analytics/revenue        → monthly revenue array
-// ⚠️  GET /admin/analytics/user-growth    → monthly user growth array
-// ⚠️  GET /admin/analytics/events-by-category → category distribution
-// ⚠️  GET /admin/analytics/booking-statuses   → booking status distribution
-// See services/adminService.tsx for full shape of each response.
 
 import { useEffect, useState } from 'react';
 import { BarChart3, TrendingUp, Users, Calendar, Ticket, DollarSign } from 'lucide-react';
 import { SectionCard, PageLoader, MiniBarChart, SparkLine } from '@admin/components/ui';
 import {
   getDashboardStats, getRevenueChart,
-  getUserGrowthChart, getEventCategories,
+  getUserGrowthChart, getEventCategories, getBookingStatuses,
 } from '@admin/services/adminService';
-import {
-  dummyBookingStatuses, dummyEventCategories, dummyDashboardStats,
-} from '@admin/utils/dummyData';
 import { formatKES } from '@admin/utils/format';
 import type { DashboardStats } from '@admin/types';
 
-const Analytics: React.FC = () => {
-  const [stats, setStats]         = useState<DashboardStats | null>(null);
-  const [revenueData, setRevenue] = useState<{ label: string; value: number }[]>([]);
-  const [growthData, setGrowth]   = useState<{ label: string; value: number }[]>([]);
-  const [catData, setCat]         = useState<{ label: string; value: number }[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [period, setPeriod]       = useState<'7d'|'30d'|'90d'|'12m'>('30d');
+type Period = '7d' | '30d' | '90d' | '12m';
 
+const PERIOD_MONTHS: Record<Period, number> = {
+  '7d':  1,   // show current month for 7-day view
+  '30d': 1,
+  '90d': 3,
+  '12m': 12,
+};
+
+// Revenue labels per period for the subtitle
+const PERIOD_LABEL: Record<Period, string> = {
+  '7d':  'Last 7 days',
+  '30d': 'Last 30 days',
+  '90d': 'Last 3 months',
+  '12m': 'Last 12 months',
+};
+
+const Analytics: React.FC = () => {
+  const [stats, setStats]             = useState<DashboardStats | null>(null);
+  const [revenueData, setRevenue]     = useState<{ label: string; value: number }[]>([]);
+  const [growthData, setGrowth]       = useState<{ label: string; value: number }[]>([]);
+  const [catData, setCat]             = useState<{ label: string; value: number }[]>([]);
+  const [bookingStatuses, setBookingStatuses] = useState<{ label: string; value: number }[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [chartsLoading, setChartsLoading] = useState(false);
+  const [period, setPeriod]           = useState<Period>('30d');
+
+  // Initial load — fetch everything including all-time aggregates
   useEffect(() => {
     Promise.all([
       getDashboardStats(),
-      getRevenueChart(),
-      getUserGrowthChart(),
+      getRevenueChart(PERIOD_MONTHS['30d']),
+      getUserGrowthChart(PERIOD_MONTHS['30d']),
       getEventCategories(),
-    ]).then(([s, r, g, c]) => {
-      setStats(s); setRevenue(r); setGrowth(g); setCat(c);
+      getBookingStatuses(),
+    ]).then(([s, r, g, c, b]) => {
+      setStats(s); setRevenue(r); setGrowth(g); setCat(c); setBookingStatuses(b);
       setLoading(false);
     });
   }, []);
 
+  // Re-fetch only the time-series charts when period changes
+  useEffect(() => {
+    if (loading) return; // skip during initial load
+    const months = PERIOD_MONTHS[period];
+    setChartsLoading(true);
+    Promise.all([
+      getRevenueChart(months),
+      getUserGrowthChart(months),
+    ]).then(([r, g]) => {
+      setRevenue(r);
+      setGrowth(g);
+      setChartsLoading(false);
+    });
+  }, [period]);
+
   if (loading) return <PageLoader />;
   if (!stats) return null;
 
-  const bookingStatuses = dummyBookingStatuses;
   const totalBookings = bookingStatuses.reduce((s, b) => s + b.value, 0);
 
   const platformMetrics = [
@@ -62,7 +87,7 @@ const Analytics: React.FC = () => {
         </div>
         {/* Period selector */}
         <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-          {(['7d','30d','90d','12m'] as const).map(p => (
+          {(['7d','30d','90d','12m'] as Period[]).map(p => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
@@ -102,26 +127,30 @@ const Analytics: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         {/* Revenue Chart */}
-        <SectionCard title="Revenue Trend" subtitle="Monthly revenue (KES)">
-          <div className="mb-3">
-            <p className="text-3xl font-bold text-gray-900">{formatKES(stats.revenue_this_month)}</p>
-            <p className="text-sm text-emerald-600 font-medium mt-0.5">↑ 9.8% vs last month</p>
-          </div>
-          <MiniBarChart data={revenueData} height={140} color="#9333ea" />
-          <div className="flex justify-between text-xs text-gray-400 mt-1">
-            {revenueData.map(d => <span key={d.label}>{d.label}</span>)}
+        <SectionCard title="Revenue Trend" subtitle={PERIOD_LABEL[period]}>
+          <div className={`transition-opacity duration-200 ${chartsLoading ? 'opacity-40 pointer-events-none' : ''}`}>
+            <div className="mb-3">
+              <p className="text-3xl font-bold text-gray-900">{formatKES(stats.revenue_this_month)}</p>
+              <p className="text-sm text-emerald-600 font-medium mt-0.5">↑ 9.8% vs last month</p>
+            </div>
+            <MiniBarChart data={revenueData} height={140} color="#9333ea" />
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              {revenueData.map(d => <span key={d.label}>{d.label}</span>)}
+            </div>
           </div>
         </SectionCard>
 
         {/* User Growth */}
-        <SectionCard title="User Growth" subtitle="Registered users by month">
-          <div className="mb-3">
-            <p className="text-3xl font-bold text-gray-900">{stats.total_users.toLocaleString()}</p>
-            <p className="text-sm text-emerald-600 font-medium mt-0.5">↑ {stats.new_users_this_week} new this week</p>
-          </div>
-          <SparkLine data={growthData.map(d => d.value)} height={100} color="#6b21a8" />
-          <div className="flex justify-between text-xs text-gray-400 mt-1">
-            {growthData.map(d => <span key={d.label}>{d.label}</span>)}
+        <SectionCard title="User Growth" subtitle={PERIOD_LABEL[period]}>
+          <div className={`transition-opacity duration-200 ${chartsLoading ? 'opacity-40 pointer-events-none' : ''}`}>
+            <div className="mb-3">
+              <p className="text-3xl font-bold text-gray-900">{stats.total_users.toLocaleString()}</p>
+              <p className="text-sm text-emerald-600 font-medium mt-0.5">↑ {stats.new_users_this_week} new this week</p>
+            </div>
+            <SparkLine data={growthData.map(d => d.value)} height={100} color="#6b21a8" />
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              {growthData.map(d => <span key={d.label}>{d.label}</span>)}
+            </div>
           </div>
         </SectionCard>
 

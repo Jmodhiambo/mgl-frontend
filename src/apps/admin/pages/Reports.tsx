@@ -6,13 +6,20 @@
 // ⚠️  NEW ENDPOINT NEEDED: GET /admin/reports/history
 //     Returns: list of previously generated reports
 
+// src/apps/admin/pages/Reports.tsx
+// Derived page — fetches data via existing admin service calls,
+// filters/shapes client-side, and exports CSV. No new endpoints needed.
+
 import { useState } from 'react';
 import { FileText, Download, Calendar, Users, Ticket, CreditCard, BarChart3, CheckCircle } from 'lucide-react';
 import { SectionCard, AlertBanner } from '@admin/components/ui';
-import {
-  dummyUsers, dummyEvents, dummyBookings, dummyPayments,
-} from '@admin/utils/dummyData';
 import { formatDate } from '@admin/utils/format';
+import {
+  listAllUsers,
+  listAllEvents,
+  listAllBookings,
+  listAllPayments,
+} from '@admin/services/adminService';
 
 type ReportType = 'users' | 'events' | 'bookings' | 'payments' | 'revenue';
 
@@ -31,15 +38,24 @@ interface GeneratedReport {
   rowCount: number;
   generatedAt: string;
   config: ReportConfig;
+  data: Record<string, unknown>[];
 }
 
 const REPORT_TYPES: { value: ReportType; label: string; icon: React.ElementType; description: string }[] = [
-  { value: 'users',    label: 'Users Report',    icon: Users,     description: 'All users with roles, status and join dates' },
-  { value: 'events',   label: 'Events Report',   icon: Calendar,  description: 'Events with organizer, status and revenue' },
-  { value: 'bookings', label: 'Bookings Report',  icon: Ticket,    description: 'All bookings with customer and payment info' },
-  { value: 'payments', label: 'Payments Report',  icon: CreditCard,description: 'All transactions with amounts and methods' },
-  { value: 'revenue',  label: 'Revenue Summary',  icon: BarChart3, description: 'Revenue breakdown by event, organizer and period' },
+  { value: 'users',    label: 'Users Report',    icon: Users,      description: 'All users with roles, status and join dates' },
+  { value: 'events',   label: 'Events Report',   icon: Calendar,   description: 'Events with organizer, status and revenue' },
+  { value: 'bookings', label: 'Bookings Report',  icon: Ticket,     description: 'All bookings with customer and payment info' },
+  { value: 'payments', label: 'Payments Report',  icon: CreditCard, description: 'All transactions with amounts and methods' },
+  { value: 'revenue',  label: 'Revenue Summary',  icon: BarChart3,  description: 'Revenue breakdown by event and organizer' },
 ];
+
+// Status options per report type
+const STATUS_OPTIONS: Partial<Record<ReportType, string[]>> = {
+  bookings: ['pending', 'confirmed', 'cancelled', 'refunded'],
+  payments: ['pending', 'completed', 'failed', 'refunded'],
+  events:   ['upcoming', 'ongoing', 'completed', 'cancelled'],
+  revenue:  ['upcoming', 'ongoing', 'completed', 'cancelled'],
+};
 
 const Reports: React.FC = () => {
   const [config, setConfig] = useState<ReportConfig>({
@@ -49,91 +65,152 @@ const Reports: React.FC = () => {
     statusFilter: 'all',
     roleFilter: 'all',
   });
-  const [generating, setGenerating]   = useState(false);
-  const [generated, setGenerated]     = useState<GeneratedReport[]>([]);
-  const [alert, setAlert]             = useState<{ type: 'success'|'error'; msg: string } | null>(null);
-  const [preview, setPreview]         = useState<Record<string, unknown>[] | null>(null);
+  const [generating, setGenerating]     = useState(false);
+  const [generated, setGenerated]       = useState<GeneratedReport[]>([]);
+  const [alert, setAlert]               = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [preview, setPreview]           = useState<Record<string, unknown>[] | null>(null);
+  const [previewTitle, setPreviewTitle] = useState<string>('');
 
-  const buildData = (): Record<string, unknown>[] => {
+  const isInRange = (dateStr: string) => {
+    if (!config.dateFrom && !config.dateTo) return true;
+    const d    = new Date(dateStr).getTime();
+    const from = config.dateFrom ? new Date(config.dateFrom).getTime() : -Infinity;
+    const to   = config.dateTo   ? new Date(config.dateTo).getTime()   :  Infinity;
+    return d >= from && d <= to;
+  };
+
+  const buildData = async (): Promise<Record<string, unknown>[]> => {
     switch (config.type) {
-      case 'users':
-        return dummyUsers
+
+      case 'users': {
+        const users = await listAllUsers();
+        return users
           .filter(u => config.roleFilter === 'all' || u.role === config.roleFilter)
+          .filter(u => isInRange(u.created_at))
           .map(u => ({
-            ID: u.id, Name: `${u.first_name} ${u.last_name}`, Email: u.email,
-            Role: u.role, Active: u.is_active, Verified: u.is_verified,
-            Joined: formatDate(u.created_at),
+            ID:       u.id,
+            Name:     `${u.first_name} ${u.last_name}`,
+            Email:    u.email,
+            Role:     u.role,
+            Active:   u.is_active,
+            Verified: u.is_verified,
+            Joined:   formatDate(u.created_at),
           }));
-      case 'events':
-        return dummyEvents
+      }
+
+      case 'events': {
+        const events = await listAllEvents();
+        return events
           .filter(e => config.statusFilter === 'all' || e.status === config.statusFilter)
+          .filter(e => isInRange(e.start_time))
           .map(e => ({
-            ID: e.id, Title: e.title, Organizer: e.organizer_name,
-            Status: e.status, Approved: e.is_approved,
-            City: e.city, Date: formatDate(e.start_time),
-            Bookings: e.total_bookings ?? 0,
-            Revenue: e.total_revenue ?? 0,
+            ID:        e.id,
+            Title:     e.title,
+            Organizer: e.organizer_name,
+            City:      e.city,
+            Category:  e.category,
+            Status:    e.status,
+            Approved:  e.is_approved,
+            Bookings:  e.total_bookings  ?? 0,
+            Revenue:   e.total_revenue   ?? 0,
+            Date:      formatDate(e.start_time),
           }));
-      case 'bookings':
-        return dummyBookings
+      }
+
+      case 'bookings': {
+        const bookings = await listAllBookings();
+        return bookings
           .filter(b => config.statusFilter === 'all' || b.status === config.statusFilter)
+          .filter(b => isInRange(b.created_at))
           .map(b => ({
-            ID: b.id, Customer: b.customer_name, Email: b.customer_email,
-            Event: b.event_title, TicketType: b.ticket_type_name,
-            Quantity: b.quantity, Total: b.total_price,
-            Status: b.status, Date: formatDate(b.created_at),
+            ID:         b.id,
+            Customer:   b.customer_name,
+            Email:      b.customer_email,
+            Event:      b.event_title,
+            TicketType: b.ticket_type_name,
+            Quantity:   b.quantity,
+            Total:      b.total_price,
+            Status:     b.status,
+            Date:       formatDate(b.created_at),
           }));
-      case 'payments':
-        return dummyPayments
+      }
+
+      case 'payments': {
+        const payments = await listAllPayments();
+        return payments
           .filter(p => config.statusFilter === 'all' || p.status === config.statusFilter)
+          .filter(p => isInRange(p.created_at))
           .map(p => ({
-            ID: p.id, User: p.user_name, Amount: p.amount,
-            Method: p.method, Status: p.status,
-            BookingID: p.booking_id, Date: formatDate(p.created_at),
+            ID:        p.id,
+            Customer:  p.user_name,
+            BookingID: p.booking_id,
+            Amount:    p.amount,
+            Currency:  p.currency,
+            Method:    p.method,
+            Status:    p.status,
+            Date:      formatDate(p.created_at),
           }));
-      case 'revenue':
-        return dummyEvents.map(e => ({
-          EventID: e.id, Title: e.title, Organizer: e.organizer_name,
-          Bookings: e.total_bookings ?? 0,
-          Revenue: e.total_revenue ?? 0,
-          Status: e.status, Date: formatDate(e.start_time),
-        }));
+      }
+
+      case 'revenue': {
+        const events = await listAllEvents();
+        return events
+          .filter(e => config.statusFilter === 'all' || e.status === config.statusFilter)
+          .filter(e => isInRange(e.start_time))
+          .map(e => ({
+            ID:        e.id,
+            Title:     e.title,
+            Organizer: e.organizer_name,
+            Bookings:  e.total_bookings ?? 0,
+            Revenue:   e.total_revenue  ?? 0,
+            Status:    e.status,
+            Date:      formatDate(e.start_time),
+          }));
+      }
     }
   };
 
-  const generateReport = async () => {
+  const handleGenerateReport = async () => {
     setGenerating(true);
-    // TODO: uncomment to use real API
-    // const data = await api.post('/admin/reports/generate', config);
-    await new Promise(r => setTimeout(r, 900)); // simulate
-    const data = buildData();
-    const reportDef = REPORT_TYPES.find(r => r.value === config.type)!;
-    const report: GeneratedReport = {
-      id: `RPT-${Date.now()}`,
-      type: config.type,
-      name: reportDef.label,
-      rowCount: data.length,
-      generatedAt: new Date().toISOString(),
-      config: { ...config },
-    };
-    setGenerated(p => [report, ...p]);
-    setPreview(data);
-    setAlert({ type: 'success', msg: `Report generated: ${data.length} records.` });
-    setGenerating(false);
+    try {
+      const data = await buildData();
+      const reportDef = REPORT_TYPES.find(r => r.value === config.type)!;
+      const report: GeneratedReport = {
+        id:          `RPT-${Date.now()}`,
+        type:        config.type,
+        name:        reportDef.label,
+        rowCount:    data.length,
+        generatedAt: new Date().toISOString(),
+        config:      { ...config },
+        data,
+      };
+      setGenerated(p => [report, ...p]);
+      setPreview(data);
+      setPreviewTitle(reportDef.label);
+      setAlert({ type: 'success', msg: `Report generated: ${data.length} records.` });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to generate report.';
+      setAlert({ type: 'error', msg: message });
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const downloadCSV = (data: Record<string, unknown>[]) => {
     if (!data.length) return;
     const headers = Object.keys(data[0]);
-    const rows = [headers, ...data.map(r => headers.map(h => r[h]))];
-    const csv = rows.map(r => r.join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = 'data:text/csv,' + encodeURIComponent(csv);
-    a.download = `${config.type}-report-${new Date().toISOString().slice(0,10)}.csv`;
+    const rows    = [headers, ...data.map(r => headers.map(h => r[h]))];
+    const csv     = rows.map(r => r.join(',')).join('\n');
+    const a       = document.createElement('a');
+    a.href        = 'data:text/csv,' + encodeURIComponent(csv);
+    a.download    = `${previewTitle.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
   };
 
-  const selectedType = REPORT_TYPES.find(r => r.value === config.type)!;
+  const selectedType = REPORT_TYPES.find(r => r.label === previewTitle)
+    ?? REPORT_TYPES.find(r => r.value === config.type)!;
+
+  const statusOptions = STATUS_OPTIONS[config.type];
 
   return (
     <div className="space-y-6">
@@ -152,19 +229,22 @@ const Reports: React.FC = () => {
         <div className="lg:col-span-1 space-y-5">
           <SectionCard title="Report Builder">
             <div className="space-y-4">
-              {/* Report type */}
+
+              {/* Report type selector */}
               <div>
                 <label className="label">Report Type</label>
                 <div className="space-y-2">
                   {REPORT_TYPES.map(r => {
-                    const Icon = r.icon;
+                    const Icon   = r.icon;
                     const active = config.type === r.value;
                     return (
                       <button
                         key={r.value}
-                        onClick={() => setConfig(p => ({ ...p, type: r.value }))}
+                        onClick={() => setConfig(p => ({ ...p, type: r.value, statusFilter: 'all' }))}
                         className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all
-                          ${active ? 'border-purple-400 bg-purple-50' : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'}`}
+                          ${active
+                            ? 'border-purple-400 bg-purple-50'
+                            : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'}`}
                       >
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
                           ${active ? 'bg-purple-600' : 'bg-gray-100'}`}>
@@ -191,52 +271,61 @@ const Reports: React.FC = () => {
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <p className="text-xs text-gray-500 mb-1">From</p>
-                    <input type="date" value={config.dateFrom}
+                    <input
+                      type="date"
+                      value={config.dateFrom}
                       onChange={e => setConfig(p => ({ ...p, dateFrom: e.target.value }))}
-                      className="input-field text-sm" />
+                      className="input-field text-sm"
+                    />
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">To</p>
-                    <input type="date" value={config.dateTo}
+                    <input
+                      type="date"
+                      value={config.dateTo}
                       onChange={e => setConfig(p => ({ ...p, dateTo: e.target.value }))}
-                      className="input-field text-sm" />
+                      className="input-field text-sm"
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* Conditional filters */}
-              {(config.type === 'bookings' || config.type === 'payments' || config.type === 'events') && (
+              {/* Status filter — shown for all types except users */}
+              {statusOptions && (
                 <div>
                   <label className="label">Status Filter</label>
-                  <select value={config.statusFilter}
+                  <select
+                    value={config.statusFilter}
                     onChange={e => setConfig(p => ({ ...p, statusFilter: e.target.value }))}
-                    className="select-field">
+                    className="select-field"
+                  >
                     <option value="all">All Status</option>
-                    {config.type === 'bookings' && ['pending','confirmed','cancelled','refunded'].map(s =>
-                      <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
-                    {config.type === 'payments' && ['pending','completed','failed','refunded'].map(s =>
-                      <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
-                    {config.type === 'events' && ['upcoming','ongoing','completed','cancelled'].map(s =>
-                      <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
+                    {statusOptions.map(s => (
+                      <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                    ))}
                   </select>
                 </div>
               )}
 
+              {/* Role filter — users only */}
               {config.type === 'users' && (
                 <div>
                   <label className="label">Role Filter</label>
-                  <select value={config.roleFilter}
+                  <select
+                    value={config.roleFilter}
                     onChange={e => setConfig(p => ({ ...p, roleFilter: e.target.value }))}
-                    className="select-field">
+                    className="select-field"
+                  >
                     <option value="all">All Roles</option>
-                    {['user','organizer','admin'].map(r =>
-                      <option key={r} value={r}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>)}
+                    {['user', 'organizer', 'admin'].map(r => (
+                      <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                    ))}
                   </select>
                 </div>
               )}
 
               <button
-                onClick={generateReport}
+                onClick={handleGenerateReport}
                 disabled={generating}
                 className="btn-primary w-full flex items-center justify-center gap-2"
               >
@@ -261,7 +350,7 @@ const Reports: React.FC = () => {
                       <p className="text-xs text-gray-500">{r.rowCount} records · {formatDate(r.generatedAt)}</p>
                     </div>
                     <button
-                      onClick={() => { setPreview(buildData()); }}
+                      onClick={() => { setPreview(r.data); setPreviewTitle(r.name); }}
                       className="text-xs text-purple-600 font-medium hover:text-purple-700"
                     >
                       View

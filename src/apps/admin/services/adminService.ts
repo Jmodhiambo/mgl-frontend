@@ -13,44 +13,40 @@ import type {
   AdminNotificationPrefs, ContactMessageStats, AdminTicketType, CreateTicketTypePayload
 } from '@admin/types';
 
-import {
-  dummyBookings,dummyDashboardStats, dummyRevenueChart, dummyUserGrowthChart, dummyEventCategories,
-} from '@admin/utils/dummyData';
-
-// ─── Admin types ───────────────────────────────────────────────────────────
-
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export const getDashboardStats = async (): Promise<DashboardStats> => {
-  // return (await api.get('/admin/analytics/dashboard')).data;
-  return Promise.resolve(dummyDashboardStats);
+  return (await api.get('/admin/analytics/dashboard')).data;
 };
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
-// ⚠️  NEW ENDPOINT NEEDED: GET /admin/analytics/dashboard
-//     Should return DashboardStats object with aggregated platform metrics
-// ⚠️  NEW ENDPOINT NEEDED: GET /admin/analytics/revenue?period=monthly
-//     Should return array of { label, value } for revenue chart
-// ⚠️  NEW ENDPOINT NEEDED: GET /admin/analytics/user-growth?period=monthly
-//     Should return array of { label, value } for user growth chart
-// ⚠️  NEW ENDPOINT NEEDED: GET /admin/analytics/events-by-category
-//     Should return array of { label, value } for category distribution
-// ⚠️  NEW ENDPOINT NEEDED: GET /admin/analytics/count (and /admin/analytics/count/:role)
-//     Should return total user count, or count filtered by role
 
-export const getRevenueChart = async (): Promise<{ label: string; value: number }[]> => {
-  // return (await api.get('/admin/analytics/revenue')).data;
-  return Promise.resolve(dummyRevenueChart);
+export const getRevenueChart = async (months = 7): Promise<{ label: string; value: number }[]> => {
+  return (await api.get(`/admin/analytics/revenue?months=${months}`)).data;
 };
 
-export const getUserGrowthChart = async (): Promise<{ label: string; value: number }[]> => {
-  // return (await api.get('/admin/analytics/user-growth')).data;
-  return Promise.resolve(dummyUserGrowthChart);
+export const getUserGrowthChart = async (months = 6): Promise<{ label: string; value: number }[]> => {
+  return (await api.get(`/admin/analytics/user-growth?months=${months}`)).data;
 };
 
 export const getEventCategories = async (): Promise<{ label: string; value: number }[]> => {
-  // return (await api.get('/admin/analytics/events-by-category')).data;
-  return Promise.resolve(dummyEventCategories);
+  return (await api.get('/admin/analytics/events-by-category')).data;
+};
+
+export const getBookingStatuses = async (): Promise<{ label: string; value: number }[]> => {
+  return (await api.get('/admin/analytics/booking-statuses')).data;
+};
+
+export interface ActivityFeedItem {
+  id: number;
+  message: string;
+  icon: string;
+  time: string;
+  action: string;
+}
+
+export const getActivityFeed = async (limit = 20): Promise<ActivityFeedItem[]> => {
+  return (await api.get(`/admin/analytics/activity-feed?limit=${limit}`)).data;
 };
 
 // ─── Platform Settings ────────────────────────────────────────────────────────
@@ -132,7 +128,6 @@ export const getUserById = async (userId: number): Promise<AdminUser> => {
 
 export const deleteUser = async (_userId: number): Promise<boolean> => {
   return (await api.delete(`/admin/users/${_userId}`)).data;
-  // return Promise.resolve(true);
 };
 
 export const activateUser = async (userId: number): Promise<AdminUser> => {
@@ -280,25 +275,19 @@ export const listAllBookings = async (): Promise<AdminBooking[]> => {
 };
 
 export const getBookingById = async (bookingId: number): Promise<AdminBooking> => {
-  // return (await api.get(`/admin/bookings/${bookingId}`)).data;
-  const booking = dummyBookings.find(b => b.id === bookingId);
-  if (!booking) throw new Error('Booking not found');
-  return Promise.resolve(booking);
+  return (await api.get(`/admin/bookings/${bookingId}`)).data;
 };
 
 export const deleteBooking = async (_bookingId: number): Promise<void> => {
-  // await api.delete(`/admin/bookings/${_bookingId}`);
-  return Promise.resolve();
+  await api.delete(`/admin/bookings/${_bookingId}`);
 };
 
 export const getBookingsByStatus = async (status: string): Promise<AdminBooking[]> => {
-  // return (await api.get(`/admin/bookings/status/${status}`)).data;
-  return Promise.resolve(dummyBookings.filter(b => b.status === status));
+  return (await api.get(`/admin/bookings/status/${status}`)).data;
 };
 
 export const getRecentBookings = async (limit = 10): Promise<AdminBooking[]> => {
-  // return (await api.get(`/admin/bookings/recent?limit=${limit}`)).data;
-  return Promise.resolve(dummyBookings.slice(0, limit));
+  return (await api.get(`/admin/bookings/recent?limit=${limit}`)).data;
 };
 
 // ─── Payments ─────────────────────────────────────────────────────────────────
@@ -384,19 +373,14 @@ export const listAuditLogs = async (params?: {
   if (params?.limit)       query.set('limit',       String(params.limit));
   if (params?.offset)      query.set('offset',      String(params.offset));
   return (await api.get(`/admin/audit-logs?${query.toString()}`)).data;
-  // return Promise.resolve({ total: dummyAuditLogs.length, items: dummyAuditLogs });
 };
  
 export const getAuditLogById = async (logId: number): Promise<AuditLog> => {
   return (await api.get(`/admin/audit-logs/${logId}`)).data;
-  // const log = dummyAuditLogs.find(l => l.id === logId);
-  // if (!log) throw new Error('Audit log not found');
-  // return Promise.resolve(log);
 };
  
 // ─── My Activity (MyProfile.tsx — 'My Activity' tab) ─────────────────────────
  
 export const getMyActivity = async (): Promise<AuditLog[]> => {
   return (await api.get('/admin/audit-logs/my')).data;
-  // return Promise.resolve(dummyAuditLogs);
 };

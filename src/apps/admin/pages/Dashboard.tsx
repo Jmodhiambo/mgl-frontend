@@ -10,16 +10,17 @@ import {
   StatCard, SectionCard, MiniBarChart, SparkLine, PageLoader,
 } from '@admin/components/ui';
 import { StatusBadge } from '@admin/components/ui';
-import { getDashboardStats, getRevenueChart, getUserGrowthChart, listAllUsers } from '@admin/services/adminService';
-import {
-  dummyActivityFeed, dummyEvents,formatKES,
-} from '@admin/utils/dummyData';
-import type { AdminUser, DashboardStats } from '@admin/types';
+import { getDashboardStats, getRevenueChart, getUserGrowthChart, listAllUsers, getUnapprovedEvents, getActivityFeed } from '@admin/services/adminService';
+import { formatKES } from '@admin/utils/format';
+import type { AdminUser, AdminEvent, DashboardStats } from '@admin/types';
+import type { ActivityFeedItem } from '@admin/services/adminService';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [pendingEvents, setPendingEvents] = useState<AdminEvent[]>([]);
+  const [activityFeed, setActivityFeed] = useState<ActivityFeedItem[]>([]);
   const [revenueData, setRevenueData]   = useState<{ label: string; value: number }[]>([]);
   const [growthData, setGrowthData]     = useState<{ label: string; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,16 +28,20 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const [s, r, g, u] = await Promise.all([
+        const [s, r, g, u, pe, af] = await Promise.all([
           getDashboardStats(),
           getRevenueChart(),
           getUserGrowthChart(),
           listAllUsers(),
+          getUnapprovedEvents(),
+          getActivityFeed(6),
         ]);
         setStats(s);
         setUsers(u);
         setRevenueData(r);
         setGrowthData(g);
+        setPendingEvents(pe);
+        setActivityFeed(af);
       } finally {
         setLoading(false);
       }
@@ -46,8 +51,6 @@ const Dashboard: React.FC = () => {
 
   if (loading) return <PageLoader />;
   if (!stats) return null;
-
-  const pendingEvents = dummyEvents.filter(e => !e.is_approved);
 
   return (
     <div className="space-y-6">
@@ -225,7 +228,7 @@ const Dashboard: React.FC = () => {
           noPadding
         >
           <div className="divide-y divide-gray-50">
-            {dummyActivityFeed.slice(0, 6).map(item => {
+            {activityFeed.slice(0, 6).map(item => {
               const iconMap: Record<string, React.ElementType> = {
                 ticket: TicketCheck, user: UserPlus, calendar: CalendarPlus,
                 money: Banknote, message: MessageSquare, check: CheckCircle,
@@ -248,6 +251,11 @@ const Dashboard: React.FC = () => {
                 </div>
               );
             })}
+            {activityFeed.length === 0 && (
+              <div className="px-6 py-8 text-center">
+                <p className="text-sm text-gray-400">No recent activity.</p>
+              </div>
+            )}
           </div>
         </SectionCard>
 
