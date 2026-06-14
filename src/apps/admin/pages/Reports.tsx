@@ -1,7 +1,6 @@
 // src/apps/admin/pages/Reports.tsx
 // Derived page — fetches data via existing admin service calls,
-// filters/shapes client-side, and exports CSV. No new endpoints needed
-// beyond the admin Orders endpoint already added for the Orders page.
+// filters/shapes client-side, and exports CSV. No new endpoints needed.
 
 import { useState } from 'react';
 import { FileText, Download, Calendar, Users, ShoppingBag, BarChart3, CheckCircle } from 'lucide-react';
@@ -34,19 +33,15 @@ interface GeneratedReport {
 }
 
 const REPORT_TYPES: { value: ReportType; label: string; icon: React.ElementType; description: string }[] = [
-  { value: 'users',   label: 'Users Report',   icon: Users,       description: 'All users with roles, status and join dates' },
-  { value: 'events',  label: 'Events Report',  icon: Calendar,    description: 'Events with organizer, status and revenue' },
-  { value: 'orders',  label: 'Orders Report',  icon: ShoppingBag, description: 'Orders with ticket-type breakdown and payment info' },
-  { value: 'revenue', label: 'Revenue Summary', icon: BarChart3,  description: 'Revenue breakdown by event and organizer' },
+  { value: 'users',   label: 'Users Report',    icon: Users,       description: 'All users with roles, status and join dates' },
+  { value: 'events',  label: 'Events Report',   icon: Calendar,    description: 'Events with organizer, status and revenue' },
+  { value: 'orders',  label: 'Orders Report',   icon: ShoppingBag, description: 'Orders with ticket-type breakdown and payment info' },
+  { value: 'revenue', label: 'Revenue Summary', icon: BarChart3,   description: 'Revenue breakdown by event and organizer' },
 ];
 
-// Status options per report type
-// 'orders' filters on the ORDER status (pending | confirmed | cancelled) —
-// payment-level status (mpesa pending/completed/failed) is shown per-row
-// in the Method/Ref columns instead of filtered here.
 const STATUS_OPTIONS: Partial<Record<ReportType, string[]>> = {
-  orders:  ['pending', 'confirmed', 'cancelled'],
-  events:  ['upcoming', 'ongoing', 'completed', 'cancelled'],
+  orders: ['pending', 'confirmed', 'cancelled'],
+  events: ['upcoming', 'ongoing', 'completed', 'cancelled'],
   revenue: ['upcoming', 'ongoing', 'completed', 'cancelled'],
 };
 
@@ -82,7 +77,7 @@ const Reports: React.FC = () => {
           .filter(u => isInRange(u.created_at))
           .map(u => ({
             ID:       u.id,
-            Name:     u.name,
+            Name:     u.name,        // single name field — not first_name/last_name
             Email:    u.email,
             Role:     u.role,
             Active:   u.is_active,
@@ -115,10 +110,8 @@ const Reports: React.FC = () => {
         return orders
           .filter(o => config.statusFilter === 'all' || o.status === config.statusFilter)
           .filter(o => isInRange(o.created_at))
-          // One row per ticket-type line item, with order/payment context
-          // repeated on each row — gives ticket-type granularity (old
-          // Bookings Report) AND payment reconciliation (old Payments
-          // Report) in a single, pivotable export.
+          // One row per ticket-type line item so the CSV is pivot-friendly.
+          // OrderID/customer/payment columns repeat on every row for the order.
           .flatMap(o => o.bookings.map(b => ({
             OrderID:     o.id,
             Customer:    o.customer_name,

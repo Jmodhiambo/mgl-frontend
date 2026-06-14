@@ -5,9 +5,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Activity, Search, Filter, ChevronLeft, ChevronRight,
+  Activity, Filter, ChevronLeft, ChevronRight,
   User, Calendar, Ticket, DollarSign, MessageSquare,
-  CheckCircle, Clock, Loader2, RefreshCw,
+  CheckCircle, Clock, Loader2, RefreshCw, ShoppingCart,
 } from 'lucide-react';
 import { SectionCard, EmptyState, AlertBanner } from '@admin/components/ui';
 import { listAuditLogs } from '@admin/services/adminService';
@@ -17,52 +17,66 @@ import type { AuditLog } from '@admin/types';
 
 const PAGE_SIZE = 20;
 
-// Action groups for the filter dropdown
+// Action values must match backend audit log strings exactly
 const ACTION_OPTIONS = [
-  { value: '',                    label: 'All Actions'       },
-  { value: 'user_created',        label: 'User Created'      },
-  { value: 'user_activated',      label: 'User Activated'    },
-  { value: 'user_deactivated',    label: 'User Deactivated'  },
-  { value: 'user_role_changed',   label: 'Role Changed'      },
-  { value: 'user_verified',       label: 'User Verified'     },
-  { value: 'user_deleted',        label: 'User Deleted'      },
-  { value: 'event_approved',      label: 'Event Approved'    },
-  { value: 'event_rejected',      label: 'Event Rejected'    },
-  { value: 'event_deleted',       label: 'Event Deleted'     },
-  { value: 'create_event',        label: 'Event Created'     },
-  { value: 'update_booking_status', label: 'Booking Updated' },
-  { value: 'booking_deleted',     label: 'Booking Deleted'   },
-  { value: 'message_marked_spam', label: 'Message Spam'      },
-  { value: 'message_closed',      label: 'Message Closed'    },
-  { value: 'message_responded',   label: 'Message Responded' },
-  { value: 'session_revoked',     label: 'Session Revoked'   },
-  { value: 'settings_updated',    label: 'Settings Updated'  },
+  { value: '',                          label: 'All Actions'           },
+  // User
+  { value: 'user_created',              label: 'User Created'          },
+  { value: 'activate_user',             label: 'User Activated'        },
+  { value: 'deactivate_user',           label: 'User Deactivated'      },
+  { value: 'update_user_role',          label: 'Role Updated'          },
+  { value: 'verify_user_email',         label: 'Email Verified'        },
+  { value: 'unverify_user_email',       label: 'Email Unverified'      },
+  { value: 'delete_user',               label: 'User Deleted'          },
+  { value: 'update_user_email',         label: 'Email Updated'         },
+  { value: 'resend_verification_email', label: 'Verification Resent'   },
+  // Event
+  { value: 'create_event',              label: 'Event Created'         },
+  { value: 'approve_event',             label: 'Event Approved'        },
+  { value: 'reject_event',              label: 'Event Rejected'        },
+  { value: 'delete_event',              label: 'Event Deleted'         },
+  { value: 'update_event_status',       label: 'Event Status Updated'  },
+  // Booking
+  { value: 'update_booking_status',     label: 'Booking Status Updated'},
+  { value: 'update_booking',            label: 'Booking Updated'       },
+  { value: 'delete_booking',            label: 'Booking Deleted'       },
+  // Order
+  { value: 'delete_order',              label: 'Order Deleted'         },
+  // Message
+  { value: 'message_marked_spam',       label: 'Message Marked Spam'   },
+  { value: 'message_closed',            label: 'Message Closed'        },
+  { value: 'message_responded',         label: 'Message Responded'     },
+  // Other
+  { value: 'session_revoked',           label: 'Session Revoked'       },
+  { value: 'settings_updated',          label: 'Settings Updated'      },
 ];
 
 const TARGET_OPTIONS = [
-  { value: '',               label: 'All Targets'  },
-  { value: 'user',           label: 'User'         },
-  { value: 'event',          label: 'Event'        },
-  { value: 'booking',        label: 'Booking'      },
-  { value: 'payment',        label: 'Payment'      },
-  { value: 'message',        label: 'Message'      },
+  { value: '',                label: 'All Targets' },
+  { value: 'user',            label: 'User'        },
+  { value: 'event',           label: 'Event'       },
+  { value: 'booking',         label: 'Booking'     },
+  { value: 'order',           label: 'Order'       },
+  { value: 'payment',         label: 'Payment'     },
+  { value: 'message',         label: 'Message'     },
   { value: 'ticket_instance', label: 'Ticket'      },
-  { value: 'ticket_type',    label: 'Ticket Type'  },
-  { value: 'session',        label: 'Session'      },
-  { value: 'settings',       label: 'Settings'     },
+  { value: 'ticket_type',     label: 'Ticket Type' },
+  { value: 'session',         label: 'Session'     },
+  { value: 'settings',        label: 'Settings'    },
 ];
 
 // Icon + colour per target type
 const TARGET_ICON: Record<string, { icon: React.ElementType; bg: string; color: string }> = {
-  user:           { icon: User,          bg: 'bg-purple-100', color: 'text-purple-600' },
-  event:          { icon: Calendar,      bg: 'bg-blue-100',   color: 'text-blue-600'   },
-  booking:        { icon: Ticket,        bg: 'bg-emerald-100',color: 'text-emerald-600'},
-  payment:        { icon: DollarSign,    bg: 'bg-amber-100',  color: 'text-amber-600'  },
-  message:        { icon: MessageSquare, bg: 'bg-red-100',    color: 'text-red-600'    },
-  ticket_instance:{ icon: Ticket,        bg: 'bg-teal-100',   color: 'text-teal-600'   },
-  ticket_type:    { icon: Ticket,        bg: 'bg-indigo-100', color: 'text-indigo-600' },
-  session:        { icon: Clock,         bg: 'bg-gray-100',   color: 'text-gray-600'   },
-  settings:       { icon: CheckCircle,   bg: 'bg-green-100',  color: 'text-green-600'  },
+  user:            { icon: User,          bg: 'bg-purple-100',  color: 'text-purple-600'  },
+  event:           { icon: Calendar,      bg: 'bg-blue-100',    color: 'text-blue-600'    },
+  booking:         { icon: Ticket,        bg: 'bg-emerald-100', color: 'text-emerald-600' },
+  order:           { icon: ShoppingCart,  bg: 'bg-orange-100',  color: 'text-orange-600'  },
+  payment:         { icon: DollarSign,    bg: 'bg-amber-100',   color: 'text-amber-600'   },
+  message:         { icon: MessageSquare, bg: 'bg-red-100',     color: 'text-red-600'     },
+  ticket_instance: { icon: Ticket,        bg: 'bg-teal-100',    color: 'text-teal-600'    },
+  ticket_type:     { icon: Ticket,        bg: 'bg-indigo-100',  color: 'text-indigo-600'  },
+  session:         { icon: Clock,         bg: 'bg-gray-100',    color: 'text-gray-600'    },
+  settings:        { icon: CheckCircle,   bg: 'bg-green-100',   color: 'text-green-600'   },
 };
 
 const defaultIcon = { icon: Activity, bg: 'bg-gray-100', color: 'text-gray-500' };
@@ -97,8 +111,9 @@ const ActivityFeed: React.FC = () => {
       const res = await listAuditLogs({
         action:      f.action      || undefined,
         target_type: f.targetType  || undefined,
-        from:        f.dateFrom    || undefined,
-        to:          f.dateTo      || undefined,
+        // Append times so the backend comparison covers the full day
+        from:        f.dateFrom ? `${f.dateFrom}T00:00:00` : undefined,
+        to:          f.dateTo   ? `${f.dateTo}T23:59:59`   : undefined,
         limit:       PAGE_SIZE,
         offset:      (p - 1) * PAGE_SIZE,
       });
@@ -116,18 +131,27 @@ const ActivityFeed: React.FC = () => {
   }, [filters, page, fetchLogs]);
 
   const handleApplyFilters = () => {
-    setFilters(pendingFilters);
+    // Set page first — ensures the effect always fires with page=1
+    // alongside the new filters, never with a stale page value.
     setPage(1);
+    setFilters(pendingFilters);
   };
 
   const handleClearFilters = () => {
     const empty: Filters = { action: '', targetType: '', dateFrom: '', dateTo: '' };
     setPendingFilters(empty);
-    setFilters(empty);
     setPage(1);
+    setFilters(empty);
   };
 
-  const hasActiveFilters = filters.action || filters.targetType || filters.dateFrom || filters.dateTo;
+  const hasActiveFilters =
+    filters.action || filters.targetType || filters.dateFrom || filters.dateTo;
+
+  const isUnchanged =
+    pendingFilters.action     === filters.action     &&
+    pendingFilters.targetType === filters.targetType &&
+    pendingFilters.dateFrom   === filters.dateFrom   &&
+    pendingFilters.dateTo     === filters.dateTo;
 
   const formatAction = (action: string) =>
     action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -208,7 +232,8 @@ const ActivityFeed: React.FC = () => {
 
               <button
                 onClick={handleApplyFilters}
-                className="btn-primary w-full flex items-center justify-center gap-2"
+                disabled={isUnchanged}
+                className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Filter className="w-4 h-4" /> Apply Filters
               </button>
@@ -267,7 +292,10 @@ const ActivityFeed: React.FC = () => {
                 {logs.map(log => {
                   const { icon: Icon, bg, color } = TARGET_ICON[log.target_type] ?? defaultIcon;
                   return (
-                    <div key={log.id} className="flex items-start gap-4 px-6 py-4 hover:bg-gray-50/60 transition-colors">
+                    <div
+                      key={log.id}
+                      className="flex items-start gap-4 px-6 py-4 hover:bg-gray-50/60 transition-colors"
+                    >
                       {/* Icon */}
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 ${bg}`}>
                         <Icon className={`w-4 h-4 ${color}`} />

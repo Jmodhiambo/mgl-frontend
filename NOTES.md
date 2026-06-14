@@ -36,3 +36,5 @@ Work on article analytics for the admin console after launch.
 Add a verified field in the co-organizer table. It is automatically true on organizer invitataion but false on co-organizer invitation. Organizer needs to verify it so that the co-organizer can view event stats in the MyEvents page on user app. The unverified co-organizer can only see the event they are co-organizing but no stats with something like waiting organizer approval. So the organizer will be able to see the co-organizer that needs approval and who invited them. This ensures that the organizer is in full control.
 
 Include parseApiError like in BrowseEventDetails to all the pages with API calls to avoid silent failure. Have it as a global function in Utils under Shared to cut accross all the apps.
+
+Work on the ActivityFeed page under the admin console. The filter is not working save for event creation.
