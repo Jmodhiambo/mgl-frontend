@@ -52,7 +52,7 @@ const Payments: React.FC = () => {
       ['ID', 'User', 'Amount', 'Method', 'Status', 'M-Pesa Ref', 'Booking ID', 'Date'],
       ...filtered.map(p => [
         p.id, p.user_name ?? '', p.amount, p.method,
-        p.status, p.mpesa_ref ?? '', p.booking_id, p.created_at,
+        p.status, p.mpesa_ref ?? '', p.order_id, p.created_at,
       ]),
     ];
     const csv = rows.map(r => r.join(',')).join('\n');
@@ -162,7 +162,7 @@ const Payments: React.FC = () => {
                       </td>
                       <td><StatusBadge status={p.status} /></td>
                       <td className="text-xs text-gray-500 font-mono">{p.mpesa_ref ?? '—'}</td>
-                      <td className="text-xs text-gray-500">#{p.booking_id}</td>
+                      <td className="text-xs text-gray-500">#{p.order_id}</td>
                       <td className="text-xs text-gray-500 whitespace-nowrap">{formatDateTime(p.created_at)}</td>
                     </tr>
                   ))}
@@ -183,7 +183,7 @@ const Payments: React.FC = () => {
                     <span className={methodColor[p.method] ?? 'badge-gray'}>
                       {methodLabel[p.method] ?? p.method}
                     </span>
-                    <span className="text-xs text-gray-500">Booking #{p.booking_id}</span>
+                    <span className="text-xs text-gray-500">Booking #{p.order_id}</span>
                   </div>
                   {p.mpesa_ref && (
                     <p className="text-xs text-gray-500 font-mono">Ref: {p.mpesa_ref}</p>

@@ -8,7 +8,7 @@ import {
 import { CheckoutSEO, BookingSEO } from '@shared/components/SEO';
 import { TermsContent, RefundContent } from '@shared/pages';
 import { useAuth } from '@shared/contexts/AuthContext';
-import { createBooking } from '@shared/api/user/bookingsApi';
+import { createOrder } from '@shared/api/user/bookingsApi';
 import { initiateMpesaPayment, pollPaymentStatus } from '@shared/api/user/paymentsApi';
 
 interface Event {
@@ -53,6 +53,7 @@ const CheckoutBookingPage: React.FC = () => {
   const [errors, setErrors]           = useState<FormErrors>({});
   const [paymentStep, setPaymentStep] = useState<PaymentStep>('form');
   const [paymentId, setPaymentId]     = useState<number | null>(null);
+  const [orderTotal, setOrderTotal]   = useState<number | null>(null);
   const [modalContent, setModalContent] = useState<'terms' | 'refund' | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
 
@@ -73,8 +74,8 @@ const CheckoutBookingPage: React.FC = () => {
   const calculateSubtotal = () =>
     bookingData?.tickets.reduce((s, t) => s + t.price * t.quantity, 0) ?? 0;
 
-  const calculateFees = () => Math.round(calculateSubtotal() * 0.03);
-  const calculateTotal = () => calculateSubtotal() + calculateFees();
+  // No processing fee — total equals the subtotal of selected tickets.
+  const calculateTotal = () => calculateSubtotal();
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString('en-US', {
@@ -102,25 +103,27 @@ const CheckoutBookingPage: React.FC = () => {
     setErrors({});
 
     try {
-      // 1. Create booking — one booking per ticket type
-      //    Backend derives user_id from token and event_id from ticket_type
-      //    For simplicity when multiple ticket types exist, we create one booking
-      //    per ticket type. A future improvement could batch them.
-      const totalQuantity = bookingData.tickets.reduce((s, t) => s + t.quantity, 0);
-      const primaryTicket = bookingData.tickets[0];
-
-      const booking = await createBooking({
-        ticket_type_id: primaryTicket.ticket_type_id,
-        quantity: totalQuantity,
-        total_price: calculateTotal(),
+      // 1. Create the order — one Booking row per ticket type, created
+      //    atomically by the backend. Pricing is computed server-side
+      //    from current TicketType prices —
+      //    calculateTotal() below is only used for the on-screen estimate
+      //    before checkout; the amount actually charged is order.total_price.
+      const order = await createOrder({
+        event_id: event.id,
+        items: bookingData.tickets.map(t => ({
+          ticket_type_id: t.ticket_type_id,
+          quantity: t.quantity,
+        })),
       });
 
-      // 2. Initiate M-Pesa STK push
+      // 2. Initiate M-Pesa STK push for the WHOLE order
+      //    (covers every ticket type in one payment / one PIN prompt)
       const stkResponse = await initiateMpesaPayment({
-        booking_id: booking.id,
+        order_id: order.id,
         phone_number: phoneNumber.trim(),
       });
 
+      setOrderTotal(order.total_price);  // backend-computed authoritative total
       setPaymentId(stkResponse.payment_id);
       setPaymentStep('awaiting_pin');
       setStatusMessage(stkResponse.message);
@@ -188,7 +191,9 @@ const CheckoutBookingPage: React.FC = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Total Paid:</span>
-                  <span className="font-bold text-orange-600">KES {calculateTotal().toLocaleString()}</span>
+                  <span className="font-bold text-orange-600">
+                    KES {(orderTotal ?? calculateTotal()).toLocaleString()}
+                  </span>
                 </div>
               </div>
             </div>
@@ -224,7 +229,9 @@ const CheckoutBookingPage: React.FC = () => {
           <p className="text-gray-600 mb-2">{statusMessage}</p>
           <p className="text-sm text-gray-500 mb-8">
             Enter your M-PESA PIN to complete the payment of{' '}
-            <span className="font-bold text-orange-600">KES {calculateTotal().toLocaleString()}</span>
+            <span className="font-bold text-orange-600">
+              KES {(orderTotal ?? calculateTotal()).toLocaleString()}
+            </span>
           </p>
           <div className="flex items-center justify-center gap-3 mb-6">
             <Loader2 className="w-5 h-5 text-orange-500 animate-spin" />
@@ -377,14 +384,8 @@ const CheckoutBookingPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="border-t border-gray-200 pt-4 space-y-2 text-sm mb-4">
-                  <div className="flex justify-between text-gray-600">
-                    <span>Subtotal</span><span>KES {calculateSubtotal().toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-600">
-                    <span>Processing Fee (3%)</span><span>KES {calculateFees().toLocaleString()}</span>
-                  </div>
-                  <div className="border-t border-gray-200 pt-2 flex justify-between font-bold text-gray-800 text-lg">
+                <div className="border-t border-gray-200 pt-4 mb-4">
+                  <div className="flex justify-between font-bold text-gray-800 text-lg">
                     <span>Total</span>
                     <span className="text-orange-600">KES {calculateTotal().toLocaleString()}</span>
                   </div>

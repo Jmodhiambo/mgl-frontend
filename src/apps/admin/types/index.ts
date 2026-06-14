@@ -2,8 +2,7 @@
 
 export interface AdminUser {
   id: number;
-  first_name: string;
-  last_name: string;
+  name: string;
   email: string;
   phone?: string;
   role: 'user' | 'organizer' | 'admin';
@@ -53,22 +52,25 @@ export interface AdminEvent {
 export interface AdminBooking {
   id: number;
   user_id: number;
+  event_id: number;
   ticket_type_id: number;
   quantity: number;
   status: 'pending' | 'confirmed' | 'cancelled' | 'refunded';
   total_price: number;
   created_at: string;
   updated_at: string;
+  // Enriched fields — populated by the joined backend query
   customer_name?: string;
   customer_email?: string;
   event_title?: string;
   ticket_type_name?: string;
-  event_id?: number;
+  venue?: string;
+  event_date?: string;
 }
 
 export interface AdminPayment {
   id: number;
-  booking_id: number;
+  order_id: number;
   amount: number;
   currency: string;
   method: string;
@@ -274,6 +276,37 @@ export interface ContactMessageStats {
   responded: number;
   closed: number;
   spam: number;
+}
+
+export interface AdminOrderBookingLine {
+  id: number;                 // Booking.id — the line item itself
+  ticket_type_id: number;
+  ticket_type_name: string;
+  quantity: number;
+  total_price: number;        // line total for this ticket type
+  status: string;
+}
+ 
+export interface AdminOrder {
+  id: number;
+  user_id: number;
+  customer_name: string;
+  customer_email: string;
+  event_id: number;
+  event_title: string;
+  total_price: number;
+  status: string;             // pending | confirmed | cancelled
+ 
+  // Payment fields — merged in (Order:Payment is 1:1)
+  payment_id: number | null;
+  payment_method: string | null;   // 'mpesa' | 'card' | null (no payment yet)
+  payment_status: string | null;   // 'pending' | 'completed' | 'failed' | null
+  mpesa_ref: string | null;
+  mpesa_phone: string | null;
+ 
+  created_at: string;
+  updated_at: string;
+  bookings: AdminOrderBookingLine[];
 }
 
 // Profile form types

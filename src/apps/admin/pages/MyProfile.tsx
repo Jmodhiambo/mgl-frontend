@@ -1,9 +1,11 @@
 // src/apps/admin/pages/MyProfile.tsx
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   User, Mail, Phone, Lock, Eye, EyeOff, Shield, Camera,
   Save, CheckCircle, AlertCircle, Clock, Activity,
   LogOut, Key, Globe, Bell, Trash2, X, Loader2, Info,
+  ArrowRight,
 } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
 import {
@@ -26,6 +28,7 @@ const TAB_ITEMS: { value: Tab; label: string; icon: React.ElementType }[] = [
 
 const MyProfile: React.FC = () => {
   const { sessionId } = useAuth();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('profile');
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -634,11 +637,19 @@ const MyProfile: React.FC = () => {
       {/* ── Activity Tab ── */}
       {tab === 'activity' && (
         <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
-          <div>
-            <h3 className="text-base font-bold text-gray-900">Recent Admin Activity</h3>
-            <p className="text-sm text-gray-500 mt-0.5">
-              {activityLoading ? 'Loading…' : `Your last ${activity.length} actions on the platform.`}
-            </p>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-base font-bold text-gray-900">My Recent Admin Activity</h3>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {activityLoading ? 'Loading…' : `Your last ${activity.length} actions on the platform.`}
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/activity-feed')}
+              className="flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-700 font-medium whitespace-nowrap flex-shrink-0 mt-1"
+            >
+              View all platform activity <ArrowRight className="w-3.5 h-3.5" />
+            </button>
           </div>
 
           {activityLoading ? (

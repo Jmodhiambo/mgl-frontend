@@ -13,6 +13,7 @@ import api from '@shared/api/axiosConfig';
 
 export interface BookingOut {
   id: number;
+  order_id: number;          // groups this booking with sibling line items under one Order
   user_id: number;
   event_id: number;
   ticket_type_id: number;
@@ -21,12 +22,6 @@ export interface BookingOut {
   total_price: number;
   created_at: string;
   updated_at: string;
-}
-
-export interface BookingCreate {
-  ticket_type_id: number;   // user_id and event_id are injected server-side
-  quantity: number;
-  total_price: number;
 }
 
 export interface BookingUpdate {
@@ -45,13 +40,47 @@ export interface BookingEnriched extends BookingOut {
   event_date?: string;
 }
 
-// ── User ──────────────────────────────────────────────────────────────────────
-
-export const createBooking = async (
-  data: BookingCreate,
-): Promise<BookingOut> => {
-  return (await api.post('/users/me/bookings', data)).data;
+// ── Orders ────────────────────────────────────────────────────────────────────
+// A single checkout — one or more ticket types for ONE event.
+// Each item becomes its own Booking row under this Order.
+// Pricing is computed entirely server-side from TicketType prices.
+ 
+export interface OrderItemCreate {
+  ticket_type_id: number;
+  quantity: number;
+}
+ 
+export interface OrderCreate {
+  event_id: number;
+  items: OrderItemCreate[];
+}
+ 
+export interface OrderOut {
+  id: number;
+  user_id: number;
+  event_id: number;
+  total_price: number;       // backend-computed: sum of (ticket_type.price * quantity) across all line items
+  status: string;
+  created_at: string;
+  updated_at: string;
+  bookings: BookingOut[];     // one per ticket type — useful for receipts/breakdowns
+}
+ 
+// ── Orders ────────────────────────────────────────────────────────────────────
+ 
+export const createOrder = async (data: OrderCreate): Promise<OrderOut> => {
+  return (await api.post('/users/me/orders', data)).data;
 };
+ 
+export const getUserOrders = async (): Promise<OrderOut[]> => {
+  return (await api.get('/users/me/orders')).data;
+};
+ 
+export const getUserOrderById = async (orderId: number): Promise<OrderOut> => {
+  return (await api.get(`/users/me/orders/${orderId}`)).data;
+};
+
+// ── User ──────────────────────────────────────────────────────────────────────
 
 export const getUserBookings = async (): Promise<BookingOut[]> => {
   return (await api.get('/users/me/bookings')).data;

@@ -1,27 +1,19 @@
 // src/apps/admin/pages/Reports.tsx
-// ─── NOTE: These are custom report generation endpoints ──────────────────────
-// ⚠️  NEW ENDPOINT NEEDED: POST /admin/reports/generate
-//     Accepts: { type, date_from, date_to, filters }
-//     Returns: report data array
-// ⚠️  NEW ENDPOINT NEEDED: GET /admin/reports/history
-//     Returns: list of previously generated reports
-
-// src/apps/admin/pages/Reports.tsx
 // Derived page — fetches data via existing admin service calls,
-// filters/shapes client-side, and exports CSV. No new endpoints needed.
+// filters/shapes client-side, and exports CSV. No new endpoints needed
+// beyond the admin Orders endpoint already added for the Orders page.
 
 import { useState } from 'react';
-import { FileText, Download, Calendar, Users, Ticket, CreditCard, BarChart3, CheckCircle } from 'lucide-react';
+import { FileText, Download, Calendar, Users, ShoppingBag, BarChart3, CheckCircle } from 'lucide-react';
 import { SectionCard, AlertBanner } from '@admin/components/ui';
 import { formatDate } from '@admin/utils/format';
 import {
   listAllUsers,
   listAllEvents,
-  listAllBookings,
-  listAllPayments,
 } from '@admin/services/adminService';
+import { admin_listAllOrders } from '@admin/services/ordersApi';
 
-type ReportType = 'users' | 'events' | 'bookings' | 'payments' | 'revenue';
+type ReportType = 'users' | 'events' | 'orders' | 'revenue';
 
 interface ReportConfig {
   type: ReportType;
@@ -42,24 +34,25 @@ interface GeneratedReport {
 }
 
 const REPORT_TYPES: { value: ReportType; label: string; icon: React.ElementType; description: string }[] = [
-  { value: 'users',    label: 'Users Report',    icon: Users,      description: 'All users with roles, status and join dates' },
-  { value: 'events',   label: 'Events Report',   icon: Calendar,   description: 'Events with organizer, status and revenue' },
-  { value: 'bookings', label: 'Bookings Report',  icon: Ticket,     description: 'All bookings with customer and payment info' },
-  { value: 'payments', label: 'Payments Report',  icon: CreditCard, description: 'All transactions with amounts and methods' },
-  { value: 'revenue',  label: 'Revenue Summary',  icon: BarChart3,  description: 'Revenue breakdown by event and organizer' },
+  { value: 'users',   label: 'Users Report',   icon: Users,       description: 'All users with roles, status and join dates' },
+  { value: 'events',  label: 'Events Report',  icon: Calendar,    description: 'Events with organizer, status and revenue' },
+  { value: 'orders',  label: 'Orders Report',  icon: ShoppingBag, description: 'Orders with ticket-type breakdown and payment info' },
+  { value: 'revenue', label: 'Revenue Summary', icon: BarChart3,  description: 'Revenue breakdown by event and organizer' },
 ];
 
 // Status options per report type
+// 'orders' filters on the ORDER status (pending | confirmed | cancelled) —
+// payment-level status (mpesa pending/completed/failed) is shown per-row
+// in the Method/Ref columns instead of filtered here.
 const STATUS_OPTIONS: Partial<Record<ReportType, string[]>> = {
-  bookings: ['pending', 'confirmed', 'cancelled', 'refunded'],
-  payments: ['pending', 'completed', 'failed', 'refunded'],
-  events:   ['upcoming', 'ongoing', 'completed', 'cancelled'],
-  revenue:  ['upcoming', 'ongoing', 'completed', 'cancelled'],
+  orders:  ['pending', 'confirmed', 'cancelled'],
+  events:  ['upcoming', 'ongoing', 'completed', 'cancelled'],
+  revenue: ['upcoming', 'ongoing', 'completed', 'cancelled'],
 };
 
 const Reports: React.FC = () => {
   const [config, setConfig] = useState<ReportConfig>({
-    type: 'bookings',
+    type: 'orders',
     dateFrom: '',
     dateTo: '',
     statusFilter: 'all',
@@ -89,7 +82,7 @@ const Reports: React.FC = () => {
           .filter(u => isInRange(u.created_at))
           .map(u => ({
             ID:       u.id,
-            Name:     `${u.first_name} ${u.last_name}`,
+            Name:     u.name,
             Email:    u.email,
             Role:     u.role,
             Active:   u.is_active,
@@ -117,39 +110,29 @@ const Reports: React.FC = () => {
           }));
       }
 
-      case 'bookings': {
-        const bookings = await listAllBookings();
-        return bookings
-          .filter(b => config.statusFilter === 'all' || b.status === config.statusFilter)
-          .filter(b => isInRange(b.created_at))
-          .map(b => ({
-            ID:         b.id,
-            Customer:   b.customer_name,
-            Email:      b.customer_email,
-            Event:      b.event_title,
-            TicketType: b.ticket_type_name,
-            Quantity:   b.quantity,
-            Total:      b.total_price,
-            Status:     b.status,
-            Date:       formatDate(b.created_at),
-          }));
-      }
-
-      case 'payments': {
-        const payments = await listAllPayments();
-        return payments
-          .filter(p => config.statusFilter === 'all' || p.status === config.statusFilter)
-          .filter(p => isInRange(p.created_at))
-          .map(p => ({
-            ID:        p.id,
-            Customer:  p.user_name,
-            BookingID: p.booking_id,
-            Amount:    p.amount,
-            Currency:  p.currency,
-            Method:    p.method,
-            Status:    p.status,
-            Date:      formatDate(p.created_at),
-          }));
+      case 'orders': {
+        const orders = await admin_listAllOrders();
+        return orders
+          .filter(o => config.statusFilter === 'all' || o.status === config.statusFilter)
+          .filter(o => isInRange(o.created_at))
+          // One row per ticket-type line item, with order/payment context
+          // repeated on each row — gives ticket-type granularity (old
+          // Bookings Report) AND payment reconciliation (old Payments
+          // Report) in a single, pivotable export.
+          .flatMap(o => o.bookings.map(b => ({
+            OrderID:     o.id,
+            Customer:    o.customer_name,
+            Email:       o.customer_email,
+            Event:       o.event_title,
+            TicketType:  b.ticket_type_name,
+            Quantity:    b.quantity,
+            LineTotal:   b.total_price,
+            OrderTotal:  o.total_price,
+            OrderStatus: o.status,
+            Method:      o.payment_method ?? '—',
+            MpesaRef:    o.mpesa_ref ?? '—',
+            Date:        formatDate(o.created_at),
+          })));
       }
 
       case 'revenue': {
@@ -378,26 +361,32 @@ const Reports: React.FC = () => {
                 </button>
               }
             >
-              <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-                <table className="admin-table">
-                  <thead className="sticky top-0">
-                    <tr>
-                      {Object.keys(preview[0]).map(h => <th key={h}>{h}</th>)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {preview.slice(0, 50).map((row, i) => (
-                      <tr key={i}>
-                        {Object.values(row).map((val, j) => (
-                          <td key={j} className="max-w-[160px] truncate">
-                            {typeof val === 'boolean' ? (val ? '✓' : '✗') : String(val ?? '—')}
-                          </td>
-                        ))}
+              {preview.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">
+                  No records match the selected filters.
+                </p>
+              ) : (
+                <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+                  <table className="admin-table">
+                    <thead className="sticky top-0">
+                      <tr>
+                        {Object.keys(preview[0]).map(h => <th key={h}>{h}</th>)}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {preview.slice(0, 50).map((row, i) => (
+                        <tr key={i}>
+                          {Object.values(row).map((val, j) => (
+                            <td key={j} className="max-w-[160px] truncate">
+                              {typeof val === 'boolean' ? (val ? '✓' : '✗') : String(val ?? '—')}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
               {preview.length > 50 && (
                 <p className="text-xs text-gray-400 text-center py-3">
                   Showing 50 of {preview.length} rows. Download CSV for full data.

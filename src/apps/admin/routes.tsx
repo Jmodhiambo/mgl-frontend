@@ -7,6 +7,7 @@ import AdminLayout from '@admin/components/layout/AdminLayout';
 import Dashboard   from '@admin/pages/Dashboard';
 import Users       from '@admin/pages/Users';
 import Events      from '@admin/pages/Events';
+import Orders      from '@admin/pages/Orders';
 import Bookings    from '@admin/pages/Bookings';
 import Payments    from '@admin/pages/Payments';
 import TicketTypes from '@admin/pages/TicketTypes';
@@ -17,6 +18,7 @@ import AuditLogs   from '@admin/pages/AuditLogs';
 import Settings    from '@admin/pages/Settings';
 import Notifications from '@admin/pages/Notifications';
 import MyProfile from '@admin/pages/MyProfile';
+import ActivityFeed from '@admin/pages/ActivityFeed';
 
 export const router = createBrowserRouter([
   // Root redirect
@@ -38,6 +40,7 @@ export const router = createBrowserRouter([
       { path: 'dashboard',        element: <Dashboard /> },
       { path: 'users',            element: <Users /> },
       { path: 'events',           element: <Events /> },
+      { path: 'orders',           element: <Orders /> },
       { path: 'bookings',         element: <Bookings /> },
       { path: 'payments',         element: <Payments /> },
       { path: 'ticket-types',     element: <TicketTypes /> },
@@ -48,6 +51,7 @@ export const router = createBrowserRouter([
       { path: 'settings',         element: <Settings /> },
       { path: 'notifications',    element: <Notifications /> },
       { path: 'profile',       element: <MyProfile /> },
+      { path: 'activity-feed',   element: <ActivityFeed /> },
     ],
   },
 

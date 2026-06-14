@@ -22,8 +22,7 @@ type Action = 'delete' | 'activate' | 'deactivate' | 'resend-verification' | 'pr
 type NewUserRole = 'user' | 'organizer' | 'admin';
 
 interface NewUserForm {
-  first_name: string;
-  last_name: string;
+  name: string;
   email: string;
   password: string;
   role: NewUserRole;
@@ -47,12 +46,6 @@ const roleColors: Record<NewUserRole, string> = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getDisplayName(user: AdminUser): string {
-  if ((user as any).name) return (user as any).name as string;
-  const full = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim();
-  return full || 'Unknown';
-}
-
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';
@@ -71,15 +64,14 @@ const CreateUserModal: React.FC<{
   onCreated: (user: AdminUser) => void;
 }> = ({ onClose, onCreated }) => {
   const [form, setForm] = useState<NewUserForm>({
-    first_name: '', last_name: '', email: '', password: '', role: 'user',
+    name: '', email: '', password: '', role: 'user',
   });
   const [errors, setErrors] = useState<Partial<Record<keyof NewUserForm, string>>>({});
   const [loading, setLoading] = useState(false);
 
   const validate = (): boolean => {
     const e: Partial<Record<keyof NewUserForm, string>> = {};
-    if (!form.first_name.trim()) e.first_name = 'Required';
-    if (!form.last_name.trim())  e.last_name  = 'Required';
+    if (!form.name.trim()) e.name = 'Required';
     if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email)) e.email = 'A valid email is required';
     if (form.password.length < 8) e.password = 'Min. 8 characters';
     setErrors(e);
@@ -91,12 +83,9 @@ const CreateUserModal: React.FC<{
     setLoading(true);
     try {
       await new Promise(r => setTimeout(r, 800));
-      const fullName = `${form.first_name} ${form.last_name}`.trim();
       const newUser: AdminUser = {
         id: Math.floor(Math.random() * 9000) + 1000,
-        ...(({ name: fullName } as any)),
-        first_name: form.first_name,
-        last_name:  form.last_name,
+        name:       form.name,
         email:      form.email,
         role:       form.role,
         is_active:  true,
@@ -129,21 +118,12 @@ const CreateUserModal: React.FC<{
         </div>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-              <input type="text" value={form.first_name} placeholder="Jane"
-                onChange={e => setForm(p => ({ ...p, first_name: e.target.value }))}
-                className={cls('first_name')} />
-              {errors.first_name && <p className="mt-1 text-xs text-red-600">{errors.first_name}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-              <input type="text" value={form.last_name} placeholder="Doe"
-                onChange={e => setForm(p => ({ ...p, last_name: e.target.value }))}
-                className={cls('last_name')} />
-              {errors.last_name && <p className="mt-1 text-xs text-red-600">{errors.last_name}</p>}
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+            <input type="text" value={form.name} placeholder="Jane Doe"
+              onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+              className={cls('name')} />
+            {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
           </div>
 
           <div>
@@ -220,7 +200,7 @@ const Users: React.FC = () => {
   }, []);
 
   const filtered = useMemo(() => users.filter(u => {
-    const name = `${getDisplayName(u)} ${u.email}`.toLowerCase();
+    const name = `${u.name} ${u.email}`.toLowerCase();
     if (search && !name.includes(search.toLowerCase())) return false;
     if (roleFilter !== 'all' && u.role !== roleFilter) return false;
     if (statusFilter === 'active'     && !u.is_active)  return false;
@@ -261,7 +241,7 @@ const Users: React.FC = () => {
   const exportCSV = () => {
     const rows = [
       ['ID', 'Name', 'Email', 'Role', 'Active', 'Verified', 'Created'],
-      ...filtered.map(u => [u.id, getDisplayName(u), u.email, u.role, u.is_active, u.is_verified, u.created_at]),
+      ...filtered.map(u => [u.id, u.name, u.email, u.role, u.is_active, u.is_verified, u.created_at]),
     ];
     const a = document.createElement('a');
     a.href = 'data:text/csv,' + encodeURIComponent(rows.map(r => r.join(',')).join('\n'));
@@ -340,10 +320,10 @@ const Users: React.FC = () => {
                       <td>
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full purple-gradient flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                            {getInitials(getDisplayName(user))}
+                            {getInitials(user.name)}
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900 text-sm">{getDisplayName(user)}</p>
+                            <p className="font-medium text-gray-900 text-sm">{user.name}</p>
                             <p className="text-xs text-gray-500">{user.email}</p>
                           </div>
                         </div>
@@ -375,11 +355,11 @@ const Users: React.FC = () => {
               {paginated.map(user => (
                 <div key={user.id} className="flex items-start gap-3 p-4">
                   <div className="w-10 h-10 rounded-full purple-gradient flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                    {getInitials(getDisplayName(user))}
+                    {getInitials(user.name)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-sm text-gray-900 truncate">{getDisplayName(user)}</p>
+                      <p className="font-semibold text-sm text-gray-900 truncate">{user.name}</p>
                       <UserActionsMenu
                         user={user}
                         onAction={a => setConfirm({ action: a, user })}
@@ -410,7 +390,7 @@ const Users: React.FC = () => {
         <ConfirmDialog
           title={actionLabels[confirm.action]}
           message={actionMessages[confirm.action]
-            .replace('{name}', getDisplayName(confirm.user))
+            .replace('{name}', confirm.user.name)
             .replace('{email}', confirm.user.email)}
           confirmLabel={actionLabels[confirm.action]}
           variant={confirm.action === 'delete' || confirm.action === 'deactivate' ? 'danger' : 'info'}
@@ -426,7 +406,7 @@ const Users: React.FC = () => {
           onCreated={newUser => {
             setUsers(p => [newUser, ...p]);
             setShowCreate(false);
-            setAlert({ type: 'success', msg: `${getDisplayName(newUser)} created successfully as ${newUser.role}.` });
+            setAlert({ type: 'success', msg: `${newUser.name} created successfully as ${newUser.role}.` });
           }}
         />
       )}
@@ -439,7 +419,7 @@ const Users: React.FC = () => {
           onUpdated={updated => {
             setUsers(p => p.map(u => u.id === updated.id ? updated : u));
             setEmailTarget(null);
-            setAlert({ type: 'success', msg: `Email updated for ${getDisplayName(updated)}.` });
+            setAlert({ type: 'success', msg: `Email updated for ${updated.name}.` });
           }}
         />
       )}
@@ -588,10 +568,10 @@ const UserDetailModal: React.FC<{ user: AdminUser; onClose: () => void }> = ({ u
       <div className="flex items-start justify-between mb-5">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-xl purple-gradient flex items-center justify-center text-white text-xl font-bold shadow-lg">
-            {getInitials(getDisplayName(user))}
+            {getInitials(user.name)}
           </div>
           <div>
-            <h3 className="text-lg font-bold text-gray-900">{getDisplayName(user)}</h3>
+            <h3 className="text-lg font-bold text-gray-900">{user.name}</h3>
             <p className="text-sm text-gray-500">{user.email}</p>
           </div>
         </div>

@@ -4,11 +4,12 @@
 // Organizer payment access is intentionally absent (see payments_organizer.py).
 //
 // M-Pesa flow:
-//   1. createBooking()                          → BookingOut (status: pending)
-//   2. initiateMpesaPayment({ booking_id, phone_number })
+//   1. createOrder({ event_id, items })         → OrderOut (status: pending, total_price computed server-side)
+//   2. initiateMpesaPayment({ order_id, phone_number })
 //                                               → { payment_id, checkout_request_id, message }
 //   3. User enters PIN on phone
 //   4. Daraja POSTs to /payments/mpesa/callback (handled server-side)
+//      → confirms order + all its bookings, issues ticket instances for every line item
 //   5. pollPaymentStatus(payment_id)            → PaymentOut (poll until status != 'pending')
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -18,7 +19,7 @@ import api from '@shared/api/axiosConfig';
 
 export interface PaymentOut {
   id: number;
-  booking_id: number;
+  order_id: number;
   amount: number;
   currency: string;
   method: string;
@@ -32,7 +33,7 @@ export interface PaymentOut {
 }
 
 export interface MpesaStkPushRequest {
-  booking_id: number;
+  order_id: number;           // pays for ALL line items (ticket types) under this order
   phone_number: string;      // format: 2547XXXXXXXX or 07XXXXXXXX — backend normalises
 }
 
@@ -56,11 +57,11 @@ export const getPaymentById = async (
   return (await api.get(`/users/me/payments/${paymentId}`)).data;
 };
 
-export const getPaymentsByBooking = async (
-  bookingId: number,
+export const getPaymentsByOrder = async (
+  orderId: number,
 ): Promise<PaymentOut[]> => {
   return (
-    await api.get(`/users/me/bookings/${bookingId}/payments`)
+    await api.get(`/users/me/orders/${orderId}/payments`)
   ).data;
 };
 

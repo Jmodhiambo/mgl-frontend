@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, Calendar, Ticket, CreditCard,
   MessageSquare, BarChart3, FileText, Settings, Shield,
   ClipboardList, ChevronRight, Zap, UserCog, LogOut,
-  Bell, Tag, X,
+  Bell, Tag, X, Activity,
 } from 'lucide-react';
 
 interface NavSection {
@@ -39,6 +39,7 @@ const navSections: NavSection[] = [
     items: [
       { path: '/users',        label: 'Users',        icon: Users    },
       { path: '/events',       label: 'Events',       icon: Calendar },
+      { path: '/orders',       label: 'Orders',       icon: Zap      },
       { path: '/bookings',     label: 'Bookings',     icon: Ticket   },
       { path: '/payments',     label: 'Payments',     icon: CreditCard },
       { path: '/ticket-types', label: 'Ticket Types', icon: Tag      },
@@ -53,8 +54,9 @@ const navSections: NavSection[] = [
   {
     label: 'Insights',
     items: [
-      { path: '/analytics', label: 'Analytics', icon: BarChart3 },
-      { path: '/reports',   label: 'Reports',   icon: FileText  },
+      { path: '/analytics',     label: 'Analytics',      icon: BarChart3  },
+      { path: '/reports',       label: 'Reports',        icon: FileText   },
+      { path: '/activity-feed', label: 'Activity Feed',  icon: Activity   },
     ],
   },
   {
