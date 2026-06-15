@@ -11,7 +11,7 @@ import {
 import { useAuth } from '@shared/contexts/AuthContext';
 import AuthModal from '@shared/components/modals/AuthModal';
 import { EventSEO } from '@shared/components/SEO';
-import { getApprovedEvents, searchEvents } from '@user/services/eventService';
+import { getApprovedEvents } from '@user/services/eventService';
 import type { EventOut } from '@shared/types/Event';
 
 type SortKey = 'date-asc' | 'date-desc' | 'title';

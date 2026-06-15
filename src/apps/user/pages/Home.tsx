@@ -6,7 +6,6 @@ import {
   TrendingUp, ArrowRight, Ticket, Users, Star,
   ChevronRight, Zap, Shield,
 } from 'lucide-react';
-import Footer from '@shared/components/navigation/Footer';
 import { HomeSEO } from '@shared/components/SEO';
 import { useAuth } from '@shared/contexts/AuthContext';
 import { getLatestEvents } from '@user/services/eventService';

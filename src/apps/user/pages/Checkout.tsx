@@ -13,6 +13,7 @@ import { initiateMpesaPayment, pollPaymentStatus } from '@shared/api/user/paymen
 
 interface Event {
   id: number;
+  slug: string;
   title: string;
   venue: string;
   start_time: string;
@@ -44,7 +45,7 @@ type PaymentStep = 'form' | 'awaiting_pin' | 'complete' | 'failed';
 const CheckoutBookingPage: React.FC = () => {
   const location  = useLocation();
   const navigate  = useNavigate();
-  const { user }  = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   const [event, setEvent]             = useState<Event | null>(null);
   const [bookingData, setBookingData] = useState<BookingData | null>(null);
@@ -256,7 +257,7 @@ const CheckoutBookingPage: React.FC = () => {
         <header className="bg-white shadow-sm border-b border-orange-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <button
-              onClick={() => navigate(`/events/${event.id}`)}
+              onClick={() => navigate(isAuthenticated ? `/browse-events/${event.slug}` : `/events/${event.slug}`)}
               className="flex items-center text-gray-600 hover:text-orange-600 transition-colors"
             >
               <ChevronLeft className="w-5 h-5 mr-1" /> Back to Event Details

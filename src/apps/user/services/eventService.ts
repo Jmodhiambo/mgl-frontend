@@ -18,6 +18,12 @@ import type {
 export const getApprovedEvents = async (): Promise<EventOut[]> =>
   (await api.get('/events')).data;
 
+export const getEventById = async (eventID: number): Promise<EventOut> =>
+  (await api.get(`/events/id/${eventID}`)).data;
+
+export const getEventBySlug = async (slug: string): Promise<EventOut> =>
+  (await api.get(`/events/slug/${slug}`)).data;
+
 export const getEventByIdentifier = async (
   identifier: string | number,
 ): Promise<EventOut> =>

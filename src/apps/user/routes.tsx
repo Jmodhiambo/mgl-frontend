@@ -95,7 +95,7 @@ export const router = createBrowserRouter([
         element: <Events />,
       },
       {
-        path: 'events/:eventId',
+        path: 'events/:slug',
         element: <EventDetails />,
       },
 
@@ -170,7 +170,7 @@ export const router = createBrowserRouter([
         element: <BrowseEvents />,
       },
       {
-        path: 'browse-events/:eventId',
+        path: 'browse-events/:slug',
         element: <BrowseEventDetails />,
       },
       {

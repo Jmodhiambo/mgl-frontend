@@ -3,7 +3,7 @@
 // Authenticated event detail page — shown to logged-in users.
 // Unauthenticated users see EventDetails.tsx instead.
 //
-// Route: /browse-events/:identifier
+// Route: /browse-events/:slug
 // Supports navigation state restore: when a user selects tickets on
 // EventDetails.tsx and is then redirected here after login, the ticket
 // selection is preserved via location.state.
@@ -18,7 +18,7 @@ import {
 import { useAuth } from '@shared/contexts/AuthContext';
 import SEO from '@shared/components/SEO';
 import {
-  getEventByIdentifier,
+  getEventBySlug,
   getTicketTypesByEvent,
   getFavorites,
   addFavorite,
@@ -67,7 +67,7 @@ const TicketRow: React.FC<{
   selectedQty: number;
   onChange: (id: number, qty: number) => void;
 }> = ({ ticket, selectedQty, onChange }) => {
-  const available  = ticket.quantity_available - ticket.quantity_sold;
+  const available  = ticket.quantity_available;
   const isLowStock = available <= 10 && available > 0;
   const isSoldOut  = available <= 0;
 
@@ -144,7 +144,7 @@ const TicketRow: React.FC<{
 const BrowseEventDetailsPage: React.FC = () => {
   const navigate             = useNavigate();
   const location             = useLocation();
-  const { identifier }       = useParams<{ identifier: string }>();
+  const { slug }             = useParams<{ slug: string }>();
   const { isAuthenticated }  = useAuth();
 
   const [event, setEvent]               = useState<EventOut | null>(null);
@@ -171,11 +171,11 @@ const BrowseEventDetailsPage: React.FC = () => {
 
   // ── Load event + tickets + favourite state ────────────────────────────────
   const load = useCallback(async () => {
-    if (!identifier) return;
+    if (!slug) return;
     setLoading(true);
     setError(null);
     try {
-      const eventData = await getEventByIdentifier(identifier);
+      const eventData = await getEventBySlug(slug);
       const [ticketsData, favData] = await Promise.all([
         getTicketTypesByEvent(eventData.id),
         getFavorites().catch(() => [] as { event_id: number }[]),
@@ -188,7 +188,7 @@ const BrowseEventDetailsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [identifier]);
+  }, [slug]);
 
   useEffect(() => {
     // Only fetch if we don't already have the event from navigation state

@@ -3,9 +3,7 @@
 // Public event detail page — shown to unauthenticated users.
 // Authenticated users see BrowseEventDetails.tsx instead.
 //
-// Route: /events/:identifier
-// The :identifier can be a numeric ID or a slug — the backend
-// GET /events/{identifier} handles both automatically.
+// Route: /events/:slug
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -18,7 +16,7 @@ import { useAuth } from '@shared/contexts/AuthContext';
 import AuthModal from '@shared/components/modals/AuthModal';
 import SEO from '@shared/components/SEO';
 import {
-  getEventByIdentifier,
+  getEventBySlug,
   getTicketTypesByEvent,
 } from '@user/services/eventService';
 import type { EventOut, TicketTypeOut, SelectedTickets } from '@shared/types/Event';
@@ -49,7 +47,7 @@ const TicketRow: React.FC<{
   selectedQty: number;
   onChange: (id: number, qty: number) => void;
 }> = ({ ticket, selectedQty, onChange }) => {
-  const available  = ticket.quantity_available - ticket.quantity_sold;
+  const available  = ticket.quantity_available;
   const isLowStock = available <= 10 && available > 0;
   const isSoldOut  = available <= 0;
 
@@ -125,7 +123,7 @@ const TicketRow: React.FC<{
 
 const EventDetailsPage: React.FC = () => {
   const navigate          = useNavigate();
-  const { identifier }    = useParams<{ identifier: string }>();
+  const { slug }          = useParams<{ slug: string }>();
   const { isAuthenticated } = useAuth();
 
   const [event, setEvent]               = useState<EventOut | null>(null);
@@ -136,38 +134,11 @@ const EventDetailsPage: React.FC = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   const load = useCallback(async () => {
-    if (!identifier) return;
+    if (!slug) return;
     setLoading(true);
     setError(null);
     try {
-      // Fetch event and ticket types in parallel
-      const [eventData, ticketsData] = await Promise.all([
-        getEventByIdentifier(identifier),
-        // Ticket types need the event ID — fetch event first, then tickets.
-        // We use a two-step fetch here: get event, then use its id for tickets.
-        // To keep them parallel we optimistically try the identifier as an id;
-        // if it's a slug the second fetch will use the resolved id below.
-        getEventByIdentifier(identifier).then(e =>
-          getTicketTypesByEvent(e.id)
-        ),
-      ]);
-      // eventData is returned twice from parallel calls — use the first one
-      setEvent(eventData);
-      setTicketTypes(ticketsData);
-    } catch {
-      setError('Event not found or failed to load. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [identifier]);
-
-  // Cleaner parallel load: get event first (single call) then tickets by id
-  const loadSequential = useCallback(async () => {
-    if (!identifier) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const eventData   = await getEventByIdentifier(identifier);
+      const eventData   = await getEventBySlug(slug);
       const ticketsData = await getTicketTypesByEvent(eventData.id);
       setEvent(eventData);
       setTicketTypes(ticketsData);
@@ -176,11 +147,11 @@ const EventDetailsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [identifier]);
+  }, [slug]);
 
   useEffect(() => {
-    loadSequential();
-  }, [loadSequential]);
+    load();
+  }, [load]);
 
   useEffect(() => {
     if (event) document.title = `${event.title} - MGLTickets`;
@@ -223,7 +194,7 @@ const EventDetailsPage: React.FC = () => {
 
   // After login, redirect to the authenticated version of this page
   const handleAuthSuccess = () => {
-    navigate(`/browse-events/${event?.slug ?? identifier}`, {
+    navigate(`/browse-events/${event?.slug ?? slug}`, {
       replace: true,
       state: { selectedTickets, event },
     });
@@ -258,7 +229,7 @@ const EventDetailsPage: React.FC = () => {
           <p className="text-gray-600">{error ?? "The event you're looking for doesn't exist."}</p>
           <div className="flex gap-3 justify-center">
             <button
-              onClick={loadSequential}
+              onClick={load}
               className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
             >
               <RefreshCw className="w-4 h-4" /> Retry
