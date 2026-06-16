@@ -1,4 +1,4 @@
-// src/apps/admin/components/modals/events/CreateTicketTypesModal.tsx
+// src/apps/admin/components/modals/ticketTypes/CreateTicketTypesModal.tsx
 import { useState } from 'react';
 import {
   Ticket, Plus, Trash2, Save, X, DollarSign, Users,

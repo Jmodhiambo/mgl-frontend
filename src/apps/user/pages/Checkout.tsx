@@ -1,15 +1,29 @@
 // src/apps/user/pages/Checkout.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+// Checkout page — 3 visual states:
+//   1. 'form'         — main checkout form (default)
+//   2. 'awaiting_pin' — STK push sent, waiting for M-Pesa PIN
+//   3. 'complete'     — payment confirmed
+//   4. 'failed'       — payment failed / timed out
+//
+// Layout: full-width progress header → two-col body (left: phone + terms,
+// right: sticky order summary + CTA). Terms checkbox lives above the CTA.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Calendar, MapPin, Clock, ShieldCheck, Ticket, Phone,
-  CheckCircle, AlertCircle, ChevronLeft, X, FileText, RefreshCw, Loader2,
+  CheckCircle, AlertCircle, ChevronLeft, X, FileText,
+  RefreshCw, Loader2, Lock, Smartphone,
 } from 'lucide-react';
 import { CheckoutSEO, BookingSEO } from '@shared/components/SEO';
 import { TermsContent, RefundContent } from '@shared/pages';
 import { useAuth } from '@shared/contexts/AuthContext';
 import { createOrder } from '@shared/api/user/bookingsApi';
 import { initiateMpesaPayment, pollPaymentStatus } from '@shared/api/user/paymentsApi';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Event {
   id: number;
@@ -39,76 +53,77 @@ interface FormErrors {
   general?: string;
 }
 
-// Payment step shown in UI after STK push is sent
 type PaymentStep = 'form' | 'awaiting_pin' | 'complete' | 'failed';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-US', {
+    weekday: 'short', month: 'long', day: 'numeric', year: 'numeric',
+  });
+
+const formatTime = (iso: string) =>
+  new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 const CheckoutBookingPage: React.FC = () => {
   const location  = useLocation();
   const navigate  = useNavigate();
   const { user, isAuthenticated } = useAuth();
 
-  const [event, setEvent]             = useState<Event | null>(null);
-  const [bookingData, setBookingData] = useState<BookingData | null>(null);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [agreedToTerms, setAgreed]    = useState(false);
-  const [errors, setErrors]           = useState<FormErrors>({});
-  const [paymentStep, setPaymentStep] = useState<PaymentStep>('form');
-  const [paymentId, setPaymentId]     = useState<number | null>(null);
-  const [orderTotal, setOrderTotal]   = useState<number | null>(null);
+  const [event, setEvent]               = useState<Event | null>(null);
+  const [bookingData, setBookingData]   = useState<BookingData | null>(null);
+  const [phoneNumber, setPhoneNumber]   = useState('');
+  const [agreedToTerms, setAgreed]      = useState(false);
+  const [errors, setErrors]             = useState<FormErrors>({});
+  const [paymentStep, setPaymentStep]   = useState<PaymentStep>('form');
+  const [paymentId, setPaymentId]       = useState<number | null>(null);
+  const [orderTotal, setOrderTotal]     = useState<number | null>(null);
   const [modalContent, setModalContent] = useState<'terms' | 'refund' | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Store poll cancel fn so we can clean up on unmount
   const cancelPollRef = useRef<(() => void) | null>(null);
   useEffect(() => () => { cancelPollRef.current?.(); }, []);
 
   useEffect(() => {
-    document.title = 'Checkout - MGLTickets';
+    document.title = 'Checkout – MGLTickets';
     const state = location.state as { bookingData?: BookingData; event?: Event };
     if (!state?.bookingData || !state?.event) { navigate('/events'); return; }
     setBookingData(state.bookingData);
     setEvent(state.event);
-    // Pre-fill phone from user profile if available
     if (user?.phone_number) setPhoneNumber(user.phone_number);
   }, [location, navigate, user]);
 
-  const calculateSubtotal = () =>
+  const calculateTotal = () =>
     bookingData?.tickets.reduce((s, t) => s + t.price * t.quantity, 0) ?? 0;
 
-  // No processing fee — total equals the subtotal of selected tickets.
-  const calculateTotal = () => calculateSubtotal();
+  const totalTickets = () =>
+    bookingData?.tickets.reduce((s, t) => s + t.quantity, 0) ?? 0;
 
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString('en-US', {
-      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-    });
-
-  const formatTime = (iso: string) =>
-    new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  // ── Validation ────────────────────────────────────────────────────────────
 
   const validateForm = (): boolean => {
-    const newErrors: FormErrors = {};
+    const errs: FormErrors = {};
     if (!phoneNumber.trim()) {
-      newErrors.phoneNumber = 'Phone number is required';
+      errs.phoneNumber = 'Phone number is required';
     } else if (!/^(\+254|0)[17]\d{8}$/.test(phoneNumber.trim())) {
-      newErrors.phoneNumber = 'Invalid Kenyan phone number format';
+      errs.phoneNumber = 'Enter a valid Kenyan number (e.g. +254712345678 or 0712345678)';
     }
-    if (!agreedToTerms) newErrors.terms = 'You must agree to the terms and conditions';
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    if (!agreedToTerms) errs.terms = 'Please agree to the terms and conditions';
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
   };
+
+  // ── Checkout handler ──────────────────────────────────────────────────────
 
   const handleCheckout = async () => {
     if (!validateForm() || !bookingData || !event) return;
-    setPaymentStep('form');
+    setIsSubmitting(true);
     setErrors({});
 
     try {
-      // 1. Create the order — one Booking row per ticket type, created
-      //    atomically by the backend. Pricing is computed server-side
-      //    from current TicketType prices —
-      //    calculateTotal() below is only used for the on-screen estimate
-      //    before checkout; the amount actually charged is order.total_price.
       const order = await createOrder({
         event_id: event.id,
         items: bookingData.tickets.map(t => ({
@@ -117,34 +132,28 @@ const CheckoutBookingPage: React.FC = () => {
         })),
       });
 
-      // 2. Initiate M-Pesa STK push for the WHOLE order
-      //    (covers every ticket type in one payment / one PIN prompt)
       const stkResponse = await initiateMpesaPayment({
         order_id: order.id,
         phone_number: phoneNumber.trim(),
       });
 
-      setOrderTotal(order.total_price);  // backend-computed authoritative total
+      setOrderTotal(order.total_price);
       setPaymentId(stkResponse.payment_id);
       setPaymentStep('awaiting_pin');
       setStatusMessage(stkResponse.message);
 
-      // 3. Start polling for payment result
       const cancelPoll = pollPaymentStatus(stkResponse.payment_id, {
-        onPending: () =>
-          setStatusMessage('Waiting for M-PESA confirmation...'),
-        onComplete: () => {
-          setPaymentStep('complete');
-        },
-        onFailed: () => {
+        onPending: () => setStatusMessage('Waiting for M-Pesa confirmation…'),
+        onComplete: () => { setPaymentStep('complete'); },
+        onFailed:  () => {
           setPaymentStep('failed');
           setErrors({ general: 'Payment failed or was cancelled. Please try again.' });
         },
         onTimeout: () => {
           setPaymentStep('failed');
-          setErrors({ general: 'Payment confirmation timed out. Check your M-PESA messages and contact support if charged.' });
+          setErrors({ general: 'Payment confirmation timed out. Check your M-Pesa messages and contact support if charged.' });
         },
-        intervalMs: 3000,
+        intervalMs:  3000,
         maxAttempts: 10,
       });
 
@@ -154,63 +163,92 @@ const CheckoutBookingPage: React.FC = () => {
       const msg = err instanceof Error ? err.message : 'Failed to process payment. Please try again.';
       setErrors({ general: msg });
       setPaymentStep('form');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  // ── Guard ─────────────────────────────────────────────────────────────────
+
   if (!bookingData || !event) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent" />
       </div>
     );
   }
 
-  // ── Booking complete screen ────────────────────────────────────────────────
+  // ── Complete screen ───────────────────────────────────────────────────────
+
   if (paymentStep === 'complete') {
     return (
       <>
         <BookingSEO />
-        <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 text-center">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="w-12 h-12 text-green-600" />
-            </div>
-            <h2 className="text-3xl font-bold text-gray-800 mb-3">Booking Confirmed!</h2>
-            <p className="text-gray-600 mb-6">Your tickets have been sent to {user?.email}</p>
-            <div className="bg-orange-50 rounded-xl p-6 mb-6 text-left">
-              <h3 className="font-semibold text-gray-800 mb-3">Booking Details</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Event:</span>
-                  <span className="font-medium text-gray-800">{event.title}</span>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 max-w-md w-full overflow-hidden">
+
+            {/* Green top bar */}
+            <div className="h-2 bg-gradient-to-r from-green-400 to-green-500" />
+
+            <div className="p-8 text-center">
+              {/* Icon */}
+              <div className="w-20 h-20 rounded-full bg-green-50 border-4 border-green-100 flex items-center justify-center mx-auto mb-5">
+                <CheckCircle className="w-10 h-10 text-green-500" />
+              </div>
+
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">You're going!</h2>
+              <p className="text-gray-500 text-sm mb-6">
+                Tickets sent to <span className="font-medium text-gray-700">{user?.email}</span>
+              </p>
+
+              {/* Summary card */}
+              <div className="bg-gray-50 rounded-xl p-5 mb-6 text-left space-y-3">
+                <div className="flex items-start gap-3">
+                  <img
+                    src={event.flyer_url}
+                    alt={event.title}
+                    className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
+                  />
+                  <div>
+                    <p className="font-semibold text-gray-900 text-sm leading-snug">{event.title}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                      <MapPin className="w-3 h-3" /> {event.venue}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                      <Calendar className="w-3 h-3" /> {formatDate(event.start_time)}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Total Tickets:</span>
-                  <span className="font-medium text-gray-800">
-                    {bookingData.tickets.reduce((s, t) => s + t.quantity, 0)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Total Paid:</span>
-                  <span className="font-bold text-orange-600">
-                    KES {(orderTotal ?? calculateTotal()).toLocaleString()}
-                  </span>
+
+                <div className="border-t border-gray-200 pt-3 space-y-1.5">
+                  {bookingData.tickets.map((t, i) => (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span className="text-gray-600">{t.quantity}× {t.name}</span>
+                      <span className="font-medium text-gray-800">KES {(t.price * t.quantity).toLocaleString()}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-sm font-bold pt-2 border-t border-gray-200 mt-2">
+                    <span className="text-gray-800">Total paid</span>
+                    <span className="text-orange-600">KES {(orderTotal ?? calculateTotal()).toLocaleString()}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="space-y-3">
-              <button
-                onClick={() => navigate('/my-tickets')}
-                className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all"
-              >
-                View My Tickets
-              </button>
-              <button
-                onClick={() => navigate('/browse-events')}
-                className="w-full border-2 border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-all"
-              >
-                Back to Events
-              </button>
+
+              {/* Actions */}
+              <div className="space-y-3">
+                <button
+                  onClick={() => navigate('/my-tickets')}
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-semibold transition-colors text-sm"
+                >
+                  View My Tickets
+                </button>
+                <button
+                  onClick={() => navigate('/browse-events')}
+                  className="w-full border border-gray-200 text-gray-600 hover:bg-gray-50 py-3 rounded-xl font-medium transition-colors text-sm"
+                >
+                  Browse More Events
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -218,29 +256,55 @@ const CheckoutBookingPage: React.FC = () => {
     );
   }
 
-  // ── Awaiting PIN screen ────────────────────────────────────────────────────
+  // ── Awaiting PIN screen ───────────────────────────────────────────────────
+
   if (paymentStep === 'awaiting_pin') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
-          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Phone className="w-8 h-8 text-orange-600" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 max-w-sm w-full p-8 text-center">
+
+          {/* Pulsing phone icon */}
+          <div className="relative w-20 h-20 mx-auto mb-6">
+            <div className="absolute inset-0 rounded-full bg-orange-100 animate-ping opacity-40" />
+            <div className="relative w-20 h-20 rounded-full bg-orange-50 border-4 border-orange-100 flex items-center justify-center">
+              <Smartphone className="w-9 h-9 text-orange-500" />
+            </div>
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-3">Check Your Phone</h2>
-          <p className="text-gray-600 mb-2">{statusMessage}</p>
-          <p className="text-sm text-gray-500 mb-8">
-            Enter your M-PESA PIN to complete the payment of{' '}
+
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Check your phone</h2>
+          <p className="text-gray-500 text-sm mb-1">{statusMessage}</p>
+          <p className="text-sm text-gray-400 mb-8">
+            Enter your M-Pesa PIN to pay{' '}
             <span className="font-bold text-orange-600">
               KES {(orderTotal ?? calculateTotal()).toLocaleString()}
             </span>
           </p>
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <Loader2 className="w-5 h-5 text-orange-500 animate-spin" />
-            <span className="text-sm text-gray-600">Waiting for confirmation...</span>
+
+          {/* Steps */}
+          <div className="bg-orange-50 rounded-xl p-4 mb-6 text-left space-y-2">
+            {[
+              'An M-Pesa prompt has been sent to your phone',
+              'Open the prompt and enter your M-Pesa PIN',
+              "We'll confirm your booking automatically",
+            ].map((step, i) => (
+              <div key={i} className="flex items-start gap-3 text-sm">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-orange-200 text-orange-700 font-bold text-xs flex items-center justify-center mt-0.5">
+                  {i + 1}
+                </span>
+                <span className="text-orange-800">{step}</span>
+              </div>
+            ))}
           </div>
+
+          {/* Spinner */}
+          <div className="flex items-center justify-center gap-2 mb-6 text-sm text-gray-500">
+            <Loader2 className="w-4 h-4 text-orange-500 animate-spin" />
+            Waiting for confirmation…
+          </div>
+
           <button
-            onClick={() => { cancelPollRef.current?.(); setPaymentStep('form'); }}
-            className="text-sm text-gray-500 hover:text-gray-700 underline"
+            onClick={() => { cancelPollRef.current?.(); setPaymentStep('form'); setErrors({}); }}
+            className="text-sm text-gray-400 hover:text-gray-600 underline underline-offset-2"
           >
             Cancel and try again
           </button>
@@ -249,227 +313,324 @@ const CheckoutBookingPage: React.FC = () => {
     );
   }
 
-  // ── Main checkout form ─────────────────────────────────────────────────────
+  // ── Failed screen (inline on form via errors.general, but also shown standalone) ──
+
+  // ── Main checkout form ────────────────────────────────────────────────────
+
   return (
     <>
       <CheckoutSEO />
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50">
-        <header className="bg-white shadow-sm border-b border-orange-100">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div className="min-h-screen bg-gray-50">
+
+        {/* Header */}
+        <header className="bg-white border-b border-gray-100">
+          <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
             <button
               onClick={() => navigate(isAuthenticated ? `/browse-events/${event.slug}` : `/events/${event.slug}`)}
-              className="flex items-center text-gray-600 hover:text-orange-600 transition-colors"
+              className="flex items-center gap-1.5 text-gray-500 hover:text-orange-600 transition-colors text-sm font-medium"
             >
-              <ChevronLeft className="w-5 h-5 mr-1" /> Back to Event Details
+              <ChevronLeft className="w-4 h-4" /> Back to Event
             </button>
+            {/* Secure badge */}
+            <span className="hidden sm:flex items-center gap-1.5 text-xs text-gray-400 font-medium">
+              <Lock className="w-3.5 h-3.5" /> Secure checkout
+            </span>
           </div>
         </header>
 
         <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="mb-6">
-            <h2 className="text-3xl font-bold text-gray-800 mb-2">Checkout</h2>
-            <p className="text-gray-600">Complete your booking in a few simple steps</p>
+
+          {/* Page title */}
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-gray-900">Checkout</h1>
+            <p className="text-gray-500 text-sm mt-1">
+              {totalTickets()} ticket{totalTickets() !== 1 ? 's' : ''} for{' '}
+              <span className="font-medium text-gray-700">{event.title}</span>
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left — Contact + Payment method */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-4">Contact Information</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-                    <input
-                      type="text"
-                      value={user?.name ?? ''}
-                      disabled
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                    <input
-                      type="email"
-                      value={user?.email ?? ''}
-                      disabled
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">M-PESA Phone Number</label>
-                    <input
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={e => { setPhoneNumber(e.target.value); setErrors(p => ({ ...p, phoneNumber: undefined })); }}
-                      placeholder="+254712345678"
-                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 ${
-                        errors.phoneNumber ? 'border-red-500' : 'border-gray-300'
-                      }`}
-                    />
-                    {errors.phoneNumber && (
-                      <p className="mt-2 text-sm text-red-600 flex items-center">
-                        <AlertCircle className="w-4 h-4 mr-1" /> {errors.phoneNumber}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
 
-              {/* M-Pesa info */}
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-4">Payment Method</h3>
-                <div className="border-2 border-orange-500 bg-orange-50 rounded-xl p-4">
-                  <div className="flex items-center">
-                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mr-3">
-                      <Phone className="w-6 h-6 text-green-600" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-gray-800">M-PESA</div>
-                      <div className="text-sm text-gray-600">Pay via M-PESA STK Push</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                  <div className="flex items-start">
-                    <ShieldCheck className="w-5 h-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
-                    <div className="text-sm text-blue-800">
-                      <p className="font-medium mb-1">How M-PESA payment works:</p>
-                      <ol className="list-decimal list-inside space-y-1 text-blue-700">
-                        <li>Enter your M-PESA phone number above</li>
-                        <li>Click "Complete Payment" — you'll receive an STK push</li>
-                        <li>Enter your M-PESA PIN on your phone</li>
-                        <li>Tickets will be sent to your email instantly</li>
-                      </ol>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {/* ── Left col: payment details ──────────────────────────────── */}
+            <div className="lg:col-span-3 space-y-5">
 
+              {/* General error */}
               {errors.general && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start">
-                  <AlertCircle className="w-5 h-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-red-700">{errors.general}</p>
+                <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-red-800 mb-0.5">Payment failed</p>
+                    <p className="text-sm text-red-700">{errors.general}</p>
+                  </div>
                 </div>
               )}
-            </div>
 
-            {/* Right — Order summary */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-xl shadow-md p-6 sticky top-4">
-                <h3 className="text-xl font-bold text-gray-800 mb-4">Order Summary</h3>
+              {/* Who's buying — compact read-only strip */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold mb-3">Booking for</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-orange-600 font-bold text-sm">
+                      {(user?.name ?? 'U')[0].toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{user?.name}</p>
+                    <p className="text-xs text-gray-500">{user?.email}</p>
+                  </div>
+                </div>
+              </div>
 
-                <div className="mb-6">
-                  <img src={event.flyer_url} alt={event.title} className="w-full h-32 object-cover rounded-lg mb-3" />
-                  <h4 className="font-semibold text-gray-800 mb-2">{event.title}</h4>
-                  <div className="space-y-1 text-sm text-gray-600">
-                    <div className="flex items-center"><Calendar className="w-4 h-4 mr-2" />{formatDate(event.start_time)}</div>
-                    <div className="flex items-center"><Clock className="w-4 h-4 mr-2" />{formatTime(event.start_time)}</div>
-                    <div className="flex items-center"><MapPin className="w-4 h-4 mr-2" />{event.venue}</div>
+              {/* M-Pesa phone input */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+                    <Phone className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-gray-900">M-Pesa Payment</h2>
+                    <p className="text-xs text-gray-500">You'll receive a push notification to approve the payment</p>
                   </div>
                 </div>
 
-                <div className="border-t border-gray-200 pt-4 mb-4">
-                  <h4 className="font-semibold text-gray-800 mb-3">Tickets</h4>
-                  <div className="space-y-3">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  M-Pesa Phone Number
+                </label>
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={e => {
+                    setPhoneNumber(e.target.value);
+                    setErrors(p => ({ ...p, phoneNumber: undefined }));
+                  }}
+                  placeholder="+254712345678"
+                  className={`w-full px-4 py-3 rounded-xl border-2 text-sm transition-colors focus:outline-none focus:ring-0 ${
+                    errors.phoneNumber
+                      ? 'border-red-400 bg-red-50 focus:border-red-500'
+                      : 'border-gray-200 focus:border-orange-400'
+                  }`}
+                />
+                {errors.phoneNumber ? (
+                  <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {errors.phoneNumber}
+                  </p>
+                ) : (
+                  <p className="mt-2 text-xs text-gray-400">
+                    Accepts Safaricom numbers: 07xx or +2547xx
+                  </p>
+                )}
+
+                {/* How it works */}
+                <div className="mt-5 pt-5 border-t border-gray-100 space-y-2">
+                  {[
+                    'Click "Pay now" — an STK push will appear on your phone',
+                    'Enter your M-Pesa PIN to confirm',
+                    'Your tickets are sent to your email instantly',
+                  ].map((step, i) => (
+                    <div key={i} className="flex items-start gap-3 text-sm text-gray-500">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-gray-100 text-gray-500 font-bold text-xs flex items-center justify-center mt-0.5">
+                        {i + 1}
+                      </span>
+                      {step}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Terms */}
+              <div className={`bg-white rounded-2xl border-2 shadow-sm p-5 transition-colors ${
+                errors.terms ? 'border-red-300 bg-red-50' : 'border-gray-100'
+              }`}>
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="terms"
+                    checked={agreedToTerms}
+                    onChange={e => {
+                      setAgreed(e.target.checked);
+                      setErrors(p => ({ ...p, terms: undefined }));
+                    }}
+                    className="mt-0.5 w-4 h-4 rounded text-orange-500 border-gray-300 focus:ring-orange-400 cursor-pointer flex-shrink-0 accent-orange-500"
+                  />
+                  <label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed cursor-pointer">
+                    I have read and agree to the{' '}
+                    <button
+                      type="button"
+                      onClick={() => setModalContent('terms')}
+                      className="text-orange-600 hover:text-orange-700 font-semibold underline underline-offset-2"
+                    >
+                      Terms &amp; Conditions
+                    </button>
+                    {' '}and the{' '}
+                    <button
+                      type="button"
+                      onClick={() => setModalContent('refund')}
+                      className="text-orange-600 hover:text-orange-700 font-semibold underline underline-offset-2"
+                    >
+                      Refund Policy
+                    </button>
+                  </label>
+                </div>
+                {errors.terms && (
+                  <p className="mt-2 text-xs text-red-600 flex items-center gap-1 pl-7">
+                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {errors.terms}
+                  </p>
+                )}
+              </div>
+
+            </div>
+
+            {/* ── Right col: order summary (sticky) ─────────────────────── */}
+            <div className="lg:col-span-2">
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden sticky top-6">
+
+                {/* Event thumbnail strip */}
+                <div className="relative h-28 overflow-hidden">
+                  <img
+                    src={event.flyer_url}
+                    alt={event.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 to-transparent" />
+                  <div className="absolute bottom-3 left-4 right-4">
+                    <p className="text-white font-bold text-sm leading-tight line-clamp-1">{event.title}</p>
+                  </div>
+                </div>
+
+                <div className="p-5 space-y-5">
+                  {/* Event meta */}
+                  <div className="space-y-1.5 text-xs text-gray-500">
+                    <p className="flex items-center gap-2">
+                      <Calendar className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
+                      {formatDate(event.start_time)}
+                    </p>
+                    <p className="flex items-center gap-2">
+                      <Clock className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
+                      {formatTime(event.start_time)}
+                    </p>
+                    <p className="flex items-center gap-2">
+                      <MapPin className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
+                      {event.venue}
+                    </p>
+                  </div>
+
+                  {/* Ticket lines */}
+                  <div className="border-t border-gray-100 pt-4 space-y-2.5">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Order Summary</p>
                     {bookingData.tickets.map((ticket, i) => (
-                      <div key={i} className="flex justify-between text-sm">
-                        <div>
-                          <div className="font-medium text-gray-800">{ticket.name}</div>
-                          <div className="text-gray-600">{ticket.quantity} × KES {ticket.price.toLocaleString()}</div>
+                      <div key={i} className="flex items-start justify-between gap-2 text-sm">
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-800 truncate">{ticket.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {ticket.quantity} × KES {ticket.price.toLocaleString()}
+                          </p>
                         </div>
-                        <div className="font-semibold text-gray-800">
+                        <span className="font-semibold text-gray-800 flex-shrink-0">
                           KES {(ticket.quantity * ticket.price).toLocaleString()}
-                        </div>
+                        </span>
                       </div>
                     ))}
                   </div>
-                </div>
 
-                <div className="border-t border-gray-200 pt-4 mb-4">
-                  <div className="flex justify-between font-bold text-gray-800 text-lg">
-                    <span>Total</span>
-                    <span className="text-orange-600">KES {calculateTotal().toLocaleString()}</span>
+                  {/* Total */}
+                  <div className="border-t-2 border-gray-100 pt-4 flex items-center justify-between">
+                    <span className="text-sm font-bold text-gray-800">
+                      Total
+                      <span className="ml-1.5 text-xs font-normal text-gray-400">
+                        ({totalTickets()} ticket{totalTickets() !== 1 ? 's' : ''})
+                      </span>
+                    </span>
+                    <span className="text-xl font-bold text-orange-600">
+                      KES {calculateTotal().toLocaleString()}
+                    </span>
                   </div>
-                </div>
 
-                <button
-                  onClick={handleCheckout}
-                  disabled={paymentStep !== 'form'}
-                  className="w-full py-4 rounded-xl font-semibold transition-all flex items-center justify-center bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ShieldCheck className="w-5 h-5 mr-2" /> Complete Payment
-                </button>
+                  {/* CTA */}
+                  <button
+                    onClick={handleCheckout}
+                    disabled={isSubmitting || paymentStep !== 'form'}
+                    className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 text-sm"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Processing…
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="w-4 h-4" />
+                        Pay KES {calculateTotal().toLocaleString()}
+                      </>
+                    )}
+                  </button>
 
-                {/* Terms checkbox */}
-                <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      id="terms"
-                      checked={agreedToTerms}
-                      onChange={e => { setAgreed(e.target.checked); setErrors(p => ({ ...p, terms: undefined })); }}
-                      className="mt-0.5 w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500 cursor-pointer flex-shrink-0"
-                    />
-                    <label htmlFor="terms" className="text-xs text-gray-600 leading-relaxed cursor-pointer">
-                      I agree to the{' '}
-                      <button type="button" onClick={() => setModalContent('terms')}
-                        className="text-orange-600 hover:text-orange-700 font-medium underline underline-offset-2">
-                        Terms &amp; Conditions
-                      </button>
-                      {' '}and{' '}
-                      <button type="button" onClick={() => setModalContent('refund')}
-                        className="text-orange-600 hover:text-orange-700 font-medium underline underline-offset-2">
-                        Refund Policy
-                      </button>
-                    </label>
-                  </div>
-                  {errors.terms && (
-                    <p className="mt-2 text-xs text-red-600 flex items-center gap-1 pl-7">
-                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {errors.terms}
-                    </p>
-                  )}
-                </div>
-
-                <div className="mt-3 flex items-center justify-center text-xs text-gray-500">
-                  <ShieldCheck className="w-4 h-4 mr-1" /> Secure payment powered by MGLTickets
+                  {/* Trust badge */}
+                  <p className="text-center text-xs text-gray-400 flex items-center justify-center gap-1.5">
+                    <Lock className="w-3 h-3" />
+                    Secured by MGLTickets · M-Pesa
+                  </p>
                 </div>
               </div>
             </div>
+
           </div>
         </main>
       </div>
 
-      {/* Legal Modal */}
+      {/* ── Legal Modal ───────────────────────────────────────────────────── */}
       {modalContent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setModalContent(null)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={() => setModalContent(null)}
+        >
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                  {modalContent === 'terms' ? <FileText className="w-4 h-4 text-orange-600" /> : <RefreshCw className="w-4 h-4 text-orange-600" />}
+                  {modalContent === 'terms'
+                    ? <FileText className="w-4 h-4 text-orange-600" />
+                    : <RefreshCw className="w-4 h-4 text-orange-600" />}
                 </div>
-                <h2 className="text-lg font-bold text-gray-900">
+                <h2 className="text-base font-bold text-gray-900">
                   {modalContent === 'terms' ? 'Terms & Conditions' : 'Refund Policy'}
                 </h2>
               </div>
-              <button onClick={() => setModalContent(null)} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+              <button
+                onClick={() => setModalContent(null)}
+                className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {/* Modal body */}
             <div className="overflow-y-auto flex-1">
               {modalContent === 'terms' ? <TermsContent /> : <RefundContent />}
             </div>
+
+            {/* Modal footer */}
             <div className="px-6 py-4 border-t border-gray-100 flex-shrink-0 flex items-center justify-between gap-3">
-              <p className="text-xs text-gray-500">Read the full policy before agreeing</p>
+              <p className="text-xs text-gray-400">Read the full policy before agreeing</p>
               <div className="flex items-center gap-3">
-                <button onClick={() => setModalContent(null)}
-                  className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                <button
+                  onClick={() => setModalContent(null)}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+                >
                   Close
                 </button>
                 <button
-                  onClick={() => { setAgreed(true); setErrors(p => ({ ...p, terms: undefined })); setModalContent(null); }}
-                  className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg hover:from-orange-600 hover:to-orange-700">
+                  onClick={() => {
+                    setAgreed(true);
+                    setErrors(p => ({ ...p, terms: undefined }));
+                    setModalContent(null);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors"
+                >
                   I Agree
                 </button>
               </div>

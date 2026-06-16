@@ -38,3 +38,5 @@ Add a verified field in the co-organizer table. It is automatically true on orga
 Include parseApiError like in BrowseEventDetails to all the pages with API calls to avoid silent failure. Have it as a global function in Utils under Shared to cut accross all the apps.
 
 Work on the ActivityFeed page under the admin console. The filter is not working save for event creation.
+
+Add cart so that users can go back to the booking at later time. I think it will need a separate table like cart to avoid complicating orders table. So the cart page can have different left bookings based on event. On clicking the event, we are redirected to the browseeventsdetails page where the cart data populates the booking and ready for checkout.
