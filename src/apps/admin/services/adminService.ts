@@ -53,7 +53,6 @@ export const getActivityFeed = async (limit = 20): Promise<ActivityFeedItem[]> =
 
 export const getPlatformSettings = async (): Promise<PlatformSettings> => {
   return (await api.get('/admin/settings')).data;
-  // return Promise.resolve({ ...dummyPlatformSettings });
 };
 
 export const updatePlatformSettings = async (

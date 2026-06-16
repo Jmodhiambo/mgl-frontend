@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   Calendar, CheckCircle, XCircle, Trash2, Eye,
   MoreVertical, MapPin, User, X, Clock, Download,
-  Plus, ImageOff,
+  Plus, ImageOff, Tag, DollarSign, Users, Loader2,
 } from 'lucide-react';
 import {
   FilterBar, StatusBadge, ConfirmDialog, SectionCard,
@@ -13,9 +13,10 @@ import {
 } from '@admin/components/ui';
 import {
   listAllEvents, approveEvent, rejectEvent, deleteEvent,
+  getTicketTypesByEvent,
 } from '@admin/services/adminService';
-import { formatDateTime, formatDate } from '@admin/utils/format';
-import type { AdminEvent } from '@admin/types';
+import { formatDateTime, formatDate, formatKES } from '@admin/utils/format';
+import type { AdminEvent, AdminTicketType } from '@admin/types';
 
 import CreateEventModal from '@admin/components/modals/events/CreateEventModal';
 import CreateTicketTypesModal, {
@@ -29,7 +30,9 @@ const PAGE_SIZE     = 10;
 type CreateStep =
   | { step: 'closed' }
   | { step: 'event' }
-  | { step: 'tickets'; event: AdminEvent & { flyer_url?: string } };
+  | { step: 'tickets'; event: AdminEvent & { flyer_url?: string }; mode: 'post-create' | 'standalone' };
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 const Events: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -69,7 +72,7 @@ const Events: React.FC = () => {
     setAL(true);
     const { action, event } = confirm;
 
-    // ── Optimistic update — flip the badge immediately so the UI feels instant ──
+    // Optimistic update
     if (action === 'approve') {
       setEvents(p => p.map(e => e.id === event.id ? { ...e, is_approved: true } : e));
     } else if (action === 'reject') {
@@ -78,34 +81,28 @@ const Events: React.FC = () => {
       setEvents(p => p.filter(e => e.id !== event.id));
     }
 
-    // Close the confirm dialog right away so the user sees the table update
     setConfirm(null);
 
     try {
       if (action === 'approve') {
-        // Server confirms and returns the canonical updated record
         const updated = await approveEvent(event.id);
         setEvents(p => p.map(e => e.id === updated.id ? updated : e));
         setAlert({ type: 'success', msg: `"${event.title}" approved.` });
-
       } else if (action === 'reject') {
         const updated = await rejectEvent(event.id);
         setEvents(p => p.map(e => e.id === updated.id ? updated : e));
         setAlert({ type: 'success', msg: `"${event.title}" rejected.` });
-
       } else if (action === 'delete') {
         await deleteEvent(event.id);
         setAlert({ type: 'success', msg: `"${event.title}" deleted.` });
       }
     } catch (err: any) {
-      // Roll back optimistic change on failure
+      // Roll back optimistic update
       if (action === 'approve') {
         setEvents(p => p.map(e => e.id === event.id ? { ...e, is_approved: false } : e));
       } else if (action === 'reject') {
         setEvents(p => p.map(e => e.id === event.id ? { ...e, is_approved: true, is_active: true } : e));
       } else if (action === 'delete') {
-        // Re-add the event at the front; a full reload would be more accurate
-        // but this keeps the user from losing context entirely.
         setEvents(p => [event, ...p]);
       }
       const detail = err?.response?.data?.detail ?? 'Action failed. Please try again.';
@@ -117,18 +114,26 @@ const Events: React.FC = () => {
 
   const handleEventCreated = (newEvent: AdminEvent & { flyer_url?: string }) => {
     setEvents(p => [newEvent, ...p]);
-    setCreateFlow({ step: 'tickets', event: newEvent });
+    setCreateFlow({ step: 'tickets', event: newEvent, mode: 'post-create' });
   };
 
   const handleTicketsFinished = (
     event: AdminEvent & { flyer_url?: string },
     ticketTypes: SavedTicketType[],
+    mode: 'post-create' | 'standalone',
   ) => {
     setCreateFlow({ step: 'closed' });
-    setAlert({
-      type: 'success',
-      msg: `"${event.title}" created with ${ticketTypes.length} ticket ${ticketTypes.length === 1 ? 'type' : 'types'}.`,
-    });
+    if (mode === 'post-create') {
+      setAlert({
+        type: 'success',
+        msg: `"${event.title}" created with ${ticketTypes.length} ticket ${ticketTypes.length === 1 ? 'type' : 'types'}.`,
+      });
+    } else {
+      setAlert({
+        type: 'success',
+        msg: `${ticketTypes.length} ticket ${ticketTypes.length === 1 ? 'type' : 'types'} added to "${event.title}".`,
+      });
+    }
   };
 
   const handleTicketsSkipped = (event: AdminEvent & { flyer_url?: string }) => {
@@ -137,6 +142,11 @@ const Events: React.FC = () => {
       type: 'success',
       msg: `"${event.title}" created. Remember to add ticket types before it can accept bookings.`,
     });
+  };
+
+  const openAddTicketTypes = (event: AdminEvent) => {
+    setDetail(null);
+    setCreateFlow({ step: 'tickets', event, mode: 'standalone' });
   };
 
   const closeCreateFlow = () => setCreateFlow({ step: 'closed' });
@@ -277,6 +287,7 @@ const Events: React.FC = () => {
                           event={event}
                           onAction={a => setConfirm({ action: a, event })}
                           onView={() => setDetail(event)}
+                          onAddTicketTypes={() => openAddTicketTypes(event)}
                         />
                       </td>
                     </tr>
@@ -301,6 +312,7 @@ const Events: React.FC = () => {
                       event={event}
                       onAction={a => setConfirm({ action: a, event })}
                       onView={() => setDetail(event)}
+                      onAddTicketTypes={() => openAddTicketTypes(event)}
                     />
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -348,6 +360,7 @@ const Events: React.FC = () => {
           onClose={() => setDetail(null)}
           onApprove={() => { setConfirm({ action: 'approve', event: detailEvent }); setDetail(null); }}
           onReject={() => { setConfirm({ action: 'reject', event: detailEvent }); setDetail(null); }}
+          onAddTicketTypes={() => openAddTicketTypes(detailEvent)}
         />
       )}
 
@@ -361,9 +374,12 @@ const Events: React.FC = () => {
       {createFlow.step === 'tickets' && (
         <CreateTicketTypesModal
           event={createFlow.event}
+          mode={createFlow.mode}
           onClose={closeCreateFlow}
-          onFinish={handleTicketsFinished}
-          onSkip={handleTicketsSkipped}
+          onFinish={(event, ticketTypes) =>
+            handleTicketsFinished(event, ticketTypes, createFlow.mode)
+          }
+          onSkip={createFlow.mode === 'post-create' ? handleTicketsSkipped : undefined}
         />
       )}
     </div>
@@ -376,15 +392,16 @@ const EventActionsMenu: React.FC<{
   event: AdminEvent;
   onAction: (a: 'approve' | 'reject' | 'delete') => void;
   onView: () => void;
-}> = ({ event, onAction, onView }) => {
+  onAddTicketTypes: () => void;
+}> = ({ event, onAction, onView, onAddTicketTypes }) => {
   const [open, setOpen]       = useState(false);
   const [menuStyle, setStyle] = useState<React.CSSProperties>({});
   const triggerRef            = useRef<HTMLButtonElement>(null);
 
   const handleOpen = useCallback(() => {
     if (!triggerRef.current) return;
-    const rect = triggerRef.current.getBoundingClientRect();
-    const menuHeight = 160;
+    const rect       = triggerRef.current.getBoundingClientRect();
+    const menuHeight = 200;
     const spaceBelow = window.innerHeight - rect.bottom;
     const openUpward = spaceBelow < menuHeight && rect.top > menuHeight;
     setStyle(
@@ -411,13 +428,19 @@ const EventActionsMenu: React.FC<{
       <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
       <div
         style={{ ...menuStyle, zIndex: 9999 }}
-        className="w-44 bg-white rounded-xl shadow-lg border border-gray-100 py-1 text-sm animate-slide-up"
+        className="w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 text-sm animate-slide-up"
       >
         <button
           onClick={() => { onView(); setOpen(false); }}
           className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-gray-50 text-gray-700"
         >
           <Eye className="w-4 h-4 text-gray-400" /> View Details
+        </button>
+        <button
+          onClick={() => { onAddTicketTypes(); setOpen(false); }}
+          className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-purple-50 text-purple-700"
+        >
+          <Tag className="w-4 h-4" /> Add Ticket Types
         </button>
         {!event.is_approved && (
           <button
@@ -464,13 +487,30 @@ const EventDetailModal: React.FC<{
   onClose: () => void;
   onApprove: () => void;
   onReject: () => void;
-}> = ({ event, onClose, onApprove, onReject }) => {
-  const [imgError, setImgError] = useState(false);
+  onAddTicketTypes: () => void;
+}> = ({ event, onClose, onApprove, onReject, onAddTicketTypes }) => {
+  const [imgError, setImgError]           = useState(false);
+  const [ticketTypes, setTicketTypes]     = useState<AdminTicketType[]>([]);
+  const [ticketsLoading, setTkLoading]    = useState(true);
+  const [ticketsError, setTicketsError]   = useState(false);
+
   const flyerUrl = (event as any).flyer_url as string | undefined;
+
+  useEffect(() => {
+    setTkLoading(true);
+    setTicketsError(false);
+    getTicketTypesByEvent(event.id)
+      .then(data => { setTicketTypes(data); setTkLoading(false); })
+      .catch(() => { setTicketsError(true); setTkLoading(false); });
+  }, [event.id]);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-panel max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div
+        className="modal-panel max-w-2xl max-h-[90vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Flyer */}
         <div className="relative w-full h-56 bg-gray-100 flex-shrink-0 rounded-t-2xl overflow-hidden">
           {flyerUrl && !imgError ? (
             <img
@@ -499,6 +539,7 @@ const EventDetailModal: React.FC<{
         </div>
 
         <div className="p-6">
+          {/* Title + venue */}
           <div className="mb-5">
             <h3 className="text-xl font-bold text-gray-900">{event.title}</h3>
             <p className="text-sm text-gray-500 mt-1 flex items-center gap-1.5">
@@ -516,7 +557,8 @@ const EventDetailModal: React.FC<{
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-x-6 gap-y-4 mb-5">
+          {/* Event details grid */}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-4 mb-6">
             {([
               ['Event ID',       `#${event.id}`],
               ['Category',       event.category],
@@ -536,8 +578,105 @@ const EventDetailModal: React.FC<{
             ))}
           </div>
 
-          <div className="flex gap-3 pt-4 border-t border-gray-100">
-            <button onClick={onClose} className="btn-secondary flex-1">Close</button>
+          {/* ── Ticket Types section ── */}
+          <div className="border-t border-gray-100 pt-5 mb-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                <Tag className="w-4 h-4 text-purple-500" /> Ticket Types
+              </p>
+              <button
+                onClick={onAddTicketTypes}
+                className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add
+              </button>
+            </div>
+
+            {ticketsLoading ? (
+              <div className="flex items-center justify-center py-6 text-gray-400">
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                <span className="text-sm">Loading ticket types…</span>
+              </div>
+            ) : ticketsError ? (
+              <p className="text-sm text-red-500 text-center py-4">Failed to load ticket types.</p>
+            ) : ticketTypes.length === 0 ? (
+              <div className="text-center py-5 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                <Tag className="w-7 h-7 mx-auto mb-1.5 opacity-40" />
+                <p className="text-sm text-gray-500">No ticket types yet</p>
+                <button
+                  onClick={onAddTicketTypes}
+                  className="mt-2 text-xs text-purple-600 hover:text-purple-700 font-medium"
+                >
+                  Add ticket types →
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {ticketTypes.map(t => {
+                  const fillRate = Math.round((t.quantity_sold / t.total_quantity) * 100);
+                  return (
+                    <div
+                      key={t.id}
+                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{t.name}</p>
+                          {!t.is_active && (
+                            <span className="text-xs px-1.5 py-0.5 bg-gray-200 text-gray-500 rounded-full flex-shrink-0">
+                              Inactive
+                            </span>
+                          )}
+                        </div>
+                        {/* Fill bar */}
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${
+                                fillRate >= 90 ? 'bg-red-500' : fillRate >= 70 ? 'bg-amber-500' : 'bg-emerald-500'
+                              }`}
+                              style={{ width: `${fillRate}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-gray-500 flex-shrink-0 w-16 text-right">
+                            {t.quantity_sold}/{t.total_quantity} sold
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-sm font-bold text-emerald-700">{formatKES(t.price)}</p>
+                        <p className="text-xs text-gray-400">{fillRate}% full</p>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Summary row */}
+                <div className="flex items-center justify-between pt-2 px-1 text-xs text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5" />
+                    {ticketTypes.reduce((s, t) => s + t.total_quantity, 0).toLocaleString()} total capacity
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <DollarSign className="w-3.5 h-3.5" />
+                    {formatKES(ticketTypes.reduce((s, t) => s + t.price * t.quantity_sold, 0))} earned
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="flex flex-col gap-2 pt-4 border-t border-gray-100 sm:flex-row">
+            <button onClick={onClose} className="btn-secondary flex-1 order-last sm:order-first">
+              Close
+            </button>
+            <button
+              onClick={onAddTicketTypes}
+              className="btn-secondary flex-1 flex items-center justify-center gap-1.5 text-purple-700 border-purple-200 hover:bg-purple-50"
+            >
+              <Tag className="w-4 h-4" /> Add Ticket Types
+            </button>
             {!event.is_approved ? (
               <>
                 <button onClick={onReject} className="btn-danger flex-1">Reject</button>

@@ -114,7 +114,8 @@ export interface CreateTicketTypePayload {
   name: string;
   description?: string;
   price: number;
-  quantity_available: number;
+  total_quantity: number;
+  is_active?: boolean;
 }
 
 // export interface ContactMessage {
@@ -155,6 +156,7 @@ export interface ContactMessage {
 export interface DashboardStats {
   total_users: number;
   total_organizers: number;
+  total_admins: number;
   total_events: number;
   total_bookings: number;
   total_revenue: number;

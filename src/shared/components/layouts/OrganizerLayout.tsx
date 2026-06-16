@@ -10,7 +10,8 @@ interface NavItem {
 }
 
 const OrganizerLayout: React.FC = () => {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+
   const navigate = useNavigate();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -86,7 +87,7 @@ const OrganizerLayout: React.FC = () => {
                   <User className="w-4 h-4 text-blue-600" />
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-800">John Organizer</p>
+                  <p className="font-semibold text-gray-800">{user?.name || 'Welcome'}</p>
                   <p className="text-xs text-gray-500">Organizer</p>
                 </div>
               </div>

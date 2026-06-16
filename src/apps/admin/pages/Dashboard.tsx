@@ -11,9 +11,10 @@ import {
 } from '@admin/components/ui';
 import { StatusBadge } from '@admin/components/ui';
 import { getDashboardStats, getRevenueChart, getUserGrowthChart, listAllUsers, getUnapprovedEvents, getActivityFeed } from '@admin/services/adminService';
-import { formatKES } from '@admin/utils/format';
+import { formatKES, formatDateTime } from '@admin/utils/format';
 import type { AdminUser, AdminEvent, DashboardStats } from '@admin/types';
 import type { ActivityFeedItem } from '@admin/services/adminService';
+import { count } from 'console';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -60,13 +61,16 @@ const Dashboard: React.FC = () => {
           <h1 className="page-title">Dashboard</h1>
           <p className="page-subtitle">Platform overview · {new Date().toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
-          <AlertCircle className="w-4 h-4" />
-          <span><strong>{stats.pending_approvals}</strong> events pending approval</span>
-          <button onClick={() => navigate('/events?filter=unapproved')} className="text-amber-800 underline ml-1 font-medium">
-            Review
-          </button>
-        </div>
+        {/* Show pending approvals alert if there are any */}
+        {stats.pending_approvals > 0 && (
+          <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+            <AlertCircle className="w-4 h-4" />
+            <span><strong>{stats.pending_approvals}</strong> events pending approval</span>
+            <button onClick={() => navigate('/events?filter=unapproved')} className="text-amber-800 underline ml-1 font-medium">
+              Review
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Stat Cards ── */}
@@ -246,7 +250,7 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-gray-700 leading-relaxed">{item.message}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{item.time}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(item.time)}</p>
                   </div>
                 </div>
               );
@@ -263,9 +267,9 @@ const Dashboard: React.FC = () => {
         <SectionCard title="Platform Overview">
           <div className="space-y-4">
             {[
-              { label: 'Regular Users',   count: users.filter(u => u.role === 'user').length,      color: 'bg-gray-200', fill: 'bg-purple-500', pct: 78 },
-              { label: 'Organizers',       count: users.filter(u => u.role === 'organizer').length, color: 'bg-gray-200', fill: 'bg-blue-500',   pct: 18 },
-              { label: 'Administrators',   count: users.filter(u => u.role === 'admin').length,     color: 'bg-gray-200', fill: 'bg-amber-500',  pct: 4  },
+              { label: 'Regular Users',   count: stats.total_users,        color: 'bg-gray-200', fill: 'bg-orange-500', pct: Math.round(stats.total_users / users.length * 100) },
+              { label: 'Organizers',       count: stats.total_organizers,   color: 'bg-gray-200', fill: 'bg-blue-500',   pct: Math.round(stats.total_organizers / users.length * 100) },
+              { label: 'Administrators',   count: stats.total_admins,       color: 'bg-gray-200', fill: 'bg-purple-500',  pct: Math.round(stats.total_admins / users.length * 100) },
             ].map(row => (
               <div key={row.label}>
                 <div className="flex justify-between text-sm mb-1">
@@ -282,6 +286,7 @@ const Dashboard: React.FC = () => {
 
             <div className="space-y-2">
               {[
+                { label: 'Approved Events',  value: stats.total_events,         color: 'text-blue-600'    },
                 { label: 'Active Events',    value: stats.active_events,        color: 'text-emerald-600' },
                 { label: 'Pending Approval', value: stats.pending_approvals,    color: 'text-amber-600'   },
                 { label: 'Open Messages',    value: stats.open_messages,        color: 'text-red-600'     },

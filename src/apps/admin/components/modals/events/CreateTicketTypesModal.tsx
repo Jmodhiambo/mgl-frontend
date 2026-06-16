@@ -9,18 +9,6 @@ import type { AdminEvent } from '@admin/types';
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
-/**
- * Safely converts any FastAPI error response into a human-readable string.
- *
- * FastAPI 422 Unprocessable Entity returns:
- *   { detail: [ { type, loc, msg, input, url }, … ] }
- *
- * FastAPI 4xx/5xx with a plain message returns:
- *   { detail: "Some string" }
- *
- * Passing either shape (or undefined) to this function always yields a string
- * that is safe to render as a React child.
- */
 function parseApiError(err: any, fallback: string): string {
   const raw = err?.response?.data?.detail;
   if (Array.isArray(raw)) {
@@ -41,7 +29,7 @@ export interface TicketTypeInput {
   name: string;
   description: string;
   price: string;
-  quantity_available: string;
+  total_quantity: string;
 }
 
 export interface SavedTicketType extends TicketTypeInput {
@@ -51,23 +39,31 @@ export interface SavedTicketType extends TicketTypeInput {
 interface FieldErrors {
   name?: string;
   price?: string;
-  quantity_available?: string;
+  total_quantity?: string;
 }
+
+/**
+ * 'post-create' — launched immediately after event creation (shows step
+ *   indicator, Skip button, and "Pending Approval" badge on the event recap).
+ * 'standalone' — launched from the TicketTypes page or the Events action
+ *   menu; no step UI, no skip, just save or cancel.
+ */
+export type CreateTicketTypesMode = 'post-create' | 'standalone';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 const emptyForm = (): TicketTypeInput => ({
-  name: '', description: '', price: '', quantity_available: '',
+  name: '', description: '', price: '', total_quantity: '',
 });
 
 const validateTicket = (t: TicketTypeInput): FieldErrors => {
   const e: FieldErrors = {};
   if (!t.name.trim())                           e.name = 'Name is required';
   if (!t.price || parseFloat(t.price) <= 0)     e.price = 'Price must be > 0';
-  if (!t.quantity_available || parseInt(t.quantity_available) <= 0)
-    e.quantity_available = 'Quantity must be > 0';
+  if (!t.total_quantity || parseInt(t.total_quantity) <= 0)
+    e.total_quantity = 'Quantity must be > 0';
   return e;
 };
 
@@ -115,7 +111,7 @@ const TicketTypeRow: React.FC<{
           )}
           <span className="text-xs text-gray-500 flex items-center gap-1 mt-1">
             <Users className="w-3 h-3" />
-            {parseInt(ticket.quantity_available).toLocaleString()} available
+            {parseInt(ticket.total_quantity).toLocaleString()} available
           </span>
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -199,13 +195,13 @@ const TicketTypeRow: React.FC<{
           <div className="relative">
             <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
-              type="number" min="1" value={form.quantity_available} placeholder="100"
-              onChange={e => setForm(p => ({ ...p, quantity_available: e.target.value }))}
-              className={`${inp('quantity_available')} pl-9`}
+              type="number" min="1" value={form.total_quantity} placeholder="100"
+              onChange={e => setForm(p => ({ ...p, total_quantity: e.target.value }))}
+              className={`${inp('total_quantity')} pl-9`}
             />
           </div>
-          {errors.quantity_available && (
-            <p className="mt-1 text-xs text-red-600">{errors.quantity_available}</p>
+          {errors.total_quantity && (
+            <p className="mt-1 text-xs text-red-600">{errors.total_quantity}</p>
           )}
         </div>
       </div>
@@ -232,14 +228,22 @@ const TicketTypeRow: React.FC<{
 
 interface CreateTicketTypesModalProps {
   event: AdminEvent;
+  mode?: CreateTicketTypesMode;
   onClose: () => void;
+  /** Called after all ticket types are successfully saved to the API. */
   onFinish: (event: AdminEvent, ticketTypes: SavedTicketType[]) => void;
-  onSkip: (event: AdminEvent) => void;
+  /**
+   * Only relevant in 'post-create' mode — lets the admin skip adding ticket
+   * types immediately after event creation and add them later.
+   */
+  onSkip?: (event: AdminEvent) => void;
 }
 
 const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
-  event, onClose, onFinish, onSkip,
+  event, mode = 'post-create', onClose, onFinish, onSkip,
 }) => {
+  const isStandalone = mode === 'standalone';
+
   const [tickets, setTickets]     = useState<SavedTicketType[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving]       = useState(false);
@@ -275,16 +279,13 @@ const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
     setSaving(true);
     setSaveError('');
     try {
-      // Create each ticket type sequentially so a failure on one stops
-      // the loop immediately rather than partially saving in parallel.
-      // created_at / updated_at are NOT sent — set automatically by the DB.
       for (const t of tickets) {
         await createTicketType({
           event_id:           event.id,
           name:               t.name,
           description:        t.description || undefined,
           price:              parseFloat(t.price),
-          quantity_available: parseInt(t.quantity_available),
+          total_quantity: parseInt(t.total_quantity),
         });
       }
       onFinish(event, tickets);
@@ -296,10 +297,10 @@ const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
   };
 
   const totalCapacity = tickets.reduce(
-    (s, t) => s + (parseInt(t.quantity_available) || 0), 0,
+    (s, t) => s + (parseInt(t.total_quantity) || 0), 0,
   );
   const totalRevenuePotential = tickets.reduce(
-    (s, t) => s + (parseFloat(t.price) || 0) * (parseInt(t.quantity_available) || 0), 0,
+    (s, t) => s + (parseFloat(t.price) || 0) * (parseInt(t.total_quantity) || 0), 0,
   );
 
   return (
@@ -311,10 +312,14 @@ const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between mb-1">
           <div>
-            <h3 className="text-lg font-bold text-gray-900">Add Ticket Types</h3>
+            <h3 className="text-lg font-bold text-gray-900">
+              {isStandalone ? 'Add Ticket Types' : 'Add Ticket Types'}
+            </h3>
             <p className="text-sm text-gray-500 mt-0.5">
-              Step 2 of 2 — Ticket types for{' '}
-              <span className="font-medium text-gray-700">{event.title}</span>
+              {isStandalone
+                ? <>Adding ticket types for <span className="font-medium text-gray-700">{event.title}</span></>
+                : <>Step 2 of 2 — Ticket types for <span className="font-medium text-gray-700">{event.title}</span></>
+              }
             </p>
           </div>
           <button onClick={onClose} className="btn-icon flex-shrink-0 ml-4">
@@ -322,23 +327,25 @@ const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
           </button>
         </div>
 
-        {/* Step indicator */}
-        <div className="flex items-center gap-2 mt-3 mb-5">
-          <div className="flex items-center gap-1.5">
-            <div className="w-6 h-6 rounded-full bg-emerald-500 text-white text-xs font-bold flex items-center justify-center">
-              <CheckCircle className="w-3.5 h-3.5" />
+        {/* Step indicator — post-create mode only */}
+        {!isStandalone && (
+          <div className="flex items-center gap-2 mt-3 mb-5">
+            <div className="flex items-center gap-1.5">
+              <div className="w-6 h-6 rounded-full bg-emerald-500 text-white text-xs font-bold flex items-center justify-center">
+                <CheckCircle className="w-3.5 h-3.5" />
+              </div>
+              <span className="text-xs font-medium text-emerald-600">Event Details</span>
             </div>
-            <span className="text-xs font-medium text-emerald-600">Event Details</span>
+            <div className="flex-1 h-px bg-purple-300 mx-1" />
+            <div className="flex items-center gap-1.5">
+              <div className="w-6 h-6 rounded-full bg-purple-600 text-white text-xs font-bold flex items-center justify-center">2</div>
+              <span className="text-xs font-semibold text-purple-700">Ticket Types</span>
+            </div>
           </div>
-          <div className="flex-1 h-px bg-purple-300 mx-1" />
-          <div className="flex items-center gap-1.5">
-            <div className="w-6 h-6 rounded-full bg-purple-600 text-white text-xs font-bold flex items-center justify-center">2</div>
-            <span className="text-xs font-semibold text-purple-700">Ticket Types</span>
-          </div>
-        </div>
+        )}
 
         {/* Event recap */}
-        <div className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-100 rounded-xl mb-5">
+        <div className={`flex items-center gap-3 p-3 bg-gray-50 border border-gray-100 rounded-xl ${isStandalone ? 'mb-5' : 'mb-5'}`}>
           {(event as any).flyer_url ? (
             <img
               src={(event as any).flyer_url}
@@ -354,9 +361,21 @@ const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
             <p className="font-semibold text-gray-900 text-sm truncate">{event.title}</p>
             <p className="text-xs text-gray-500">{event.venue}, {event.city}</p>
           </div>
-          <span className="ml-auto text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full font-medium flex-shrink-0">
-            Pending Approval
-          </span>
+          {/* Only show approval status in post-create mode */}
+          {!isStandalone && (
+            <span className="ml-auto text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full font-medium flex-shrink-0">
+              Pending Approval
+            </span>
+          )}
+          {isStandalone && (
+            <span className={`ml-auto text-xs px-2 py-1 rounded-full font-medium flex-shrink-0 ${
+              event.is_approved
+                ? 'bg-emerald-100 text-emerald-700'
+                : 'bg-amber-100 text-amber-700'
+            }`}>
+              {event.is_approved ? 'Approved' : 'Pending Approval'}
+            </span>
+          )}
         </div>
 
         {/* Summary stats */}
@@ -415,8 +434,10 @@ const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
           <div className="mt-4 flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
             <AlertCircle className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-blue-700 leading-relaxed">
-              You can skip this step and add ticket types later from the Event Management page.
-              Ticket types are required before the event can accept bookings.
+              {isStandalone
+                ? 'Add at least one ticket type so this event can start accepting bookings.'
+                : 'You can skip this step and add ticket types later from the Event Management page. Ticket types are required before the event can accept bookings.'
+              }
             </p>
           </div>
         )}
@@ -431,14 +452,22 @@ const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
 
         {/* Footer */}
         <div className="flex gap-3 mt-5 pt-5 border-t border-gray-100">
-          <button onClick={() => onSkip(event)} className="btn-secondary flex-1">
-            Skip for Now
-          </button>
+          {/* Skip only available in post-create mode */}
+          {!isStandalone && onSkip && (
+            <button onClick={() => onSkip(event)} className="btn-secondary flex-1">
+              Skip for Now
+            </button>
+          )}
+          {isStandalone && (
+            <button onClick={onClose} className="btn-secondary flex-1">
+              Cancel
+            </button>
+          )}
           <button
             onClick={handleFinish}
             disabled={saving || tickets.length === 0}
             className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-60"
-            title={tickets.length === 0 ? 'Add at least one ticket type or skip' : undefined}
+            title={tickets.length === 0 ? 'Add at least one ticket type' : undefined}
           >
             {saving ? (
               <Loader2 className="w-4 h-4 animate-spin" />
