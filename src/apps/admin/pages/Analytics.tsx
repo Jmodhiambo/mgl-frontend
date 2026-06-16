@@ -9,6 +9,7 @@ import {
 } from '@admin/services/adminService';
 import { formatKES } from '@admin/utils/format';
 import type { DashboardStats } from '@admin/types';
+import { stat } from 'fs';
 
 type Period = '7d' | '30d' | '90d' | '12m';
 
@@ -68,6 +69,9 @@ const Analytics: React.FC = () => {
 
   if (loading) return <PageLoader />;
   if (!stats) return null;
+
+  const allUsersCount = stats.total_users + stats.total_organizers + stats.total_admins;
+  const allEventsCount = stats.total_events + stats.pending_approvals;
 
   const totalBookings = bookingStatuses.reduce((s, b) => s + b.value, 0);
 
@@ -227,10 +231,10 @@ const Analytics: React.FC = () => {
       <SectionCard title="User Breakdown" subtitle="Distribution across roles and status">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { label: 'Regular Users',   value: stats.total_users - stats.total_organizers - 1, pct: 78, color: 'bg-purple-500' },
-            { label: 'Organizers',      value: stats.total_organizers, pct: 18, color: 'bg-blue-500' },
-            { label: 'Admins',          value: 1, pct: 4, color: 'bg-amber-500' },
-            { label: 'Pending Approval',value: stats.pending_approvals, pct: stats.pending_approvals, color: 'bg-red-400' },
+            { label: 'Regular Users',   value: stats.total_users,        pct: Math.round(stats.total_users / allUsersCount * 100), color: 'bg-purple-500' },
+            { label: 'Organizers',      value: stats.total_organizers,   pct: Math.round(stats.total_organizers / allUsersCount * 100), color: 'bg-blue-500' },
+            { label: 'Admins',          value: stats.total_admins,       pct: Math.round(stats.total_admins / allUsersCount * 100), color: 'bg-amber-500' },
+            { label: 'Pending Approval',value: stats.pending_approvals,  pct: Math.round(stats.pending_approvals / allEventsCount * 100), color: 'bg-red-400' },
           ].map(r => (
             <div key={r.label} className="text-center">
               {/* Circular progress */}

@@ -17,6 +17,7 @@ export interface EventOut {
   organizer_id: number;
   description: string | null;
   venue: string;
+  category: string;
   start_time: string;   // ISO 8601
   end_time: string;     // ISO 8601
   original_filename: string;
