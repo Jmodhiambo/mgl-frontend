@@ -1,13 +1,20 @@
 // src/apps/user/pages/Checkout.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Checkout page — 3 visual states:
-//   1. 'form'         — main checkout form (default)
-//   2. 'awaiting_pin' — STK push sent, waiting for M-Pesa PIN
-//   3. 'complete'     — payment confirmed
-//   4. 'failed'       — payment failed / timed out
+// Checkout page — visual states:
+//   'form'         — main checkout form (default)
+//   'awaiting_pin' — STK push sent, waiting for M-Pesa PIN (paid events only)
+//   'complete'     — booking confirmed (free events skip straight here)
+//   'failed'       — payment failed / timed out
 //
-// Layout: full-width progress header → two-col body (left: phone + terms,
-// right: sticky order summary + CTA). Terms checkbox lives above the CTA.
+// Free-event behaviour:
+//   - Payment method selector and phone input are hidden
+//   - Total row shows "FREE" in green instead of "KES 0"
+//   - CTA reads "Confirm Free Booking" instead of "Pay KES …"
+//   - After createOrder, if checkout_request_id === null the page jumps
+//     directly to 'complete' — no STK push, no polling
+//
+// Layout: header → two-col body (left: details, right: sticky summary + CTA).
+// Terms checkbox lives in the right card, directly above the CTA.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -15,7 +22,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Calendar, MapPin, Clock, ShieldCheck, Ticket, Phone,
   CheckCircle, AlertCircle, ChevronLeft, X, FileText,
-  RefreshCw, Loader2, Lock, Smartphone,
+  RefreshCw, Loader2, Lock, Smartphone, CreditCard,
 } from 'lucide-react';
 import { CheckoutSEO, BookingSEO } from '@shared/components/SEO';
 import { TermsContent, RefundContent } from '@shared/pages';
@@ -83,6 +90,7 @@ const CheckoutBookingPage: React.FC = () => {
   const [modalContent, setModalContent] = useState<'terms' | 'refund' | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'card'>('mpesa');
 
   const cancelPollRef = useRef<(() => void) | null>(null);
   useEffect(() => () => { cancelPollRef.current?.(); }, []);
@@ -104,12 +112,17 @@ const CheckoutBookingPage: React.FC = () => {
 
   // ── Validation ────────────────────────────────────────────────────────────
 
+  const isFree = calculateTotal() === 0;
+
   const validateForm = (): boolean => {
     const errs: FormErrors = {};
-    if (!phoneNumber.trim()) {
-      errs.phoneNumber = 'Phone number is required';
-    } else if (!/^(\+254|0)[17]\d{8}$/.test(phoneNumber.trim())) {
-      errs.phoneNumber = 'Enter a valid Kenyan number (e.g. +254712345678 or 0712345678)';
+    // Phone validation is only needed for paid events
+    if (!isFree) {
+      if (!phoneNumber.trim()) {
+        errs.phoneNumber = 'Phone number is required';
+      } else if (!/^(\+254|0)[17]\d{8}$/.test(phoneNumber.trim())) {
+        errs.phoneNumber = 'Enter a valid Kenyan number (e.g. +254712345678 or 0712345678)';
+      }
     }
     if (!agreedToTerms) errs.terms = 'Please agree to the terms and conditions';
     setErrors(errs);
@@ -134,10 +147,19 @@ const CheckoutBookingPage: React.FC = () => {
 
       const stkResponse = await initiateMpesaPayment({
         order_id: order.id,
-        phone_number: phoneNumber.trim(),
+        phone_number: isFree ? '' : phoneNumber.trim(),
       });
 
       setOrderTotal(order.total_price);
+
+      // Free events: backend returns checkout_request_id === null — no STK push
+      // needed, booking is already confirmed, skip straight to the success screen.
+      if (stkResponse.checkout_request_id === null) {
+        setPaymentStep('complete');
+        return;
+      }
+
+      // Paid events: wait for the user to approve the STK push on their phone.
       setPaymentId(stkResponse.payment_id);
       setPaymentStep('awaiting_pin');
       setStatusMessage(stkResponse.message);
@@ -229,7 +251,11 @@ const CheckoutBookingPage: React.FC = () => {
                   ))}
                   <div className="flex justify-between text-sm font-bold pt-2 border-t border-gray-200 mt-2">
                     <span className="text-gray-800">Total paid</span>
-                    <span className="text-orange-600">KES {(orderTotal ?? calculateTotal()).toLocaleString()}</span>
+                    {(orderTotal ?? calculateTotal()) === 0 ? (
+                      <span className="text-green-600">FREE</span>
+                    ) : (
+                      <span className="text-orange-600">KES {(orderTotal ?? calculateTotal()).toLocaleString()}</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -326,7 +352,16 @@ const CheckoutBookingPage: React.FC = () => {
         <header className="bg-white border-b border-gray-100">
           <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
             <button
-              onClick={() => navigate(isAuthenticated ? `/browse-events/${event.slug}` : `/events/${event.slug}`)}
+              onClick={() => {
+                const route = isAuthenticated
+                  ? `/browse-events/${event.slug}`
+                  : `/events/${event.slug}`;
+                // Rebuild selectedTickets map so the event page can restore the stepper
+                const selectedTickets = Object.fromEntries(
+                  bookingData?.tickets.map(t => [t.ticket_type_id, t.quantity]) ?? []
+                );
+                navigate(route, { state: { selectedTickets } });
+              }}
               className="flex items-center gap-1.5 text-gray-500 hover:text-orange-600 transition-colors text-sm font-medium"
             >
               <ChevronLeft className="w-4 h-4" /> Back to Event
@@ -381,102 +416,97 @@ const CheckoutBookingPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* M-Pesa phone input */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
-                    <Phone className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-bold text-gray-900">M-Pesa Payment</h2>
-                    <p className="text-xs text-gray-500">You'll receive a push notification to approve the payment</p>
-                  </div>
-                </div>
+              {/* Payment method selector — hidden for free events */}
+              {!isFree && <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <h2 className="text-base font-bold text-gray-900 mb-4">Payment Method</h2>
 
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  M-Pesa Phone Number
-                </label>
-                <input
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={e => {
-                    setPhoneNumber(e.target.value);
-                    setErrors(p => ({ ...p, phoneNumber: undefined }));
-                  }}
-                  placeholder="+254712345678"
-                  className={`w-full px-4 py-3 rounded-xl border-2 text-sm transition-colors focus:outline-none focus:ring-0 ${
-                    errors.phoneNumber
-                      ? 'border-red-400 bg-red-50 focus:border-red-500'
-                      : 'border-gray-200 focus:border-orange-400'
-                  }`}
-                />
-                {errors.phoneNumber ? (
-                  <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {errors.phoneNumber}
-                  </p>
-                ) : (
-                  <p className="mt-2 text-xs text-gray-400">
-                    Accepts Safaricom numbers: 07xx or +2547xx
-                  </p>
-                )}
-
-                {/* How it works */}
-                <div className="mt-5 pt-5 border-t border-gray-100 space-y-2">
-                  {[
-                    'Click "Pay now" — an STK push will appear on your phone',
-                    'Enter your M-Pesa PIN to confirm',
-                    'Your tickets are sent to your email instantly',
-                  ].map((step, i) => (
-                    <div key={i} className="flex items-start gap-3 text-sm text-gray-500">
-                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-gray-100 text-gray-500 font-bold text-xs flex items-center justify-center mt-0.5">
-                        {i + 1}
-                      </span>
-                      {step}
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  {/* M-Pesa option */}
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('mpesa')}
+                    className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
+                      paymentMethod === 'mpesa'
+                        ? 'border-orange-400 bg-orange-50'
+                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                    }`}
+                  >
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      paymentMethod === 'mpesa' ? 'bg-green-100' : 'bg-gray-100'
+                    }`}>
+                      <Phone className={`w-4 h-4 ${paymentMethod === 'mpesa' ? 'text-green-600' : 'text-gray-400'}`} />
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div>
+                      <p className={`text-sm font-bold leading-tight ${paymentMethod === 'mpesa' ? 'text-gray-900' : 'text-gray-500'}`}>
+                        M-Pesa
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">STK Push</p>
+                    </div>
+                  </button>
 
-              {/* Terms */}
-              <div className={`bg-white rounded-2xl border-2 shadow-sm p-5 transition-colors ${
-                errors.terms ? 'border-red-300 bg-red-50' : 'border-gray-100'
-              }`}>
-                <div className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    id="terms"
-                    checked={agreedToTerms}
-                    onChange={e => {
-                      setAgreed(e.target.checked);
-                      setErrors(p => ({ ...p, terms: undefined }));
-                    }}
-                    className="mt-0.5 w-4 h-4 rounded text-orange-500 border-gray-300 focus:ring-orange-400 cursor-pointer flex-shrink-0 accent-orange-500"
-                  />
-                  <label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed cursor-pointer">
-                    I have read and agree to the{' '}
-                    <button
-                      type="button"
-                      onClick={() => setModalContent('terms')}
-                      className="text-orange-600 hover:text-orange-700 font-semibold underline underline-offset-2"
-                    >
-                      Terms &amp; Conditions
-                    </button>
-                    {' '}and the{' '}
-                    <button
-                      type="button"
-                      onClick={() => setModalContent('refund')}
-                      className="text-orange-600 hover:text-orange-700 font-semibold underline underline-offset-2"
-                    >
-                      Refund Policy
-                    </button>
-                  </label>
+                  {/* Card option — coming soon */}
+                  <div className="relative flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 opacity-70 cursor-not-allowed select-none">
+                    <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                      <CreditCard className="w-4 h-4 text-gray-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-400 leading-tight">Card</p>
+                      <p className="text-xs text-gray-400 mt-0.5">Visa / Mastercard</p>
+                    </div>
+                    <span className="absolute top-2 right-2 px-1.5 py-0.5 bg-gray-200 text-gray-500 text-[10px] font-bold rounded-full uppercase tracking-wide">
+                      Soon
+                    </span>
+                  </div>
                 </div>
-                {errors.terms && (
-                  <p className="mt-2 text-xs text-red-600 flex items-center gap-1 pl-7">
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {errors.terms}
-                  </p>
+
+                {/* M-Pesa phone input */}
+                {paymentMethod === 'mpesa' && (
+                  <>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      M-Pesa Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={e => {
+                        setPhoneNumber(e.target.value);
+                        setErrors(p => ({ ...p, phoneNumber: undefined }));
+                      }}
+                      placeholder="+254712345678"
+                      className={`w-full px-4 py-3 rounded-xl border-2 text-sm transition-colors focus:outline-none focus:ring-0 ${
+                        errors.phoneNumber
+                          ? 'border-red-400 bg-red-50 focus:border-red-500'
+                          : 'border-gray-200 focus:border-orange-400'
+                      }`}
+                    />
+                    {errors.phoneNumber ? (
+                      <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {errors.phoneNumber}
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-xs text-gray-400">
+                        Accepts Safaricom numbers: 07xx or +2547xx
+                      </p>
+                    )}
+
+                    {/* How it works */}
+                    <div className="mt-5 pt-5 border-t border-gray-100 space-y-2">
+                      {[
+                        'Click "Pay now" — an STK push will appear on your phone',
+                        'Enter your M-Pesa PIN to confirm',
+                        'Your tickets are sent to your email instantly',
+                      ].map((step, i) => (
+                        <div key={i} className="flex items-start gap-3 text-sm text-gray-500">
+                          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-gray-100 text-gray-500 font-bold text-xs flex items-center justify-center mt-0.5">
+                            {i + 1}
+                          </span>
+                          {step}
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
-              </div>
+              </div>}
 
             </div>
 
@@ -540,9 +570,54 @@ const CheckoutBookingPage: React.FC = () => {
                         ({totalTickets()} ticket{totalTickets() !== 1 ? 's' : ''})
                       </span>
                     </span>
-                    <span className="text-xl font-bold text-orange-600">
-                      KES {calculateTotal().toLocaleString()}
-                    </span>
+                    {isFree ? (
+                      <span className="text-xl font-bold text-green-600">FREE</span>
+                    ) : (
+                      <span className="text-xl font-bold text-orange-600">
+                        KES {calculateTotal().toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Terms — lives here so it's always visible directly above the CTA on every screen size */}
+                  <div className={`rounded-xl border p-3.5 transition-colors ${
+                    errors.terms ? 'border-red-300 bg-red-50' : 'border-gray-100 bg-gray-50'
+                  }`}>
+                    <div className="flex items-start gap-2.5">
+                      <input
+                        type="checkbox"
+                        id="terms"
+                        checked={agreedToTerms}
+                        onChange={e => {
+                          setAgreed(e.target.checked);
+                          setErrors(p => ({ ...p, terms: undefined }));
+                        }}
+                        className="mt-0.5 w-4 h-4 rounded cursor-pointer flex-shrink-0 accent-orange-500"
+                      />
+                      <label htmlFor="terms" className="text-xs text-gray-500 leading-relaxed cursor-pointer">
+                        I agree to the{' '}
+                        <button
+                          type="button"
+                          onClick={() => setModalContent('terms')}
+                          className="text-orange-600 hover:text-orange-700 font-semibold underline underline-offset-2"
+                        >
+                          Terms &amp; Conditions
+                        </button>
+                        {' '}and{' '}
+                        <button
+                          type="button"
+                          onClick={() => setModalContent('refund')}
+                          className="text-orange-600 hover:text-orange-700 font-semibold underline underline-offset-2"
+                        >
+                          Refund Policy
+                        </button>
+                      </label>
+                    </div>
+                    {errors.terms && (
+                      <p className="mt-2 text-xs text-red-600 flex items-center gap-1 pl-6">
+                        <AlertCircle className="w-3 h-3 flex-shrink-0" /> {errors.terms}
+                      </p>
+                    )}
                   </div>
 
                   {/* CTA */}
@@ -555,6 +630,11 @@ const CheckoutBookingPage: React.FC = () => {
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
                         Processing…
+                      </>
+                    ) : isFree ? (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        Confirm Free Booking
                       </>
                     ) : (
                       <>

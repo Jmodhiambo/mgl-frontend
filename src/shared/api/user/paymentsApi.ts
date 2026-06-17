@@ -39,7 +39,7 @@ export interface MpesaStkPushRequest {
 
 export interface MpesaStkPushResponse {
   payment_id: number;
-  checkout_request_id: string;
+  checkout_request_id: string | null;
   message: string;
 }
 

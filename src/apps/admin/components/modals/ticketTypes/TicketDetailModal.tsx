@@ -58,7 +58,9 @@ const TicketDetailModal: React.FC<Props> = ({ ticket, event, onClose, onEdit }) 
           {/* Price hero */}
           <div className="bg-purple-50 rounded-xl p-4 mb-5 text-center">
             <p className="text-xs text-gray-500 mb-1">Ticket Price</p>
-            <p className="text-3xl font-bold text-purple-700">{formatKES(ticket.price)}</p>
+            <p className="text-3xl font-bold text-purple-700">
+            {ticket.price === 0 ? 'Free' : formatKES(ticket.price)}
+          </p>
             <span className={`inline-block mt-2 text-xs px-2.5 py-0.5 rounded-full font-medium ${
               ticket.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'
             }`}>
@@ -75,8 +77,8 @@ const TicketDetailModal: React.FC<Props> = ({ ticket, event, onClose, onEdit }) 
               ['Tickets Sold',   ticket.quantity_sold.toLocaleString()],
               ['Remaining',      remaining.toLocaleString()],
               ['Fill Rate',      `${fillRate}%`],
-              ['Revenue Earned', formatKES(ticket.price * ticket.quantity_sold)],
-              ['Max Revenue',    formatKES(ticket.price * ticket.total_quantity)],
+              ['Revenue Earned', ticket.price === 0 ? 'Free event' : formatKES(ticket.price * ticket.quantity_sold)],
+              ['Max Revenue',    ticket.price === 0 ? 'Free event' : formatKES(ticket.price * ticket.total_quantity)],
             ] as [string, string][]).map(([label, value]) => (
               <div key={label}>
                 <p className="text-xs text-gray-500 mb-0.5">{label}</p>

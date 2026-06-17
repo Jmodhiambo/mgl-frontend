@@ -1,4 +1,4 @@
-// src/apps/admin/components/modals/ticketTypes/CreateTicketTypesModal.tsx
+// src/apps/admin/components/modals/events/CreateTicketTypesModal.tsx
 import { useState } from 'react';
 import {
   Ticket, Plus, Trash2, Save, X, DollarSign, Users,
@@ -61,7 +61,7 @@ const emptyForm = (): TicketTypeInput => ({
 const validateTicket = (t: TicketTypeInput): FieldErrors => {
   const e: FieldErrors = {};
   if (!t.name.trim())                           e.name = 'Name is required';
-  if (!t.price || parseFloat(t.price) <= 0)     e.price = 'Price must be > 0';
+  if (t.price === '' || t.price === undefined || parseFloat(t.price) < 0) e.price = 'Price must be 0 or more';
   if (!t.total_quantity || parseInt(t.total_quantity) <= 0)
     e.total_quantity = 'Quantity must be > 0';
   return e;
@@ -103,7 +103,7 @@ const TicketTypeRow: React.FC<{
           <div className="flex items-center gap-2">
             <p className="font-semibold text-gray-900 text-sm truncate">{ticket.name}</p>
             <span className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-medium flex-shrink-0">
-              KES {parseFloat(ticket.price).toLocaleString()}
+              {parseFloat(ticket.price) === 0 ? 'Free' : `KES ${parseFloat(ticket.price).toLocaleString()}`}
             </span>
           </div>
           {ticket.description && (

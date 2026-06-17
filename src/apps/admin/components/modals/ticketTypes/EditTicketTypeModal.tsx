@@ -55,7 +55,7 @@ const EditTicketTypeModal: React.FC<Props> = ({ ticket, event, onClose, onSaved 
   const validate = (): boolean => {
     const e: EditErrors = {};
     if (!form.name.trim())                           e.name = 'Name is required';
-    if (!form.price || parseFloat(form.price) <= 0) e.price = 'Price must be > 0';
+    if (form.price === '' || parseFloat(form.price) < 0) e.price = 'Price must be 0 or more';
     const qty = parseInt(form.total_quantity);
     if (!form.total_quantity || qty <= 0)            e.total_quantity = 'Quantity must be > 0';
     if (qty < ticket.quantity_sold)
@@ -237,7 +237,7 @@ const EditTicketTypeModal: React.FC<Props> = ({ ticket, event, onClose, onSaved 
           {[
             { label: 'Sold',      value: ticket.quantity_sold.toLocaleString(),      cls: 'text-gray-900' },
             { label: 'Available', value: ticket.quantity_available.toLocaleString(), cls: 'text-emerald-700' },
-            { label: 'Revenue',   value: formatKES(ticket.price * ticket.quantity_sold), cls: 'text-purple-700' },
+            { label: 'Revenue',   value: ticket.price === 0 ? 'Free event' : formatKES(ticket.price * ticket.quantity_sold), cls: 'text-purple-700' },
           ].map(({ label, value, cls }) => (
             <div key={label} className="bg-gray-50 rounded-lg p-2 text-center border border-gray-100">
               <p className={`text-sm font-bold ${cls}`}>{value}</p>

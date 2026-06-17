@@ -105,9 +105,13 @@ const TicketRow: React.FC<{
 
         {/* Right: price + stepper */}
         <div className="flex flex-col items-end gap-3 flex-shrink-0">
-          <span className="text-xl font-bold text-orange-600">
-            KES {ticket.price.toLocaleString()}
-          </span>
+          {ticket.price === 0 ? (
+            <span className="text-xl font-bold text-green-600">Free</span>
+          ) : (
+            <span className="text-xl font-bold text-orange-600">
+              KES {ticket.price.toLocaleString()}
+            </span>
+          )}
           {!isSoldOut && (
             <div className="flex items-center gap-2">
               <button
@@ -383,7 +387,7 @@ const BrowseEventDetailsPage: React.FC = () => {
               </span>
               {lowestPrice !== null && (
                 <span className="px-3 py-1 bg-white/10 text-white text-xs font-semibold rounded-full border border-white/20">
-                  From KES {lowestPrice.toLocaleString()}
+                  {lowestPrice === 0 ? 'Free' : `From KES ${lowestPrice.toLocaleString()}`}
                 </span>
               )}
             </div>
@@ -509,6 +513,8 @@ const BrowseEventDetailsPage: React.FC = () => {
                   <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold mb-1">Your Order</p>
                   {totalTickets === 0 ? (
                     <p className="text-sm text-gray-400">No tickets selected yet.</p>
+                  ) : totalPrice === 0 ? (
+                    <p className="text-2xl font-bold text-green-600">Free</p>
                   ) : (
                     <p className="text-2xl font-bold text-gray-900">
                       KES {totalPrice.toLocaleString()}
@@ -527,9 +533,13 @@ const BrowseEventDetailsPage: React.FC = () => {
                           <span className="text-gray-600">
                             {qty}× <span className="font-medium text-gray-800">{t.name}</span>
                           </span>
-                          <span className="font-semibold text-gray-800">
-                            KES {(t.price * qty).toLocaleString()}
-                          </span>
+                          {t.price === 0 ? (
+                            <span className="font-semibold text-green-600">Free</span>
+                          ) : (
+                            <span className="font-semibold text-gray-800">
+                              KES {(t.price * qty).toLocaleString()}
+                            </span>
+                          )}
                         </div>
                       );
                     })}
@@ -537,9 +547,13 @@ const BrowseEventDetailsPage: React.FC = () => {
                       <span className="text-sm font-semibold text-gray-700">
                         Total ({totalTickets} ticket{totalTickets !== 1 ? 's' : ''})
                       </span>
-                      <span className="text-lg font-bold text-orange-600">
-                        KES {totalPrice.toLocaleString()}
-                      </span>
+                      {totalPrice === 0 ? (
+                        <span className="text-lg font-bold text-green-600">Free</span>
+                      ) : (
+                        <span className="text-lg font-bold text-orange-600">
+                          KES {totalPrice.toLocaleString()}
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}

@@ -226,9 +226,15 @@ const UserDashboard: React.FC = () => {
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <div className="font-bold text-gray-800 mb-2">
-                              KES {booking.total_price.toLocaleString()}
-                            </div>
+                            {booking.total_price === 0 ? (
+                              <div className="font-bold text-green-800 mb-2">
+                                Free
+                              </div>
+                            ) : (
+                              <div className="font-bold text-gray-800 mb-2">
+                                KES {booking.total_price.toLocaleString()}
+                              </div>
+                            )}
                             <span
                               className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}
                             >
