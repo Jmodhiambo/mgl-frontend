@@ -1,6 +1,4 @@
-/**
- * Organizer Booking API Module
- */
+// src/shared/api/organizer/orgTicketTypeApi.ts
 
 import api from '@shared/api/axiosConfig';
 import type { TicketType } from '@shared/types/TicketType';

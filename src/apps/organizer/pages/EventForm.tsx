@@ -5,7 +5,7 @@ import { MapPin, Upload, X, Save, ArrowLeft } from 'lucide-react';
 import {
   createEvent,
   updateEvent,
-  getEventDetails,
+  getEventDetailsBySlug,
 } from '@organizer/services/eventService';
 import type { EventFormData } from '@organizer/types/events';
 import type { OrganizerEventOut } from '@shared/types/Event';
@@ -25,8 +25,8 @@ type CreateStep =
   | { step: 'tickets'; event: OrganizerEventOut };
 
 const EventForm: React.FC<EventFormProps> = ({ mode = 'create' }) => {
-  const navigate        = useNavigate();
-  const { id: eventId } = useParams<{ id: string }>();
+  const navigate         = useNavigate();
+  const { slug }         = useParams<{ slug: string }>();
 
   const [formData, setFormData] = useState<EventFormData>({
     title: '', description: '', venue: '', city: '',
@@ -34,6 +34,7 @@ const EventForm: React.FC<EventFormProps> = ({ mode = 'create' }) => {
     start_time: '', end_time: '', flyer: null,
   });
   const [flyerPreview, setFlyerPreview] = useState('');
+  const [eventDbId, setEventDbId]       = useState<number | null>(null);
   const [loading, setLoading]           = useState(false);
   const [loadingEvent, setLoadingEvent] = useState(false);
   const [errors, setErrors]             = useState<Record<string, string>>({});
@@ -44,10 +45,11 @@ const EventForm: React.FC<EventFormProps> = ({ mode = 'create' }) => {
 
   // ── Load existing event data in edit mode ─────────────────────────────────
   useEffect(() => {
-    if (mode === 'edit' && eventId) {
+    if (mode === 'edit' && slug) {
       setLoadingEvent(true);
-      getEventDetails(Number(eventId))
+      getEventDetailsBySlug(slug)
         .then(({ event }) => {
+          setEventDbId(event.id);
           // datetime-local inputs expect 'YYYY-MM-DDTHH:MM' in LOCAL time.
           const toLocal = (iso: string) => {
             const d      = new Date(iso);
@@ -70,7 +72,7 @@ const EventForm: React.FC<EventFormProps> = ({ mode = 'create' }) => {
         .catch(() => setApiError('Failed to load event data. Please try again.'))
         .finally(() => setLoadingEvent(false));
     }
-  }, [eventId, mode]);
+  }, [slug, mode]);
 
   // ── Validation ────────────────────────────────────────────────────────────
   const validate = (): boolean => {
@@ -136,7 +138,12 @@ const EventForm: React.FC<EventFormProps> = ({ mode = 'create' }) => {
         // Don't navigate yet — open the ticket types modal first
         setCreateStep({ step: 'tickets', event: newEvent });
       } else {
-        await updateEvent(Number(eventId), {
+        if (!eventDbId) {
+          setApiError('Could not determine which event to update. Please reload the page.');
+          setLoading(false);
+          return;
+        }
+        await updateEvent(eventDbId, {
           title:       formData.title,
           description: formData.description,
           venue:       formData.venue,

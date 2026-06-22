@@ -2,17 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Calendar, Ticket, CreditCard, TrendingUp, Clock, CheckCircle,
-  XCircle, AlertCircle, MapPin,
+  XCircle, AlertCircle, MapPin, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { DashboardSEO } from '@shared/components/SEO';
 import {
   fetchCurrentUser,
-  fetchUserBookings,
+  fetchUserOrdersEnriched,
   fetchUserTicketInstances,
+  fetchEventDetailsForOrders,
   computeStats,
   buildRecentBookings,
   buildUpcomingEvents,
   type UserMe,
+  type UserOrderEnriched,
   type DashboardStats,
   type DashboardBookingRow,
   type DashboardUpcomingEvent,
@@ -61,28 +63,41 @@ const UserDashboard: React.FC = () => {
   const navigate = useNavigate();
 
   const [user, setUser]                     = useState<UserMe | null>(null);
+  const [orders, setOrders]                 = useState<UserOrderEnriched[]>([]);
   const [stats, setStats]                   = useState<DashboardStats | null>(null);
   const [recentBookings, setRecentBookings] = useState<DashboardBookingRow[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<DashboardUpcomingEvent[]>([]);
   const [loading, setLoading]               = useState(true);
   const [error, setError]                   = useState<string | null>(null);
 
+  // Inline expand state for the Recent Bookings list — clicking a booking
+  // row expands it in place instead of navigating anywhere. The only path
+  // to the My Tickets page is the explicit "View All" link.
+  const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
+
   useEffect(() => {
     document.title = 'Dashboard - MGLTickets';
 
     const load = async () => {
       try {
-        // Fire all three calls in parallel — none depends on another
-        const [me, bookings, tickets] = await Promise.all([
+        const [me, fetchedOrders, tickets] = await Promise.all([
           fetchCurrentUser(),
-          fetchUserBookings(),
+          fetchUserOrdersEnriched(),
           fetchUserTicketInstances(),
         ]);
 
+        // Event start_time/venue aren't on the order itself — fetch them
+        // once per distinct event_id. This is what "upcoming events" is
+        // actually computed from, rather than the ticket instance's
+        // event_date (which can be missing for edge-case rows and was
+        // silently making this list empty).
+        const { startTimes, venues } = await fetchEventDetailsForOrders(fetchedOrders);
+
         setUser(me);
-        setStats(computeStats(bookings, tickets));
-        setRecentBookings(buildRecentBookings(bookings, tickets, 5));
-        setUpcomingEvents(buildUpcomingEvents(tickets, 5));
+        setOrders(fetchedOrders);
+        setStats(computeStats(fetchedOrders, tickets, startTimes));
+        setRecentBookings(buildRecentBookings(fetchedOrders, startTimes, 5));
+        setUpcomingEvents(buildUpcomingEvents(fetchedOrders, tickets, startTimes, venues, 5));
       } catch (err) {
         setError(parseApiError(err));
       } finally {
@@ -92,6 +107,10 @@ const UserDashboard: React.FC = () => {
 
     load();
   }, []);
+
+  const toggleExpand = (orderId: number) => {
+    setExpandedOrderId((prev) => (prev === orderId ? null : orderId));
+  };
 
   // ── loading state ────────────────────────────────────────────────────────────
 
@@ -202,52 +221,89 @@ const UserDashboard: React.FC = () => {
                 </div>
 
                 {recentBookings.length > 0 ? (
-                  <div className="space-y-4">
-                    {recentBookings.map((booking) => (
-                      <div
-                        key={booking.id}
-                        className="border border-gray-200 rounded-xl p-4 hover:border-orange-300 hover:shadow-md transition-all cursor-pointer"
-                        onClick={() => navigate(`/my-tickets`)}
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1 min-w-0 pr-4">
-                            <h4 className="font-semibold text-gray-800 mb-1 truncate">
-                              {booking.event_title}
-                            </h4>
-                            <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-4 h-4 flex-shrink-0" />
-                                {formatDate(booking.event_date)}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Ticket className="w-4 h-4 flex-shrink-0" />
-                                {booking.quantity} ticket{booking.quantity !== 1 ? 's' : ''}
-                              </span>
+                  <div className="space-y-3">
+                    {recentBookings.map((booking) => {
+                      const isExpanded = expandedOrderId === booking.id;
+                      const fullOrder = orders.find((o) => o.id === booking.id);
+
+                      return (
+                        <div
+                          key={booking.id}
+                          className="border border-gray-200 rounded-xl overflow-hidden hover:border-orange-300 transition-colors"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleExpand(booking.id)}
+                            className="w-full text-left p-4 hover:bg-orange-50/40 transition-colors"
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-start gap-2 flex-1 min-w-0 pr-4">
+                                {isExpanded
+                                  ? <ChevronDown className="w-4 h-4 text-gray-400 mt-1 flex-shrink-0" />
+                                  : <ChevronRight className="w-4 h-4 text-gray-400 mt-1 flex-shrink-0" />}
+                                <div className="min-w-0">
+                                  <h4 className="font-semibold text-gray-800 mb-1 truncate">
+                                    {booking.event_title}
+                                  </h4>
+                                  <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+                                    <span className="flex items-center gap-1">
+                                      <Calendar className="w-4 h-4 flex-shrink-0" />
+                                      {formatDate(booking.event_date)}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <Ticket className="w-4 h-4 flex-shrink-0" />
+                                      {booking.quantity} ticket{booking.quantity !== 1 ? 's' : ''}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <div className="font-bold text-gray-800 mb-2">
+                                  {booking.total_price === 0 ? 'Free' : `KES ${booking.total_price.toLocaleString()}`}
+                                </div>
+                                <span
+                                  className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}
+                                >
+                                  <StatusIcon status={booking.status} />
+                                  {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            {booking.total_price === 0 ? (
-                              <div className="font-bold text-green-800 mb-2">
-                                Free
-                              </div>
-                            ) : (
-                              <div className="font-bold text-gray-800 mb-2">
-                                KES {booking.total_price.toLocaleString()}
-                              </div>
-                            )}
-                            <span
-                              className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}
-                            >
-                              <StatusIcon status={booking.status} />
-                              {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                            </span>
-                          </div>
+                            <div className="text-xs text-gray-500 pl-6">
+                              Booked on {formatDate(booking.created_at)}
+                            </div>
+                          </button>
+
+                          {/* Inline expand — ticket-type breakdown for this order */}
+                          {isExpanded && fullOrder && (
+                            <div className="border-t border-gray-100 bg-gray-50 px-4 py-3 pl-10 space-y-2">
+                              {fullOrder.bookings.map((line) => (
+                                <div key={line.id} className="flex items-center justify-between text-sm">
+                                  <span className="text-gray-700">
+                                    {line.ticket_type_name} × {line.quantity}
+                                  </span>
+                                  <div className="flex items-center gap-3">
+                                    <span
+                                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(line.status)}`}
+                                    >
+                                      {line.status.charAt(0).toUpperCase() + line.status.slice(1)}
+                                    </span>
+                                    <span className="font-medium text-gray-800">
+                                      KES {line.total_price.toLocaleString()}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                              {fullOrder.mpesa_ref && (
+                                <div className="pt-2 border-t border-gray-200 text-xs text-gray-500 font-mono">
+                                  M-Pesa Ref: {fullOrder.mpesa_ref}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <div className="text-xs text-gray-500 pt-3 border-t border-gray-100">
-                          Booked on {formatDate(booking.created_at)}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-12">
@@ -275,7 +331,7 @@ const UserDashboard: React.FC = () => {
                     {upcomingEvents.map((event) => (
                       <div
                         key={event.id}
-                        className="border-l-4 border-orange-500 bg-orange-50 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer"
+                        className="border-l-4 border-orange-500 bg-orange-50 rounded-lg p-4 hover:shadow-md transition-all"
                       >
                         <h4 className="font-semibold text-gray-800 mb-2 text-sm line-clamp-2">
                           {event.title}
@@ -285,10 +341,12 @@ const UserDashboard: React.FC = () => {
                             <Calendar className="w-3 h-3 flex-shrink-0" />
                             {formatDate(event.date)}
                           </div>
-                          <div className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3 flex-shrink-0" />
-                            <span className="truncate">{event.venue}</span>
-                          </div>
+                          {event.venue && (
+                            <div className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3 flex-shrink-0" />
+                              <span className="truncate">{event.venue}</span>
+                            </div>
+                          )}
                           <div className="flex items-center gap-1">
                             <Ticket className="w-3 h-3 flex-shrink-0" />
                             {event.tickets} ticket{event.tickets !== 1 ? 's' : ''}

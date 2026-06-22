@@ -1,6 +1,6 @@
 // src/apps/admin/pages/Bookings.tsx
-import { useEffect, useState, useMemo } from 'react';
-import { Ticket, Download, Eye, Trash2, X } from 'lucide-react';
+import { useEffect, useState, useMemo, useRef } from 'react';
+import { Ticket, Download, Eye, Trash2, X, MoreVertical, RefreshCw } from 'lucide-react';
 import {
   FilterBar, StatusBadge, ConfirmDialog, SectionCard,
   Pagination, TableSkeleton, EmptyState, AlertBanner,
@@ -12,6 +12,52 @@ import type { AdminBooking } from '@admin/types';
 const STATUS_OPTS = ['all', 'pending', 'confirmed', 'cancelled', 'refunded'];
 const PAGE_SIZE = 10;
 
+/* ── Kebab menu ── */
+const RowMenu: React.FC<{
+  onView: () => void;
+  onDelete: () => void;
+}> = ({ onView, onDelete }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={e => { e.stopPropagation(); setOpen(p => !p); }}
+        className="btn-icon btn-sm"
+        title="Actions"
+      >
+        <MoreVertical className="w-4 h-4" />
+      </button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 w-40 rounded-xl border border-gray-100 bg-white shadow-lg py-1">
+          <button
+            onClick={e => { e.stopPropagation(); setOpen(false); onView(); }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            <Eye className="w-4 h-4 text-gray-400" /> View Details
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); setOpen(false); onDelete(); }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+          >
+            <Trash2 className="w-4 h-4" /> Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Bookings: React.FC = () => {
   const [bookings, setBookings]   = useState<AdminBooking[]>([]);
   const [loading, setLoading]     = useState(true);
@@ -21,14 +67,19 @@ const Bookings: React.FC = () => {
   const [page, setPage]           = useState(1);
   const [confirm, setConfirm]     = useState<{ booking: AdminBooking } | null>(null);
   const [actionLoading, setAL]    = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [alert, setAlert]         = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [detail, setDetail]       = useState<AdminBooking | null>(null);
 
-  useEffect(() => {
+  const fetchData = (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true); else setLoading(true);
     admin_listAllBookings()
-      .then(data => { setBookings(data as AdminBooking[]); setLoading(false); })
-      .catch(() => { setError('Failed to load bookings.'); setLoading(false); });
-  }, []);
+      .then(data => { setBookings(data as AdminBooking[]); })
+      .catch(() => { setError('Failed to load bookings.'); })
+      .finally(() => { setLoading(false); setRefreshing(false); });
+  };
+
+  useEffect(() => { fetchData(); }, []);
 
   const filtered = useMemo(() => {
     return bookings.filter(b => {
@@ -95,9 +146,19 @@ const Bookings: React.FC = () => {
           <h1 className="page-title">Bookings</h1>
           <p className="page-subtitle">{bookings.length} total bookings</p>
         </div>
-        <button onClick={exportCSV} className="btn-secondary btn-sm flex items-center gap-2">
-          <Download className="w-4 h-4" /> <span className="hidden sm:inline">Export CSV</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
+            className="btn-icon btn-sm"
+            title="Refresh"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+          <button onClick={exportCSV} className="btn-secondary btn-sm flex items-center gap-2">
+            <Download className="w-4 h-4" /> <span className="hidden sm:inline">Export CSV</span>
+          </button>
+        </div>
       </div>
 
       {/* Summary cards */}
@@ -171,18 +232,10 @@ const Bookings: React.FC = () => {
                         {formatDateTime(b.created_at)}
                       </td>
                       <td>
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => setDetail(b)} className="btn-icon btn-sm" title="View">
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setConfirm({ booking: b })}
-                            className="btn-icon btn-sm text-red-400 hover:text-red-600 hover:bg-red-50"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                        <RowMenu
+                          onView={() => setDetail(b)}
+                          onDelete={() => setConfirm({ booking: b })}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -199,17 +252,11 @@ const Bookings: React.FC = () => {
                       <p className="font-semibold text-sm text-gray-900">{b.customer_name}</p>
                       <p className="text-xs text-gray-500 truncate">{b.customer_email}</p>
                     </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <button onClick={() => setDetail(b)} className="btn-icon btn-sm" title="View">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setConfirm({ booking: b })}
-                        className="btn-icon btn-sm text-red-400 hover:text-red-600 hover:bg-red-50"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <div className="flex-shrink-0 -mr-1 -mt-1">
+                      <RowMenu
+                        onView={() => setDetail(b)}
+                        onDelete={() => setConfirm({ booking: b })}
+                      />
                     </div>
                   </div>
                   <p className="text-sm text-gray-700 font-medium truncate">{b.event_title}</p>

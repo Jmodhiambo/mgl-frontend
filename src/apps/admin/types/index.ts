@@ -1,5 +1,8 @@
 // src/apps/admin/types/index.ts
 
+
+export type EventLifecycleStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
+
 export interface AdminUser {
   id: number;
   name: string;

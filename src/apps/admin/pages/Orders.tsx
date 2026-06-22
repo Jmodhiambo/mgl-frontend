@@ -4,8 +4,8 @@
 // Each row is an Order (one checkout = one payment, merged in since the
 // relationship is 1:1). Expand a row to see its ticket-type line items
 // (the former "Booking" rows).
-import { useEffect, useState, useMemo, Fragment } from 'react';
-import { ShoppingBag, Download, ChevronDown, ChevronRight, Trash2, X } from 'lucide-react';
+import { useEffect, useState, useMemo, useRef, Fragment } from 'react';
+import { ShoppingBag, Download, ChevronDown, ChevronRight, Eye, Trash2, X, MoreVertical } from 'lucide-react';
 import {
   FilterBar, StatusBadge, ConfirmDialog, SectionCard,
   Pagination, TableSkeleton, EmptyState, AlertBanner,
@@ -26,6 +26,52 @@ const methodLabel: Record<string, string> = {
 const methodColor: Record<string, string> = {
   mpesa: 'badge-success',
   card: 'badge-info',
+};
+
+/* ── Kebab menu ── */
+const RowMenu: React.FC<{
+  onView: () => void;
+  onDelete: () => void;
+}> = ({ onView, onDelete }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={e => { e.stopPropagation(); setOpen(p => !p); }}
+        className="btn-icon btn-sm"
+        title="Actions"
+      >
+        <MoreVertical className="w-4 h-4" />
+      </button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 w-40 rounded-xl border border-gray-100 bg-white shadow-lg py-1">
+          <button
+            onClick={e => { e.stopPropagation(); setOpen(false); onView(); }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            <Eye className="w-4 h-4 text-gray-400" /> View Details
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); setOpen(false); onDelete(); }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+          >
+            <Trash2 className="w-4 h-4" /> Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
 };
 
 const Orders: React.FC = () => {
@@ -222,13 +268,10 @@ const Orders: React.FC = () => {
                         <td className="text-xs text-gray-500 font-mono">{o.mpesa_ref ?? '—'}</td>
                         <td className="text-xs text-gray-500 whitespace-nowrap">{formatDateTime(o.created_at)}</td>
                         <td>
-                          <button
-                            onClick={e => { e.stopPropagation(); setConfirm({ order: o }); }}
-                            className="btn-icon btn-sm text-red-400 hover:text-red-600 hover:bg-red-50"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <RowMenu
+                            onView={() => toggleExpand(o.id)}
+                            onDelete={() => setConfirm({ order: o })}
+                          />
                         </td>
                       </tr>
                       {expanded.has(o.id) && (
@@ -285,13 +328,12 @@ const Orders: React.FC = () => {
                           <p className="text-xs text-gray-500 truncate">{o.customer_email}</p>
                         </div>
                       </div>
-                      <button
-                        onClick={e => { e.stopPropagation(); setConfirm({ order: o }); }}
-                        className="btn-icon btn-sm text-red-400 hover:text-red-600 hover:bg-red-50 flex-shrink-0 -mr-1 -mt-1"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex-shrink-0 -mr-1 -mt-1">
+                        <RowMenu
+                          onView={() => toggleExpand(o.id)}
+                          onDelete={() => setConfirm({ order: o })}
+                        />
+                      </div>
                     </div>
 
                     <p className="text-sm text-gray-700 font-medium truncate pl-6">{o.event_title}</p>

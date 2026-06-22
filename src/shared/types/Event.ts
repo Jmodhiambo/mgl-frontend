@@ -78,6 +78,12 @@ export interface FavoriteWithEventOut {
 
 /**
  * Matches backend OrganizerEventOut.
+ *
+ * Commission fields are locked onto the event at creation time (copied from
+ * platform_settings.platform_fee_percent unless negotiated by an admin).
+ * platform_cut and organizer_net are computed server-side from
+ * total_revenue × commission_rate — never compute these on the frontend,
+ * always read them straight from the API response.
  */
 export interface OrganizerEventOut {
   id: number;
@@ -95,19 +101,48 @@ export interface OrganizerEventOut {
   is_approved: boolean;
   is_active: boolean;
   total_bookings: number;
-  total_revenue: number;
+  total_revenue: number;          // gross confirmed revenue
+
+  // ── Commission ──────────────────────────────────────────────────────────
+  commission_rate: number;                 // % locked in at event creation
+  commission_source: 'platform_default' | 'negotiated';
+  commission_approved_by: number | null;        // admin user ID (negotiated only)
+  commission_approved_by_name: string | null;   // denormalised admin name
+  commission_approved_at: string | null;        // ISO 8601 (negotiated only)
+
+  // ── Computed revenue split ─────────────────────────────────────────────
+  platform_cut: number;           // total_revenue * (commission_rate / 100)
+  organizer_net: number;          // total_revenue - platform_cut
+
   created_at: string;
   updated_at: string;
 }
 
 /**
  * Matches backend EventStats.
+ * Commission fields mirror the rate locked onto the parent event.
  */
 export interface EventStats {
   total_bookings: number;
   total_revenue: number;
   tickets_sold: number;
   tickets_remaining: number;
+  commission_rate: number;
+  platform_cut: number;
+  organizer_net: number;
+}
+
+/**
+ * Matches backend CommissionBreakdown.
+ * Not embedded in any response today, but available for reuse if a
+ * standalone "revenue breakdown" component needs its own typed prop.
+ */
+export interface CommissionBreakdown {
+  gross_revenue: number;
+  platform_cut: number;
+  organizer_net: number;
+  commission_rate: number;
+  commission_source: 'platform_default' | 'negotiated';
 }
 
 /**
@@ -144,6 +179,8 @@ export interface TopEvent {
   bookings: number;
   revenue: number;
   tickets_sold: number;
+  platform_cut: number;
+  organizer_net: number;
 }
 
 // ─── Admin portal ─────────────────────────────────────────────────────────────

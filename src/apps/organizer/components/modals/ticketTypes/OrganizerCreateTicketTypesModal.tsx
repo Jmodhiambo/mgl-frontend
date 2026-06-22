@@ -4,7 +4,7 @@ import {
   Ticket, Plus, Trash2, Save, X, DollarSign, Users,
   CheckCircle, AlertCircle, ChevronDown, Tag, Loader2,
 } from 'lucide-react';
-import { createTicketType } from '@organizer/services/eventService';
+import { createTicketType } from '@organizer/services/ticketTypeService';
 import type { OrganizerEventOut } from '@shared/types/Event';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -36,8 +36,12 @@ const emptyForm = (): TicketTypeInput => ({
 
 const validateTicket = (t: TicketTypeInput): FieldErrors => {
   const e: FieldErrors = {};
-  if (!t.name.trim())                         e.name = 'Name is required';
-  if (!t.price || parseFloat(t.price) <= 0)   e.price = 'Price must be > 0';
+  if (!t.name.trim()) e.name = 'Name is required';
+
+  const price = parseFloat(t.price);
+  if (t.price.trim() === '' || isNaN(price) || price < 0)
+    e.price = 'Price must be 0 or greater';
+
   if (!t.quantity_available || parseInt(t.quantity_available) <= 0)
     e.quantity_available = 'Quantity must be > 0';
   return e;
@@ -78,8 +82,12 @@ const TicketTypeRow: React.FC<{
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="font-semibold text-gray-900 text-sm truncate">{ticket.name}</p>
-            <span className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-medium flex-shrink-0">
-              KES {parseFloat(ticket.price).toLocaleString()}
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
+              parseFloat(ticket.price) === 0
+                ? 'bg-blue-50 text-blue-700'
+                : 'bg-emerald-50 text-emerald-700'
+            }`}>
+              {parseFloat(ticket.price) === 0 ? 'Free' : `KES ${parseFloat(ticket.price).toLocaleString()}`}
             </span>
           </div>
           {ticket.description && (
@@ -153,6 +161,7 @@ const TicketTypeRow: React.FC<{
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Price (KES) <span className="text-red-500">*</span>
+            <span className="text-gray-400 font-normal"> — enter 0 for free</span>
           </label>
           <div className="relative">
             <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />

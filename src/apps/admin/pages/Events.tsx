@@ -6,9 +6,9 @@ import {
   FilterBar, StatusBadge, ConfirmDialog, SectionCard,
   Pagination, TableSkeleton, EmptyState, AlertBanner,
 } from '@admin/components/ui';
-import { listAllEvents, approveEvent, rejectEvent, deleteEvent } from '@admin/services/adminService';
+import { listAllEvents, approveEvent, rejectEvent, deleteEvent, updateEventStatus } from '@admin/services/adminService';
 import { formatDate } from '@admin/utils/format';
-import type { AdminEvent } from '@admin/types';
+import type { AdminEvent, EventLifecycleStatus } from '@admin/types';
 
 import CreateEventModal from '@admin/components/modals/events/CreateEventModal';
 import EventDetailModal from '@admin/components/modals/events/EventDetailModal';
@@ -36,6 +36,7 @@ const Events: React.FC = () => {
   const [page, setPage]             = useState(1);
   const [confirm, setConfirm]       = useState<{ action: 'approve' | 'reject' | 'delete'; event: AdminEvent } | null>(null);
   const [actionLoading, setAL]      = useState(false);
+  const [statusLoadingId, setStatusLoadingId] = useState<number | null>(null);
   const [alert, setAlert]           = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [detailEvent, setDetail]    = useState<AdminEvent | null>(null);
   const [createFlow, setCreateFlow] = useState<CreateStep>({ step: 'closed' });
@@ -98,6 +99,38 @@ const Events: React.FC = () => {
       setAlert({ type: 'error', msg: err?.response?.data?.detail ?? 'Action failed. Please try again.' });
     } finally {
       setAL(false);
+    }
+  };
+
+  const handleStatusChange = async (event: AdminEvent, newStatus: EventLifecycleStatus) => {
+    const previousStatus = event.status;
+    setStatusLoadingId(event.id);
+
+    // Optimistic update
+    setEvents(p => p.map(e => e.id === event.id ? { ...e, status: newStatus } : e));
+    if (detailEvent?.id === event.id) {
+      setDetail(d => d ? { ...d, status: newStatus } : d);
+    }
+
+    try {
+      const updated = await updateEventStatus(event.id, newStatus);
+      setEvents(p => p.map(e => e.id === updated.id ? updated : e));
+      if (detailEvent?.id === updated.id) setDetail(updated);
+      setAlert({
+        type: 'success',
+        msg: newStatus === 'upcoming' && previousStatus === 'cancelled'
+          ? `"${event.title}" has been reopened.`
+          : `"${event.title}" status changed to ${newStatus}.`,
+      });
+    } catch (err: any) {
+      // Roll back
+      setEvents(p => p.map(e => e.id === event.id ? { ...e, status: previousStatus } : e));
+      if (detailEvent?.id === event.id) {
+        setDetail(d => d ? { ...d, status: previousStatus } : d);
+      }
+      setAlert({ type: 'error', msg: err?.response?.data?.detail ?? 'Failed to update event status. Please try again.' });
+    } finally {
+      setStatusLoadingId(null);
     }
   };
 
@@ -248,6 +281,8 @@ const Events: React.FC = () => {
                         <EventActionsMenu
                           event={event}
                           onAction={a => setConfirm({ action: a, event })}
+                          onStatusChange={s => handleStatusChange(event, s)}
+                          statusUpdating={statusLoadingId === event.id}
                           onView={() => setDetail(event)}
                           onAddTicketTypes={() => openAddTicketTypes(event)}
                         />
@@ -273,6 +308,8 @@ const Events: React.FC = () => {
                     <EventActionsMenu
                       event={event}
                       onAction={a => setConfirm({ action: a, event })}
+                      onStatusChange={s => handleStatusChange(event, s)}
+                      statusUpdating={statusLoadingId === event.id}
                       onView={() => setDetail(event)}
                       onAddTicketTypes={() => openAddTicketTypes(event)}
                     />
@@ -322,6 +359,7 @@ const Events: React.FC = () => {
           onClose={() => setDetail(null)}
           onApprove={() => { setConfirm({ action: 'approve', event: detailEvent }); setDetail(null); }}
           onReject={() => { setConfirm({ action: 'reject', event: detailEvent }); setDetail(null); }}
+          onStatusChange={s => handleStatusChange(detailEvent, s)}
           onAddTicketTypes={() => openAddTicketTypes(detailEvent)}
         />
       )}

@@ -6,7 +6,8 @@ import {
   Ticket, ArrowLeft, Plus, Eye, XCircle, TrendingUp,
   CheckCircle, AlertCircle, Loader2,
 } from 'lucide-react';
-import { getEventDetails, updateEventStatus } from '@organizer/services/eventService';
+import { getEventDetailsBySlug, updateEventStatus } from '@organizer/services/eventService';
+import { formatKES } from '@shared/utils/format';
 import type { OrganizerEventOut, TicketTypeOut, EventStats } from '@shared/types/Event';
 import type { Booking as BookingOut } from '@shared/types/Booking';
 
@@ -21,12 +22,12 @@ function parseApiError(err: any, fallback: string): string {
 }
 
 const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-US', {
+  new Date(iso).toLocaleDateString('en-KE', {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
   });
 
 const formatTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  new Date(iso).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' });
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -50,7 +51,7 @@ const BookingStatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const map: Record<string, { cls: string; icon: React.ReactNode }> = {
     confirmed: { cls: 'bg-green-100 text-green-700', icon: <CheckCircle className="w-3 h-3" /> },
     pending:   { cls: 'bg-yellow-100 text-yellow-700', icon: <Clock className="w-3 h-3" /> },
-    cancelled: { cls: 'bg-red-100 text-red-700', icon: <XCircle className="w-3 h-3" /> },
+    cancelled: { cls: 'bg-red-100 text-red-700',    icon: <XCircle className="w-3 h-3" /> },
   };
   const { cls, icon } = map[status] ?? { cls: 'bg-gray-100 text-gray-700', icon: null };
   return (
@@ -63,8 +64,9 @@ const BookingStatusBadge: React.FC<{ status: string }> = ({ status }) => {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const EventDetails: React.FC = () => {
-  const { eventId } = useParams<{ eventId: string }>();
-  const navigate    = useNavigate();
+  // Route param is now :slug (string), not :eventId (number)
+  const { slug }  = useParams<{ slug: string }>();
+  const navigate  = useNavigate();
 
   const [event,          setEvent]          = useState<OrganizerEventOut | null>(null);
   const [stats,          setStats]          = useState<EventStats | null>(null);
@@ -77,12 +79,11 @@ const EventDetails: React.FC = () => {
   const [actionError,    setActionError]    = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!eventId) return;
+    if (!slug) return;
     setLoading(true);
     setError(null);
     try {
-      // Single call — returns event + stats + ticket_types + recent_bookings
-      const details = await getEventDetails(Number(eventId));
+      const details = await getEventDetailsBySlug(slug);
       setEvent(details.event);
       setStats(details.stats);
       setTicketTypes(details.ticket_types);
@@ -92,7 +93,7 @@ const EventDetails: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [slug]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -124,7 +125,7 @@ const EventDetails: React.FC = () => {
     }
   };
 
-  // ── States ────────────────────────────────────────────────────────────────
+  // ── Loading / error states ────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -148,7 +149,7 @@ const EventDetails: React.FC = () => {
     );
   }
 
-  const canCancel = event.status !== 'cancelled' && event.status !== 'completed' && event.status !== 'deleted';
+  const canCancel = !['cancelled', 'completed', 'deleted'].includes(event.status);
 
   return (
     <div className="space-y-8">
@@ -158,7 +159,7 @@ const EventDetails: React.FC = () => {
         <ArrowLeft className="w-5 h-5 mr-1" /> Back to Events
       </button>
 
-      {/* Action error banner */}
+      {/* Action error */}
       {actionError && (
         <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
           <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
@@ -166,15 +167,11 @@ const EventDetails: React.FC = () => {
         </div>
       )}
 
-      {/* Event Header */}
+      {/* Event header */}
       <div className="bg-white rounded-2xl shadow-md overflow-hidden">
         <div className="md:flex">
           <div className="md:w-1/3 flex-shrink-0">
-            <img
-              src={event.flyer_url}
-              alt={event.title}
-              className="w-full h-64 md:h-full object-cover"
-            />
+            <img src={event.flyer_url} alt={event.title} className="w-full h-64 md:h-full object-cover" />
           </div>
           <div className="p-6 md:w-2/3">
             <div className="flex items-start justify-between mb-4">
@@ -183,8 +180,9 @@ const EventDetails: React.FC = () => {
                 <StatusBadge event={event} />
               </div>
               <div className="flex gap-2 ml-4 flex-shrink-0">
+                {/* Edit navigates using slug */}
                 <button
-                  onClick={() => navigate(`/events/${event.id}/edit`)}
+                  onClick={() => navigate(`/events/${event.slug}/edit`)}
                   className="p-2 border-2 border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
                   title="Edit Event"
                 >
@@ -194,7 +192,7 @@ const EventDetails: React.FC = () => {
                   <button
                     onClick={handleCancel}
                     disabled={actionLoading}
-                    className="p-2 border-2 border-orange-400 text-orange-500 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50"
+                    className="p-2 border-2 border-orange-400 text-orange-500 rounded-lg hover:bg-orange-50 disabled:opacity-50"
                     title="Cancel Event"
                   >
                     <XCircle className="w-5 h-5" />
@@ -202,7 +200,7 @@ const EventDetails: React.FC = () => {
                 )}
                 <button
                   onClick={() => setShowDeleteModal(true)}
-                  className="p-2 border-2 border-red-500 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                  className="p-2 border-2 border-red-500 text-red-600 rounded-lg hover:bg-red-50"
                   title="Delete Event"
                 >
                   <Trash2 className="w-5 h-5" />
@@ -238,7 +236,7 @@ const EventDetails: React.FC = () => {
               </button>
               <button
                 onClick={() => navigate(`/events/${event.id}/bookings`)}
-                className="flex-1 border-2 border-blue-500 text-blue-600 py-2.5 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center justify-center text-sm"
+                className="flex-1 border-2 border-blue-500 text-blue-600 py-2.5 rounded-lg font-semibold hover:bg-blue-50 flex items-center justify-center text-sm"
               >
                 <Eye className="w-4 h-4 mr-2" /> View Bookings
               </button>
@@ -247,24 +245,71 @@ const EventDetails: React.FC = () => {
         </div>
       </div>
 
-      {/* Stats — sourced from EventDetails.stats (tickets_sold + remaining)
-          and EventDetails.event (total_bookings + total_revenue) */}
+      {/* KPI stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Bookings', value: event.total_bookings, icon: <Ticket className="w-6 h-6 text-blue-500" />, extra: <TrendingUp className="w-4 h-4 text-green-500" /> },
-          { label: 'Revenue',        value: `KES ${event.total_revenue.toLocaleString()}`, icon: <DollarSign className="w-6 h-6 text-green-500" />, valueClass: 'text-green-600' },
-          { label: 'Tickets Sold',   value: stats?.tickets_sold ?? '—', icon: <Users className="w-6 h-6 text-blue-500" /> },
-          { label: 'Remaining',      value: stats?.tickets_remaining ?? '—', icon: <Ticket className="w-6 h-6 text-purple-500" /> },
+          {
+            label: 'Total Bookings',
+            value: event.total_bookings,
+            icon: <Ticket className="w-6 h-6 text-blue-500" />,
+            extra: <TrendingUp className="w-4 h-4 text-green-500" />,
+          },
+          {
+            label: 'Tickets Sold',
+            value: stats?.tickets_sold ?? '—',
+            icon: <Users className="w-6 h-6 text-blue-500" />,
+          },
+          {
+            label: 'Remaining',
+            value: stats?.tickets_remaining ?? '—',
+            icon: <Ticket className="w-6 h-6 text-purple-500" />,
+          },
+          {
+            label: 'Gross Revenue',
+            value: formatKES(event.total_revenue),
+            icon: <DollarSign className="w-6 h-6 text-green-500" />,
+            valueClass: 'text-green-600',
+          },
         ].map(({ label, value, icon, extra, valueClass }) => (
           <div key={label} className="bg-white rounded-xl shadow-md p-5">
             <div className="flex items-center justify-between mb-3">
-              {icon}
-              {extra}
+              {icon}{extra}
             </div>
             <p className="text-gray-500 text-xs mb-1">{label}</p>
             <p className={`text-2xl font-bold ${valueClass ?? 'text-gray-800'}`}>{value}</p>
           </div>
         ))}
+      </div>
+
+      {/* Commission / revenue breakdown */}
+      <div className="bg-white rounded-xl shadow-md p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-gray-800">Revenue Breakdown</h2>
+          {event.commission_source === 'negotiated' && (
+            <span className="px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-full">
+              Negotiated Rate
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="text-center p-4 bg-blue-50 rounded-xl">
+            <p className="text-xs text-gray-500 mb-1">Gross Revenue</p>
+            <p className="text-xl font-bold text-gray-800">{formatKES(event.total_revenue)}</p>
+            <p className="text-xs text-gray-400 mt-1">All confirmed bookings</p>
+          </div>
+          <div className="text-center p-4 bg-red-50 rounded-xl">
+            <p className="text-xs text-gray-500 mb-1">Platform Cut ({event.commission_rate}%)</p>
+            <p className="text-xl font-bold text-red-600">− {formatKES(event.platform_cut)}</p>
+            {event.commission_source === 'negotiated' && event.commission_approved_by_name && (
+              <p className="text-xs text-gray-400 mt-1">Approved by {event.commission_approved_by_name}</p>
+            )}
+          </div>
+          <div className="text-center p-4 bg-green-50 rounded-xl border-2 border-green-200">
+            <p className="text-xs text-gray-500 mb-1">Your Earnings</p>
+            <p className="text-xl font-bold text-green-600">{formatKES(event.organizer_net)}</p>
+            <p className="text-xs text-gray-400 mt-1">After platform fees</p>
+          </div>
+        </div>
       </div>
 
       {/* Ticket Types + Recent Bookings */}
@@ -281,7 +326,6 @@ const EventDetails: React.FC = () => {
               <Plus className="w-4 h-4" /> Add Type
             </button>
           </div>
-
           {ticketTypes.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
               <Ticket className="w-10 h-10 mx-auto mb-2 opacity-40" />
@@ -299,7 +343,7 @@ const EventDetails: React.FC = () => {
                       )}
                     </div>
                     <span className="text-sm font-bold text-blue-600 flex-shrink-0 ml-3">
-                      KES {ticket.price.toLocaleString()}
+                      {formatKES(ticket.price)}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs text-gray-500">
@@ -308,7 +352,6 @@ const EventDetails: React.FC = () => {
                       {ticket.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
-                  {/* Capacity bar */}
                   <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-blue-400 rounded-full transition-all"
@@ -332,7 +375,6 @@ const EventDetails: React.FC = () => {
               View All
             </button>
           </div>
-
           {recentBookings.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
               <Users className="w-10 h-10 mx-auto mb-2 opacity-40" />
@@ -353,7 +395,7 @@ const EventDetails: React.FC = () => {
                   </div>
                   <div className="flex justify-between text-xs mt-1">
                     <span className="text-gray-500">{booking.quantity}× ticket</span>
-                    <span className="font-bold text-green-600">KES {booking.total_price.toLocaleString()}</span>
+                    <span className="font-bold text-green-600">{formatKES(booking.total_price)}</span>
                   </div>
                 </div>
               ))}
@@ -362,7 +404,7 @@ const EventDetails: React.FC = () => {
         </div>
       </div>
 
-      {/* Delete Modal */}
+      {/* Delete modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">

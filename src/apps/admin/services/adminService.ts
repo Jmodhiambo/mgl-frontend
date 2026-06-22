@@ -1,16 +1,13 @@
 // src/apps/admin/services/adminService.ts
 // ─────────────────────────────────────────────────────────────────────────────
-// All admin API calls.
-// To activate real API calls: uncomment the api.xxx() line and remove the
-// dummy return in each function.  See existing functions for the pattern.
-// ─────────────────────────────────────────────────────────────────────────────
 
 import api from '@shared/api/axiosConfig';
 
 import type {
   AdminUser, AdminEvent, AdminBooking, AdminPayment, AdminMe, AdminProfileUpdate,
   ContactMessage, DashboardStats, AuditLog, RefreshSession, PlatformSettings,
-  AdminNotificationPrefs, ContactMessageStats, AdminTicketType, CreateTicketTypePayload
+  AdminNotificationPrefs, ContactMessageStats, AdminTicketType, CreateTicketTypePayload,
+  EventLifecycleStatus
 } from '@admin/types';
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
@@ -220,11 +217,24 @@ export const createEvent = async (
 };
  
 export const approveEvent = async (eventId: number): Promise<AdminEvent> => {
-  return (await api.patch(`/admin/events/${eventId}/approve`)).data;
+  // Backend route returns a plain bool, not the updated event — re-fetch
+  // the full AdminEventOut afterwards so callers get correctly-typed data.
+  const ok = (await api.patch(`/admin/events/${eventId}/approve`)).data as boolean;
+  if (!ok) throw new Error('Failed to approve event.');
+  return getEventById(eventId);
 };
  
 export const rejectEvent = async (eventId: number): Promise<AdminEvent> => {
-  return (await api.patch(`/admin/events/${eventId}/reject`)).data;
+  const ok = (await api.patch(`/admin/events/${eventId}/reject`)).data as boolean;
+  if (!ok) throw new Error('Failed to reject event.');
+  return getEventById(eventId);
+};
+
+export const updateEventStatus = async (
+  eventId: number,
+  newStatus: EventLifecycleStatus,
+): Promise<AdminEvent> => {
+  return (await api.patch(`/admin/events/${eventId}/status/${newStatus}`)).data;
 };
  
 

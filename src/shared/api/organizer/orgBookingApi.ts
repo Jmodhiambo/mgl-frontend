@@ -1,6 +1,5 @@
-/**
- * Organizer Booking API Module
- */
+// src/shared/api/organizer/orgBookingApi.ts
+
 
 import api from '@shared/api/axiosConfig';
 import type { Booking } from '@shared/types/Booking';

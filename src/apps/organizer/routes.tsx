@@ -60,11 +60,11 @@ export const router = createBrowserRouter([
         element: <EventForm mode="create" />,
       },
       {
-        path: 'events/:eventSlug',
+        path: 'events/:slug',
         element: <EventDetails />,
       },
       {
-        path: 'events/:eventSlug/edit',
+        path: 'events/:slug/edit',
         // EventForm will extract eventSlug from useParams
         element: <EventForm mode="edit" />,
       },

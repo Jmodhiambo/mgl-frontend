@@ -15,6 +15,11 @@ export interface User {
   // updated_at: string;
 }
 
+export interface CoOrganizer extends User {
+  event_id: number;
+  event_title: string;
+}
+
 export interface UserUpdate {
   name?: string;
   // email?: string;

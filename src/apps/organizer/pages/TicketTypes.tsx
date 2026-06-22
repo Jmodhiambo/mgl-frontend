@@ -65,8 +65,16 @@ const TicketTypesManagement: React.FC = () => {
   const validateForm = (): boolean => {
     const errs: Record<string, string> = {};
     if (!formData.name.trim()) errs.name = 'Ticket type name is required';
-    if (!formData.price || parseFloat(formData.price) <= 0) errs.price = 'Price must be greater than 0';
-    if (!formData.total_quantity || parseInt(formData.total_quantity) <= 0) errs.total_quantity = 'Quantity must be greater than 0';
+
+    const price = parseFloat(formData.price);
+    if (formData.price.trim() === '' || isNaN(price) || price < 0)
+      errs.price = 'Price must be 0 or greater';
+
+    if (!formData.total_quantity || parseInt(formData.total_quantity) <= 0) {
+      errs.total_quantity = 'Quantity must be greater than 0';
+    } else if (editingTicket && parseInt(formData.total_quantity) < editingTicket.quantity_sold) {
+      errs.total_quantity = `Cannot be less than ${editingTicket.quantity_sold} (already sold)`;
+    }
     setFormErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -230,8 +238,8 @@ const TicketTypesManagement: React.FC = () => {
 
                   <div className="mb-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-2xl font-bold text-blue-600">
-                        KES {ticket.price.toLocaleString()}
+                      <span className={`text-2xl font-bold ${ticket.price === 0 ? 'text-emerald-600' : 'text-blue-600'}`}>
+                        {ticket.price === 0 ? 'Free' : `KES ${ticket.price.toLocaleString()}`}
                       </span>
                       <button
                         onClick={() => handleToggleActive(ticket)}
@@ -327,11 +335,13 @@ const TicketTypesManagement: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Price (KES) *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Price (KES) * <span className="text-gray-400 font-normal">— enter 0 for free</span>
+                  </label>
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                     <input
-                      type="number" name="price" value={formData.price} onChange={handleInputChange}
+                      type="number" name="price" min="0" value={formData.price} onChange={handleInputChange}
                       placeholder="5000"
                       className={`w-full pl-10 pr-4 py-3 border ${formErrors.price ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500`}
                     />
@@ -346,7 +356,8 @@ const TicketTypesManagement: React.FC = () => {
                   <div className="relative">
                     <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                     <input
-                      type="number" name="total_quantity" value={formData.total_quantity} onChange={handleInputChange}
+                      type="number" name="total_quantity" min={editingTicket ? Math.max(editingTicket.quantity_sold, 1) : 1}
+                      value={formData.total_quantity} onChange={handleInputChange}
                       placeholder="100"
                       className={`w-full pl-10 pr-4 py-3 border ${formErrors.total_quantity ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500`}
                     />

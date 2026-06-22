@@ -1,7 +1,9 @@
 // src/apps/admin/components/modals/events/EventDetailModal.tsx
-import { useState, useEffect } from 'react';
-import { X, MapPin, Tag, Plus, ImageOff, Users, DollarSign, Loader2 } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { X, MapPin, Tag, Plus, ImageOff, Users, DollarSign, Loader2, RotateCcw, ChevronDown } from 'lucide-react';
 import { getTicketTypesByEvent } from '@admin/services/adminService';
+import type { EventLifecycleStatus } from '@admin/types';
 import { formatDateTime, formatKES } from '@admin/utils/format';
 import type { AdminEvent, AdminTicketType } from '@admin/types';
 
@@ -10,18 +12,46 @@ interface Props {
   onClose: () => void;
   onApprove: () => void;
   onReject: () => void;
+  onStatusChange: (status: EventLifecycleStatus) => void;
   onAddTicketTypes: () => void;
 }
 
+const STATUS_OPTIONS: { value: EventLifecycleStatus; label: string }[] = [
+  { value: 'upcoming',  label: 'Upcoming' },
+  { value: 'ongoing',   label: 'Ongoing' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
+
 const EventDetailModal: React.FC<Props> = ({
-  event, onClose, onApprove, onReject, onAddTicketTypes,
+  event, onClose, onApprove, onReject, onStatusChange, onAddTicketTypes,
 }) => {
   const [imgError, setImgError]         = useState(false);
   const [ticketTypes, setTicketTypes]   = useState<AdminTicketType[]>([]);
   const [ticketsLoading, setTkLoading]  = useState(true);
   const [ticketsError, setTicketsError] = useState(false);
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const [statusMenuStyle, setStatusMenuStyle] = useState<React.CSSProperties>({});
+  const statusTriggerRef = useRef<HTMLButtonElement>(null);
 
   const flyerUrl = (event as any).flyer_url as string | undefined;
+
+  // Status dropdown is portaled to document.body (see below) because the
+  // modal panel itself has overflow-y-auto + max-h-[90vh], and the flyer
+  // wrapper has overflow-hidden — an absolutely-positioned dropdown nested
+  // inside either gets visually clipped. Portaling + fixed positioning,
+  // same pattern as EventActionsMenu, avoids that entirely.
+  const toggleStatusMenu = useCallback(() => {
+    if (!statusMenuOpen && statusTriggerRef.current) {
+      const rect = statusTriggerRef.current.getBoundingClientRect();
+      setStatusMenuStyle({
+        position: 'fixed',
+        top: rect.bottom + 6,
+        left: rect.left,
+      });
+    }
+    setStatusMenuOpen(o => !o);
+  }, [statusMenuOpen]);
 
   useEffect(() => {
     setTkLoading(true);
@@ -52,10 +82,43 @@ const EventDetailModal: React.FC<Props> = ({
               <p className="text-sm">No flyer uploaded</p>
             </div>
           )}
-          <div className="absolute top-3 left-3">
+          <div className="absolute top-3 left-3 flex items-center gap-2">
             {event.is_approved
               ? <span className="badge-success shadow-sm">Approved</span>
               : <span className="badge-warning shadow-sm">Pending Approval</span>}
+
+            {/* Status selector — lets admins reopen a cancelled event or
+                otherwise correct the lifecycle status directly from here.
+                Dropdown is portaled to <body> with fixed positioning so it
+                isn't clipped by the modal's own overflow ancestors. */}
+            <button
+              ref={statusTriggerRef}
+              onClick={toggleStatusMenu}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-white/90 hover:bg-white text-gray-700 shadow-sm transition-colors"
+            >
+              {event.status ? event.status.charAt(0).toUpperCase() + event.status.slice(1) : 'Unknown'}
+              <ChevronDown className={`w-3 h-3 transition-transform ${statusMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {statusMenuOpen && createPortal(
+              <>
+                <div className="fixed inset-0 z-[9998]" onClick={() => setStatusMenuOpen(false)} />
+                <div
+                  style={statusMenuStyle}
+                  className="w-40 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-[9999]"
+                >
+                  {STATUS_OPTIONS.filter(s => s.value !== event.status).map(s => (
+                    <button
+                      key={s.value}
+                      onClick={() => { onStatusChange(s.value); setStatusMenuOpen(false); }}
+                      className="flex items-center w-full px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 text-left"
+                    >
+                      Set to {s.label}
+                    </button>
+                  ))}
+                </div>
+              </>,
+              document.body,
+            )}
           </div>
           <button
             onClick={onClose}
@@ -203,6 +266,14 @@ const EventDetailModal: React.FC<Props> = ({
             >
               <Tag className="w-4 h-4" /> Add Ticket Types
             </button>
+            {event.status === 'cancelled' && (
+              <button
+                onClick={() => onStatusChange('upcoming')}
+                className="btn-primary flex-1 flex items-center justify-center gap-1.5"
+              >
+                <RotateCcw className="w-4 h-4" /> Reopen Event
+              </button>
+            )}
             {!event.is_approved ? (
               <>
                 <button onClick={onReject} className="btn-danger flex-1">Reject</button>

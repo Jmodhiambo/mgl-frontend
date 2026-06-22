@@ -1,8 +1,12 @@
 // src/apps/organizer/pages/BookingsView.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
-import { Search, Ticket, User, DollarSign, Download, CheckCircle, Clock, XCircle, AlertCircle } from 'lucide-react';
+import {
+  Search, Ticket, User, DollarSign, Download,
+  CheckCircle, Clock, XCircle, AlertCircle,
+  ChevronDown, ChevronRight, Package,
+} from 'lucide-react';
 import BookingDetailsModal from '@organizer/components/modals/bookings/BookingDetailsModal';
 import EmailModal from '@organizer/components/modals/bookings/EmailModal';
 import BulkActionBar from '@organizer/components/modals/bookings/BulkActionBar';
@@ -11,13 +15,15 @@ import {
   organizer_getEventBookings,
   organizer_getRecentBookings,
 } from '@shared/api/user/bookingsApi';
-
-// ── Local types ───────────────────────────────────────────────────────────────
+import {
+  getOrganizerOrders,
+  type OrganizerOrderOut,
+  type OrganizerOrderBookingLine,
+} from '@shared/api/organizer/orgOrderApi';
+import { formatKES } from '@shared/utils/format';
  
-// Local Booking interface — matches what BookingDetailsModal, BookingsTable, and
-// EmailModal expect. Enriched fields (customer_name, event_title, etc.) are
-// optional because the event-specific endpoint currently returns plain BookingOut.
-// They will always be present from organizer_getRecentBookings (joined query).
+// ── Types ─────────────────────────────────────────────────────────────────────
+ 
 interface Booking {
   id: number;
   user_id: number;
@@ -50,6 +56,10 @@ export interface EmailTemplate {
   body: string;
   extraFields?: EmailTemplateExtraField[];
 }
+ 
+type ViewTab = 'orders' | 'bookings';
+ 
+// ── Email templates (unchanged) ───────────────────────────────────────────────
  
 const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
@@ -191,7 +201,7 @@ Best regards,
  
 // ── Helpers ───────────────────────────────────────────────────────────────────
  
-const bookingReplacements = (ref: Booking | null, organizerName: string): Record<string, string> => ({
+const bookingReplacements = (ref: Booking | null, orgName: string): Record<string, string> => ({
   customer_name:  ref?.customer_name        ?? '',
   event_title:    ref?.event_title          ?? '',
   ticket_type:    ref?.ticket_type_name     ?? '',
@@ -200,50 +210,179 @@ const bookingReplacements = (ref: Booking | null, organizerName: string): Record
   total_price:    ref?.total_price?.toLocaleString() ?? '',
   venue:          ref?.venue                ?? '',
   event_date:     ref?.event_date           ?? '',
-  organizer_name: organizerName,
+  organizer_name: orgName,
 });
  
-const fillTokens = (text: string, replacements: Record<string, string>): string =>
-  text.replace(/\{\{(\w+)\}\}/g, (match, key) => key in replacements ? replacements[key] : match);
+const fillTokens = (text: string, rep: Record<string, string>): string =>
+  text.replace(/\{\{(\w+)\}\}/g, (m, k) => k in rep ? rep[k] : m);
  
-// ── Component ─────────────────────────────────────────────────────────────────
+const formatDate = (s: string) =>
+  new Date(s).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+ 
+const statusStyle: Record<string, string> = {
+  confirmed: 'bg-green-100 text-green-700',
+  pending:   'bg-yellow-100 text-yellow-700',
+  cancelled: 'bg-red-100 text-red-700',
+};
+ 
+const statusIcon: Record<string, React.ReactNode> = {
+  confirmed: <CheckCircle className="w-4 h-4" />,
+  pending:   <Clock className="w-4 h-4" />,
+  cancelled: <XCircle className="w-4 h-4" />,
+};
+ 
+// ── Orders tab ────────────────────────────────────────────────────────────────
+ 
+const OrderRow: React.FC<{ order: OrganizerOrderOut }> = ({ order }) => {
+  const [expanded, setExpanded] = useState(false);
+  const navigate = useNavigate();
+ 
+  return (
+    <>
+      <tr
+        className="hover:bg-gray-50 cursor-pointer transition-colors"
+        onClick={() => setExpanded(p => !p)}
+      >
+        <td className="px-4 py-4 w-8">
+          {expanded
+            ? <ChevronDown className="w-4 h-4 text-gray-400" />
+            : <ChevronRight className="w-4 h-4 text-gray-400" />}
+        </td>
+        <td className="px-4 py-4 text-sm font-medium text-gray-800">#{order.id}</td>
+        <td className="px-4 py-4">
+          <p className="text-sm font-medium text-gray-800">{order.customer_name}</p>
+          <p className="text-xs text-gray-500">{order.customer_email}</p>
+        </td>
+        <td className="px-4 py-4">
+          <button
+            onClick={e => { e.stopPropagation(); navigate(`/events/${order.event_slug}`); }}
+            className="text-sm text-blue-600 hover:underline font-medium"
+          >
+            {order.event_title}
+          </button>
+        </td>
+        <td className="px-4 py-4 text-sm text-gray-600">{order.bookings.length} type{order.bookings.length !== 1 ? 's' : ''}</td>
+        <td className="px-4 py-4">
+          <p className="text-sm font-bold text-gray-800">{formatKES(order.total_price)}</p>
+          <p className="text-xs text-green-600">Net: {formatKES(order.organizer_net)}</p>
+        </td>
+        <td className="px-4 py-4">
+          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${statusStyle[order.status] ?? 'bg-gray-100 text-gray-700'}`}>
+            {statusIcon[order.status]}
+            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+          </span>
+        </td>
+        <td className="px-4 py-4 text-xs text-gray-500">{formatDate(order.created_at)}</td>
+      </tr>
+ 
+      {/* Expanded booking line items */}
+      {expanded && (
+        <tr className="bg-blue-50">
+          <td colSpan={8} className="px-8 py-4">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Booking line items
+            </p>
+            <div className="space-y-2">
+              {order.bookings.map((b: OrganizerOrderBookingLine) => (
+                <div
+                  key={b.id}
+                  className="flex items-center justify-between bg-white rounded-lg px-4 py-3 border border-blue-100"
+                >
+                  <div className="flex items-center gap-3">
+                    <Ticket className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">{b.ticket_type_name}</p>
+                      <p className="text-xs text-gray-500">{b.quantity} × ticket</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusStyle[b.status] ?? 'bg-gray-100 text-gray-700'}`}>
+                      {b.status.charAt(0).toUpperCase() + b.status.slice(1)}
+                    </span>
+                    <span className="text-sm font-bold text-gray-800">{formatKES(b.total_price)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Commission breakdown for this order */}
+            <div className="mt-3 flex items-center gap-6 text-xs text-gray-500 border-t border-blue-100 pt-3">
+              <span>Commission: {order.commission_rate}%</span>
+              <span>Platform cut: <span className="text-red-500 font-medium">{formatKES(order.platform_cut)}</span></span>
+              <span>Your net: <span className="text-green-600 font-medium">{formatKES(order.organizer_net)}</span></span>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+};
+ 
+// ── Main Component ────────────────────────────────────────────────────────────
  
 const BookingsView: React.FC = () => {
   const { eventId } = useParams<{ eventId?: string }>();
   const { user }    = useAuth();
   const organizerName = user?.name.split(' ')[0] ?? 'Organizer';
  
-  const [bookings, setBookings]                   = useState<Booking[]>([]);
-  const [filteredBookings, setFilteredBookings]   = useState<Booking[]>([]);
-  const [loading, setLoading]                     = useState(true);
-  const [error, setError]                         = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<ViewTab>('orders');
  
-  const [searchQuery, setSearchQuery]   = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [dateRange, setDateRange]       = useState({ start: '', end: '' });
+  // Orders state
+  const [orders,          setOrders]          = useState<OrganizerOrderOut[]>([]);
+  const [filteredOrders,  setFilteredOrders]  = useState<OrganizerOrderOut[]>([]);
+  const [ordersLoading,   setOrdersLoading]   = useState(true);
+  const [ordersError,     setOrdersError]     = useState<string | null>(null);
  
-  const [isBulkMode, setIsBulkMode]             = useState(false);
-  const [selectedBookings, setSelectedBookings] = useState<number[]>([]);
-  const [selectAll, setSelectAll]               = useState(false);
+  // Bookings state
+  const [bookings,         setBookings]         = useState<Booking[]>([]);
+  const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
+  const [bookingsLoading,  setBookingsLoading]  = useState(false);
+  const [bookingsError,    setBookingsError]    = useState<string | null>(null);
  
+  // Shared filter state
+  const [searchQuery,   setSearchQuery]   = useState('');
+  const [statusFilter,  setStatusFilter]  = useState('all');
+  const [dateRange,     setDateRange]     = useState({ start: '', end: '' });
+ 
+  // Bulk + modal state (bookings tab)
+  const [isBulkMode,        setIsBulkMode]        = useState(false);
+  const [selectedBookings,  setSelectedBookings]  = useState<number[]>([]);
+  const [selectAll,         setSelectAll]         = useState(false);
   const [showBookingDetails, setShowBookingDetails] = useState(false);
-  const [selectedBooking, setSelectedBooking]       = useState<Booking | null>(null);
-  const [showEmailModal, setShowEmailModal]         = useState(false);
- 
+  const [selectedBooking,   setSelectedBooking]   = useState<Booking | null>(null);
+  const [showEmailModal,    setShowEmailModal]    = useState(false);
   const [emailData, setEmailData] = useState({
-    template:    'custom',
-    rawBody:     '',
-    subject:     '',
-    message:     '',
-    extraValues: {} as Record<string, string>,
+    template: 'custom', rawBody: '', subject: '', message: '', extraValues: {} as Record<string, string>,
   });
   const [sendingEmail, setSendingEmail] = useState(false);
  
-  // ── Load bookings ──────────────────────────────────────────────────────────
+  // ── Load orders ──────────────────────────────────────────────────────────
+ 
+  const loadOrders = useCallback(async () => {
+    setOrdersLoading(true);
+    setOrdersError(null);
+    try {
+      const data = await getOrganizerOrders();
+      // If we're on an event-specific page, filter client-side
+      const filtered = eventId
+        ? data.filter(o => o.event_id === Number(eventId))
+        : data;
+      setOrders(filtered);
+      setFilteredOrders(filtered);
+    } catch {
+      setOrdersError('Failed to load orders. Please try again.');
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, [eventId]);
+ 
+  // ── Load bookings ────────────────────────────────────────────────────────
  
   const loadBookings = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    setBookingsLoading(true);
+    setBookingsError(null);
     try {
       let data: Booking[];
       if (eventId) {
@@ -254,91 +393,104 @@ const BookingsView: React.FC = () => {
       setBookings(data);
       setFilteredBookings(data);
     } catch {
-      setError('Failed to load bookings. Please try again.');
+      setBookingsError('Failed to load bookings. Please try again.');
     } finally {
-      setLoading(false);
+      setBookingsLoading(false);
     }
   }, [eventId]);
  
-  useEffect(() => { loadBookings(); }, [loadBookings]);
- 
-  // ── Filter ─────────────────────────────────────────────────────────────────
+  useEffect(() => { loadOrders(); }, [loadOrders]);
  
   useEffect(() => {
-    let filtered = bookings;
-    if (searchQuery) {
-      filtered = filtered.filter(b =>
-        (b.customer_name ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (b.customer_email ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (b.ticket_type_name ?? '').toLowerCase().includes(searchQuery.toLowerCase()),
-      );
+    if (activeTab === 'bookings' && bookings.length === 0 && !bookingsLoading) {
+      loadBookings();
     }
-    if (statusFilter !== 'all') filtered = filtered.filter(b => b.status === statusFilter);
-    if (dateRange.start && dateRange.end) {
-      filtered = filtered.filter(b => {
-        const d = new Date(b.created_at);
-        return d >= new Date(dateRange.start) && d <= new Date(dateRange.end);
-      });
-    }
-    setFilteredBookings(filtered);
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+ 
+  // ── Filter orders ────────────────────────────────────────────────────────
+ 
+  useEffect(() => {
+    const q = searchQuery.toLowerCase();
+    setFilteredOrders(
+      orders.filter(o => {
+        const matchSearch =
+          !q ||
+          o.customer_name.toLowerCase().includes(q) ||
+          o.customer_email.toLowerCase().includes(q) ||
+          o.event_title.toLowerCase().includes(q);
+        const matchStatus = statusFilter === 'all' || o.status === statusFilter;
+        const matchDate = (() => {
+          if (!dateRange.start || !dateRange.end) return true;
+          const d = new Date(o.created_at);
+          return d >= new Date(dateRange.start) && d <= new Date(dateRange.end);
+        })();
+        return matchSearch && matchStatus && matchDate;
+      }),
+    );
+  }, [orders, searchQuery, statusFilter, dateRange]);
+ 
+  // ── Filter bookings ──────────────────────────────────────────────────────
+ 
+  useEffect(() => {
+    const q = searchQuery.toLowerCase();
+    setFilteredBookings(
+      bookings.filter(b => {
+        const matchSearch =
+          !q ||
+          (b.customer_name ?? '').toLowerCase().includes(q) ||
+          (b.customer_email ?? '').toLowerCase().includes(q) ||
+          (b.ticket_type_name ?? '').toLowerCase().includes(q);
+        const matchStatus = statusFilter === 'all' || b.status === statusFilter;
+        const matchDate = (() => {
+          if (!dateRange.start || !dateRange.end) return true;
+          const d = new Date(b.created_at);
+          return d >= new Date(dateRange.start) && d <= new Date(dateRange.end);
+        })();
+        return matchSearch && matchStatus && matchDate;
+      }),
+    );
   }, [bookings, searchQuery, statusFilter, dateRange]);
  
-  // ── Select all sync ────────────────────────────────────────────────────────
+  // ── Select all sync ──────────────────────────────────────────────────────
  
   useEffect(() => {
-    if (filteredBookings.length > 0) {
+    if (filteredBookings.length > 0)
       setSelectAll(filteredBookings.every(b => selectedBookings.includes(b.id)));
-    }
   }, [selectedBookings, filteredBookings]);
  
-  // ── Live token substitution ────────────────────────────────────────────────
+  // ── Email token substitution ─────────────────────────────────────────────
  
   useEffect(() => {
     if (!emailData.rawBody) return;
     const merged = { ...bookingReplacements(selectedBooking, organizerName), ...emailData.extraValues };
-    setEmailData(prev => ({ ...prev, message: fillTokens(prev.rawBody, merged) }));
-  }, [emailData.extraValues]);
+    setEmailData(p => ({ ...p, message: fillTokens(p.rawBody, merged) }));
+  }, [emailData.extraValues]); // eslint-disable-line react-hooks/exhaustive-deps
  
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  // ── Stats ────────────────────────────────────────────────────────────────
  
-  const formatDate = (s: string) =>
-    new Date(s).toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    });
- 
-  const getStatusBadge = (status: string) => {
-    const styles: Record<string, string> = {
-      confirmed: 'bg-green-100 text-green-700',
-      pending:   'bg-yellow-100 text-yellow-700',
-      cancelled: 'bg-red-100 text-red-700',
-    };
-    const icons: Record<string, React.ReactNode> = {
-      confirmed: <CheckCircle className="w-4 h-4" />,
-      pending:   <Clock className="w-4 h-4" />,
-      cancelled: <XCircle className="w-4 h-4" />,
-    };
-    return (
-      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${styles[status] ?? 'bg-gray-100 text-gray-700'}`}>
-        {icons[status]}
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
+  const orderStats = {
+    totalOrders:   filteredOrders.length,
+    totalRevenue:  filteredOrders.filter(o => o.status === 'confirmed').reduce((s, o) => s + o.total_price, 0),
+    organizerNet:  filteredOrders.filter(o => o.status === 'confirmed').reduce((s, o) => s + o.organizer_net, 0),
   };
  
-  const getTotalStats = () => {
-    const confirmed = filteredBookings.filter(b => b.status === 'confirmed');
-    return {
-      totalRevenue:  confirmed.reduce((s, b) => s + b.total_price, 0),
-      totalTickets:  confirmed.reduce((s, b) => s + b.quantity, 0),
-      totalBookings: filteredBookings.length,
-    };
+  const bookingStats = {
+    totalBookings: filteredBookings.length,
+    totalTickets:  filteredBookings.filter(b => b.status === 'confirmed').reduce((s, b) => s + b.quantity, 0),
+    totalRevenue:  filteredBookings.filter(b => b.status === 'confirmed').reduce((s, b) => s + b.total_price, 0),
   };
  
-  // ── Selection ──────────────────────────────────────────────────────────────
+  // ── Helpers ──────────────────────────────────────────────────────────────
+ 
+  const getStatusBadge = (status: string) => (
+    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${statusStyle[status] ?? 'bg-gray-100 text-gray-700'}`}>
+      {statusIcon[status]}
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </span>
+  );
  
   const toggleBookingSelection = (id: number) =>
-    setSelectedBookings(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    setSelectedBookings(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
  
   const toggleSelectAll = () => {
     setSelectedBookings(selectAll ? [] : filteredBookings.map(b => b.id));
@@ -346,33 +498,27 @@ const BookingsView: React.FC = () => {
   };
  
   const clearSelection = () => { setSelectedBookings([]); setSelectAll(false); setIsBulkMode(false); };
-  const enterBulkMode  = () => { setIsBulkMode(true); setSelectedBookings([]); setSelectAll(false); };
+  const enterBulkMode  = () => { setIsBulkMode(true); setSelectedBookings([]); };
  
-  // ── Modals ─────────────────────────────────────────────────────────────────
- 
-  const handleViewBooking   = (booking: Booking) => { setSelectedBooking(booking); setShowBookingDetails(true); };
+  const handleViewBooking   = (b: Booking) => { setSelectedBooking(b); setShowBookingDetails(true); };
   const closeBookingDetails = () => { setShowBookingDetails(false); setSelectedBooking(null); };
  
   const resetEmailData = () =>
     setEmailData({ template: 'custom', rawBody: '', subject: '', message: '', extraValues: {} });
  
-  const openEmailModal = (booking: Booking) => {
-    setSelectedBookings([booking.id]);
-    setSelectedBooking(booking);
+  const openEmailModal = (b: Booking) => {
+    setSelectedBookings([b.id]);
+    setSelectedBooking(b);
     setShowEmailModal(true);
     resetEmailData();
   };
  
   const openBulkEmailModal = () => {
-    if (selectedBookings.length === 0) { alert('Please select at least one booking'); return; }
+    if (!selectedBookings.length) { alert('Please select at least one booking'); return; }
     setSelectedBooking(bookings.find(b => selectedBookings.includes(b.id)) ?? null);
     setShowEmailModal(true);
     resetEmailData();
   };
- 
-  const closeEmailModal = () => { setShowEmailModal(false); resetEmailData(); };
- 
-  // ── Template change ────────────────────────────────────────────────────────
  
   const handleTemplateChange = (templateId: string) => {
     const tpl = EMAIL_TEMPLATES.find(t => t.id === templateId);
@@ -387,77 +533,39 @@ const BookingsView: React.FC = () => {
     });
   };
  
-  // ── Send email ─────────────────────────────────────────────────────────────
- 
   const handleSendEmail = async () => {
-    if (!emailData.subject || !emailData.message) {
-      alert('Please fill in both subject and message');
-      return;
-    }
+    if (!emailData.subject || !emailData.message) { alert('Please fill in subject and message'); return; }
     setSendingEmail(true);
     try {
-      const recipients = bookings.filter(b => selectedBookings.includes(b.id));
-      if (emailData.template === 'custom') {
-        // TODO: POST /api/organizer/emails/custom
-        // await api.post('/organizer/emails/custom', {
-        //   booking_ids: selectedBookings,
-        //   subject: emailData.subject,
-        //   body: emailData.message,
-        // });
-      } else {
-        // TODO: POST /api/organizer/emails/bulk
-        // await api.post('/organizer/emails/bulk', {
-        //   template_id:     emailData.template,
-        //   booking_ids:     selectedBookings,
-        //   extra_variables: emailData.extraValues,
-        // });
-      }
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      alert(`Email sent successfully to ${recipients.length} recipient(s)`);
-      closeEmailModal();
+      await new Promise(r => setTimeout(r, 1500)); // TODO: replace with real API call
+      alert(`Email sent to ${selectedBookings.length} recipient(s)`);
+      setShowEmailModal(false);
+      resetEmailData();
       clearSelection();
     } catch {
-      alert('Failed to send email. Please try again.');
+      alert('Failed to send email.');
     } finally {
       setSendingEmail(false);
     }
   };
  
-  // ── Export ─────────────────────────────────────────────────────────────────
- 
-  const exportToCSV = () => {
-    const headers = ['Booking ID', 'Customer Name', 'Customer Email', 'Event Title', 'Ticket Type', 'Quantity', 'Total Price (KES)', 'Status', 'Booking Date'];
-    const rows = filteredBookings.map(b => [
-      b.id,
-      b.customer_name  ?? '',
-      b.customer_email ?? '',
-      b.event_title    ?? '',
-      b.ticket_type_name ?? '',
-      b.quantity,
-      b.total_price,
-      b.status,
-      new Date(b.created_at).toLocaleDateString('en-US'),
+  const exportOrdersToCSV = () => {
+    const headers = ['Order ID', 'Customer', 'Email', 'Event', 'Total (KES)', 'Net (KES)', 'Status', 'Date'];
+    const rows = filteredOrders.map(o => [
+      o.id, o.customer_name, o.customer_email, o.event_title,
+      o.total_price, o.organizer_net, o.status,
+      new Date(o.created_at).toLocaleDateString(),
     ]);
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const csv  = [headers, ...rows].map(r => r.join(',')).join('\n');
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-    link.setAttribute('download', `bookings_${new Date().toISOString().split('T')[0]}.csv`);
+    link.href  = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    link.setAttribute('download', `orders_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
  
-  // ── Render ─────────────────────────────────────────────────────────────────
- 
-  const stats = getTotalStats();
- 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent" />
-      </div>
-    );
-  }
+  // ── Render ────────────────────────────────────────────────────────────────
  
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
@@ -468,113 +576,251 @@ const BookingsView: React.FC = () => {
             {eventId ? 'Event Bookings' : 'All Bookings'}
           </h1>
           <p className="text-gray-600">
-            {eventId ? 'View and manage bookings for this event' : 'View and manage all bookings across your events'}
+            {eventId ? 'Orders and bookings for this event' : 'All orders and bookings across your events'}
           </p>
         </div>
  
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-            <p className="text-sm text-red-700">{error}</p>
-            <button onClick={loadBookings} className="ml-auto text-sm text-red-600 underline hover:text-red-800">
-              Retry
+        {/* Tab switcher */}
+        <div className="flex gap-2 mb-6">
+          {([
+            { value: 'orders',   label: 'Orders',   icon: <Package className="w-4 h-4" /> },
+            { value: 'bookings', label: 'Bookings', icon: <Ticket className="w-4 h-4" /> },
+          ] as { value: ViewTab; label: string; icon: React.ReactNode }[]).map(tab => (
+            <button
+              key={tab.value}
+              onClick={() => setActiveTab(tab.value)}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                activeTab === tab.value
+                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
+                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-blue-50'
+              }`}
+            >
+              {tab.icon} {tab.label}
             </button>
-          </div>
-        )}
- 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {[
-            { label: 'Total Bookings', value: stats.totalBookings, icon: <Ticket className="w-6 h-6 text-blue-600" />,   bg: 'bg-blue-100',  color: 'text-gray-800'  },
-            { label: 'Tickets Sold',   value: stats.totalTickets,  icon: <User className="w-6 h-6 text-blue-600" />,     bg: 'bg-blue-100',  color: 'text-gray-800'  },
-            { label: 'Total Revenue',  value: `KES ${stats.totalRevenue.toLocaleString()}`, icon: <DollarSign className="w-6 h-6 text-green-600" />, bg: 'bg-green-100', color: 'text-green-600' },
-          ].map(({ label, value, icon, bg, color }) => (
-            <div key={label} className="bg-white rounded-xl shadow-md p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-600 text-sm mb-1">{label}</p>
-                  <p className={`text-3xl font-bold ${color}`}>{value}</p>
-                </div>
-                <div className={`p-3 ${bg} rounded-lg`}>{icon}</div>
-              </div>
-            </div>
           ))}
         </div>
  
-        {/* Filters */}
-        <div className="bg-white rounded-xl shadow-md p-4 mb-8">
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="Search by customer name, email, or ticket type..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        {/* ── ORDERS TAB ── */}
+        {activeTab === 'orders' && (
+          <>
+            {/* Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              {[
+                { label: 'Total Orders',  value: orderStats.totalOrders,              icon: <Package className="w-6 h-6 text-blue-600" />,   bg: 'bg-blue-100',  color: 'text-gray-800'  },
+                { label: 'Gross Revenue', value: formatKES(orderStats.totalRevenue),  icon: <DollarSign className="w-6 h-6 text-green-600" />, bg: 'bg-green-100', color: 'text-green-600' },
+                { label: 'Your Net',      value: formatKES(orderStats.organizerNet),  icon: <CheckCircle className="w-6 h-6 text-blue-600" />, bg: 'bg-blue-100',  color: 'text-blue-700'  },
+              ].map(({ label, value, icon, bg, color }) => (
+                <div key={label} className="bg-white rounded-xl shadow-md p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-gray-600 text-sm mb-1">{label}</p>
+                      <p className={`text-2xl font-bold ${color}`}>{value}</p>
+                    </div>
+                    <div className={`p-3 ${bg} rounded-lg`}>{icon}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+ 
+            {/* Filters */}
+            <div className="bg-white rounded-xl shadow-md p-4 mb-6">
+              <div className="flex flex-col lg:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="text" placeholder="Search by customer, email or event…"
+                    value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+                    className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                    <option value="all">All Status</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="pending">Pending</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                  <button onClick={exportOrdersToCSV}
+                    className="px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg flex items-center font-medium hover:from-blue-600 hover:to-blue-700">
+                    <Download className="w-4 h-4 mr-2" /> Export
+                  </button>
+                </div>
+              </div>
+            </div>
+ 
+            {ordersError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500" />
+                <p className="text-sm text-red-700">{ordersError}</p>
+                <button onClick={loadOrders} className="ml-auto text-sm text-red-600 underline">Retry</button>
+              </div>
+            )}
+ 
+            {ordersLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent" />
+              </div>
+            ) : filteredOrders.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-md p-12 text-center">
+                <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">No orders found</h3>
+                <p className="text-gray-500">
+                  {searchQuery || statusFilter !== 'all' ? 'Try adjusting your filters' : 'Orders will appear here once customers start purchasing tickets'}
+                </p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                {/* Desktop table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="w-8 px-4 py-4" />
+                        {['Order', 'Customer', 'Event', 'Items', 'Total', 'Status', 'Date'].map(h => (
+                          <th key={h} className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {filteredOrders.map(order => (
+                        <OrderRow key={order.id} order={order} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+ 
+                {/* Mobile cards */}
+                <div className="md:hidden divide-y divide-gray-200">
+                  {filteredOrders.map(order => (
+                    <div key={order.id} className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-semibold text-gray-800 text-sm">Order #{order.id}</p>
+                          <p className="text-xs text-gray-500">{order.customer_name}</p>
+                          <p className="text-xs text-gray-500 truncate max-w-[200px]">{order.event_title}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-gray-800 text-sm">{formatKES(order.total_price)}</p>
+                          <p className="text-xs text-green-600">Net: {formatKES(order.organizer_net)}</p>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${statusStyle[order.status] ?? 'bg-gray-100 text-gray-700'}`}>
+                            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-400">{formatDate(order.created_at)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+ 
+        {/* ── BOOKINGS TAB ── */}
+        {activeTab === 'bookings' && (
+          <>
+            {/* Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              {[
+                { label: 'Total Bookings', value: bookingStats.totalBookings,          icon: <Ticket className="w-6 h-6 text-blue-600" />,    bg: 'bg-blue-100',  color: 'text-gray-800'  },
+                { label: 'Tickets Sold',   value: bookingStats.totalTickets,           icon: <User className="w-6 h-6 text-blue-600" />,      bg: 'bg-blue-100',  color: 'text-gray-800'  },
+                { label: 'Total Revenue',  value: formatKES(bookingStats.totalRevenue), icon: <DollarSign className="w-6 h-6 text-green-600" />, bg: 'bg-green-100', color: 'text-green-600' },
+              ].map(({ label, value, icon, bg, color }) => (
+                <div key={label} className="bg-white rounded-xl shadow-md p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-gray-600 text-sm mb-1">{label}</p>
+                      <p className={`text-3xl font-bold ${color}`}>{value}</p>
+                    </div>
+                    <div className={`p-3 ${bg} rounded-lg`}>{icon}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+ 
+            {/* Filters */}
+            <div className="bg-white rounded-xl shadow-md p-4 mb-8">
+              <div className="flex flex-col lg:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="text" placeholder="Search by customer name, email, or ticket type…"
+                    value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+                    className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
+                    <option value="all">All Status</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="pending">Pending</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">From Date</label>
+                  <input type="date" value={dateRange.start}
+                    onChange={e => setDateRange(p => ({ ...p, start: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">To Date</label>
+                  <input type="date" value={dateRange.end}
+                    onChange={e => setDateRange(p => ({ ...p, end: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+            </div>
+ 
+            {bookingsError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500" />
+                <p className="text-sm text-red-700">{bookingsError}</p>
+                <button onClick={loadBookings} className="ml-auto text-sm text-red-600 underline">Retry</button>
+              </div>
+            )}
+ 
+            <BulkActionBar
+              selectedCount={selectedBookings.length}
+              isBulkMode={isBulkMode}
+              onEnterBulkMode={enterBulkMode}
+              onClearSelection={clearSelection}
+              onBulkEmail={openBulkEmailModal}
+            />
+ 
+            {bookingsLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent" />
+              </div>
+            ) : filteredBookings.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-md p-12 text-center">
+                <Ticket className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">No bookings found</h3>
+                <p className="text-gray-500">
+                  {searchQuery || statusFilter !== 'all' || dateRange.start
+                    ? 'Try adjusting your filters'
+                    : 'Bookings will appear here once customers start purchasing tickets'}
+                </p>
+              </div>
+            ) : (
+              <BookingsTable
+                bookings={filteredBookings}
+                selectedBookings={selectedBookings}
+                selectAll={selectAll}
+                isBulkMode={isBulkMode}
+                onToggleSelectAll={toggleSelectAll}
+                onToggleBooking={toggleBookingSelection}
+                onViewBooking={handleViewBooking}
+                onEmailBooking={openEmailModal}
+                getStatusBadge={getStatusBadge}
+                formatDate={formatDate}
               />
-            </div>
-            <div className="flex gap-3">
-              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-                className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white">
-                <option value="all">All Status</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="pending">Pending</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-              <button onClick={exportToCSV}
-                className="px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all flex items-center font-medium">
-                <Download className="w-4 h-4 mr-2" /> Export
-              </button>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">From Date</label>
-              <input type="date" value={dateRange.start}
-                onChange={e => setDateRange(p => ({ ...p, start: e.target.value }))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">To Date</label>
-              <input type="date" value={dateRange.end}
-                onChange={e => setDateRange(p => ({ ...p, end: e.target.value }))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
-            </div>
-          </div>
-        </div>
- 
-        <BulkActionBar
-          selectedCount={selectedBookings.length}
-          isBulkMode={isBulkMode}
-          onEnterBulkMode={enterBulkMode}
-          onClearSelection={clearSelection}
-          onBulkEmail={openBulkEmailModal}
-        />
- 
-        {filteredBookings.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-md p-12 text-center">
-            <Ticket className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">No bookings found</h3>
-            <p className="text-gray-500">
-              {searchQuery || statusFilter !== 'all' || dateRange.start || dateRange.end
-                ? 'Try adjusting your filters'
-                : 'Bookings will appear here once customers start purchasing tickets'}
-            </p>
-          </div>
-        ) : (
-          <BookingsTable
-            bookings={filteredBookings}
-            selectedBookings={selectedBookings}
-            selectAll={selectAll}
-            isBulkMode={isBulkMode}
-            onToggleSelectAll={toggleSelectAll}
-            onToggleBooking={toggleBookingSelection}
-            onViewBooking={handleViewBooking}
-            onEmailBooking={openEmailModal}
-            getStatusBadge={getStatusBadge}
-            formatDate={formatDate}
-          />
+            )}
+          </>
         )}
       </div>
  
@@ -594,9 +840,9 @@ const BookingsView: React.FC = () => {
           emailData={emailData}
           emailTemplates={EMAIL_TEMPLATES}
           sendingEmail={sendingEmail}
-          onClose={closeEmailModal}
+          onClose={() => { setShowEmailModal(false); resetEmailData(); }}
           onTemplateChange={handleTemplateChange}
-          onEmailDataChange={data => setEmailData(prev => ({ ...prev, ...data }))}
+          onEmailDataChange={data => setEmailData(p => ({ ...p, ...data }))}
           onSend={handleSendEmail}
         />
       )}
