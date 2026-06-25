@@ -14,6 +14,7 @@ import CreateEventModal from '@admin/components/modals/events/CreateEventModal';
 import EventDetailModal from '@admin/components/modals/events/EventDetailModal';
 import EventActionsMenu from '@admin/components/menus/events/EventActionsMenu';
 import CreateTicketTypesModal, { type SavedTicketType } from '@admin/components/modals/ticketTypes/CreateTicketTypesModal';
+import ManageCoOrganizersModal from '@admin/components/modals/coOrganizers/ManageCoOrganizersModal';
 
 const STATUS_OPTS   = ['all', 'upcoming', 'ongoing', 'completed', 'cancelled', 'draft'];
 const APPROVAL_OPTS = ['all', 'approved', 'unapproved'];
@@ -40,6 +41,7 @@ const Events: React.FC = () => {
   const [alert, setAlert]           = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [detailEvent, setDetail]    = useState<AdminEvent | null>(null);
   const [createFlow, setCreateFlow] = useState<CreateStep>({ step: 'closed' });
+  const [coOrgsEvent, setCoOrgsEvent] = useState<AdminEvent | null>(null);
 
   useEffect(() => {
     listAllEvents()
@@ -285,6 +287,7 @@ const Events: React.FC = () => {
                           statusUpdating={statusLoadingId === event.id}
                           onView={() => setDetail(event)}
                           onAddTicketTypes={() => openAddTicketTypes(event)}
+                          onManageCoOrganizers={() => { setDetail(null); setCoOrgsEvent(event); }}
                         />
                       </td>
                     </tr>
@@ -312,6 +315,7 @@ const Events: React.FC = () => {
                       statusUpdating={statusLoadingId === event.id}
                       onView={() => setDetail(event)}
                       onAddTicketTypes={() => openAddTicketTypes(event)}
+                      onManageCoOrganizers={() => { setDetail(null); setCoOrgsEvent(event); }}
                     />
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -378,6 +382,13 @@ const Events: React.FC = () => {
           onClose={() => setCreateFlow({ step: 'closed' })}
           onFinish={(event, ticketTypes) => handleTicketsFinished(event, ticketTypes, createFlow.mode)}
           onSkip={createFlow.mode === 'post-create' ? handleTicketsSkipped : undefined}
+        />
+      )}
+
+      {coOrgsEvent && (
+        <ManageCoOrganizersModal
+          event={coOrgsEvent}
+          onClose={() => setCoOrgsEvent(null)}
         />
       )}
     </div>

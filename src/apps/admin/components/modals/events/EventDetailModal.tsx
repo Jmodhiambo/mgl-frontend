@@ -37,7 +37,7 @@ const EventDetailModal: React.FC<Props> = ({
   const flyerUrl = (event as any).flyer_url as string | undefined;
 
   // Status dropdown is portaled to document.body (see below) because the
-  // modal panel itself has overflow-y-auto + max-h-[90vh], and the flyer
+  // modal panel itself has overflow-y-auto + max-h-[80vh], and the flyer
   // wrapper has overflow-hidden — an absolutely-positioned dropdown nested
   // inside either gets visually clipped. Portaling + fixed positioning,
   // same pattern as EventActionsMenu, avoids that entirely.
@@ -64,7 +64,7 @@ const EventDetailModal: React.FC<Props> = ({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal-panel max-w-2xl max-h-[90vh] overflow-y-auto"
+        className="modal-panel max-w-2xl max-h-[80vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         {/* Flyer */}

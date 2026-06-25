@@ -17,10 +17,22 @@ export const getUserById = async (userId: number): Promise<User> => {
     return response.data;
 }
 
-// Update user details
+// Update user contact details (name, phone_number)
 export const updateUserContact = async (userData: UserUpdate): Promise<User> => {
-    const response = await api.patch(`/users/me/contact`, userData);
+    const response = await api.patch(`/users/me/profile-update`, userData);
     return response.data;
+}
+
+/**
+ * Delete the current user's profile picture.
+ * Backend route: DELETE /users/me/profile-picture
+ *
+ * Note: OrganizerProfileSetup (user app) uses deleteOrganizerProfilePicture
+ * from orgUserApi instead, since organizers are scoped to /organizers/me/*.
+ * This function is for non-organizer user contexts.
+ */
+export const deleteUserProfilePicture = async (): Promise<void> => {
+    await api.delete<void>('/users/me/profile-picture');
 }
 
 // // Update user password

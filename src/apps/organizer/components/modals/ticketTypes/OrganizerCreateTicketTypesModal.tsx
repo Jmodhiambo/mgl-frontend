@@ -161,7 +161,7 @@ const TicketTypeRow: React.FC<{
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Price (KES) <span className="text-red-500">*</span>
-            <span className="text-gray-400 font-normal"> — enter 0 for free</span>
+            <span className="text-gray-400 font-normal"> (Enter 0 for free tickets)</span>
           </label>
           <div className="relative">
             <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />

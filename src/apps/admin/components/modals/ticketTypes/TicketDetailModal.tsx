@@ -19,10 +19,10 @@ const TicketDetailModal: React.FC<Props> = ({ ticket, event, onClose, onEdit }) 
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-panel max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+      <div className="modal-panel max-w-lg max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
 
         {/* Flyer banner */}
-        <div className="relative w-full h-40 bg-gray-100 flex-shrink-0">
+        <div className="relative w-full h-40 bg-gray-100 flex-shrink-0 rounded-t-2xl overflow-hidden">
           {flyerUrl && !imgError ? (
             <img
               src={flyerUrl}
@@ -95,7 +95,7 @@ const TicketDetailModal: React.FC<Props> = ({ ticket, event, onClose, onEdit }) 
           )}
 
           {/* Fill rate bar */}
-          <div className="mb-5">
+          <div className="mb-6">
             <div className="flex justify-between text-xs text-gray-500 mb-1">
               <span>Fill Rate</span><span>{fillRate}%</span>
             </div>
@@ -107,13 +107,13 @@ const TicketDetailModal: React.FC<Props> = ({ ticket, event, onClose, onEdit }) 
                 style={{ width: `${fillRate}%` }}
               />
             </div>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-400 mt-2 mb-4">
               {remaining} tickets remaining of {ticket.total_quantity} total
             </p>
           </div>
 
           {/* Footer */}
-          <div className="flex gap-3 pt-4 border-t border-gray-100">
+          <div className="flex gap-3 pt-5 border-t border-gray-100">
             <button onClick={onClose} className="btn-secondary flex-1">Close</button>
             <button
               onClick={onEdit}

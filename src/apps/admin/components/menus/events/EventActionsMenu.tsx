@@ -3,7 +3,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   MoreVertical, Eye, Tag, CheckCircle, XCircle, Trash2,
-  RotateCcw, Calendar, PlayCircle, ChevronRight,
+  RotateCcw, Calendar, PlayCircle, ChevronRight, Users,
 } from 'lucide-react';
 import type { AdminEvent } from '@admin/types';
 import type { EventLifecycleStatus } from '@admin/types';
@@ -15,6 +15,7 @@ interface Props {
   statusUpdating?: boolean;
   onView: () => void;
   onAddTicketTypes: () => void;
+  onManageCoOrganizers: () => void;
 }
 
 // Every lifecycle status, with the icon + label used wherever it appears as
@@ -26,7 +27,7 @@ const STATUS_TARGETS: { value: EventLifecycleStatus; label: string; icon: React.
   { value: 'cancelled', label: 'Cancel Event',     icon: <XCircle className="w-4 h-4" />,      className: 'text-amber-700 hover:bg-amber-50' },
 ];
 
-const EventActionsMenu: React.FC<Props> = ({ event, onAction, onStatusChange, statusUpdating, onView, onAddTicketTypes }) => {
+const EventActionsMenu: React.FC<Props> = ({ event, onAction, onStatusChange, statusUpdating, onView, onAddTicketTypes, onManageCoOrganizers }) => {
   const [open, setOpen]             = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [menuStyle, setStyle]       = useState<React.CSSProperties>({});
@@ -84,6 +85,12 @@ const EventActionsMenu: React.FC<Props> = ({ event, onAction, onStatusChange, st
           className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-purple-50 text-purple-700"
         >
           <Tag className="w-4 h-4" /> Add Ticket Types
+        </button>
+        <button
+          onClick={() => { onManageCoOrganizers(); closeAll(); }}
+          className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-blue-50 text-blue-700"
+        >
+          <Users className="w-4 h-4" /> Co-Organizers
         </button>
 
         {showQuickReopen && (

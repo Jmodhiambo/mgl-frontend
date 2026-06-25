@@ -253,7 +253,7 @@ const Notifications: React.FC = () => {
                     <Icon className={`w-4 h-4 ${meta.color}`} />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 capitalize">{cat}</p>
+                    <p className="text-xs text-gray-600 capitalize">{cat}</p>
                     <p className="text-sm font-bold text-gray-900">
                       {count > 0
                         ? <span className="text-red-600">{count} new</span>
@@ -287,7 +287,7 @@ const Notifications: React.FC = () => {
                 </button>
               ))}
             </div>
-            <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 ml-auto">
+            <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 ml-auto">
               <div
                 onClick={() => setUnread(p => !p)}
                 className="rounded-full transition-all relative cursor-pointer flex-shrink-0"
@@ -307,7 +307,7 @@ const Notifications: React.FC = () => {
                 <Bell className="w-7 h-7 text-gray-400" />
               </div>
               <p className="font-semibold text-gray-700 mb-1">No notifications here</p>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-gray-500">
                 {showUnreadOnly ? 'All notifications have been read.' : 'Nothing to show for this filter.'}
               </p>
             </div>
@@ -321,10 +321,10 @@ const Notifications: React.FC = () => {
                 return (
                   <div
                     key={notif.id}
-                    className={`group relative bg-white rounded-xl border transition-all
+                    className={`group relative bg-white rounded-xl border transition-all hover:bg-purple-100
                       ${!notif.is_read
                         ? 'border-purple-200 shadow-sm shadow-purple-50'
-                        : 'border-gray-100 opacity-75 hover:opacity-100'}`}
+                        : 'border-gray-100'}`}
                   >
                     {/* Unread left bar */}
                     {!notif.is_read && (
@@ -350,12 +350,12 @@ const Notifications: React.FC = () => {
                               {pMeta.label}
                             </span>
                           </div>
-                          <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
+                          <span className="text-xs text-gray-500 whitespace-nowrap flex-shrink-0">
                             {timeAgo(notif.created_at)}
                           </span>
                         </div>
 
-                        <p className="text-sm text-gray-500 mt-0.5 leading-relaxed">{notif.message}</p>
+                        <p className="text-sm text-gray-600 mt-0.5 leading-relaxed">{notif.message}</p>
 
                         <div className="flex items-center gap-3 mt-2">
                           {notif.action_url && (
@@ -370,7 +370,7 @@ const Notifications: React.FC = () => {
                           {!notif.is_read && (
                             <button
                               onClick={() => markRead(notif.id)}
-                              className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
+                              className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 transition-colors"
                             >
                               <Check className="w-3 h-3" /> Mark read
                             </button>

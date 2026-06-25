@@ -56,8 +56,12 @@ export interface Organizer {
     is_active: boolean;
     created_at: string;
     updated_at: string;
-    organizer_profile_completed: boolean;
-    organizer_info: OrganizerInfo;
+    bio?: string | null;
+    organization_name?: string | null;
+    website_url?: string | null;
+    social_media_links?: string[] | null;
+    area_of_expertise?: string[] | null;
+    profile_picture_url?: string | null;
 
 }
 

@@ -6,7 +6,7 @@ import {
 } from '@admin/components/ui';
 import { admin_getEventTicketTypes } from '@shared/api/user/ticketTypesApi';
 import { formatKES } from '@admin/utils/format';
-import { listAllEvents } from '@admin/services/adminService';
+import { listAllEvents, deleteTicketType } from '@admin/services/adminService';
 import type { AdminTicketType, AdminEvent } from '@admin/types';
 
 import CreateTicketTypesModal, { type SavedTicketType } from '@admin/components/modals/ticketTypes/CreateTicketTypesModal';
@@ -88,6 +88,21 @@ const TicketTypes: React.FC = () => {
     if (detail?.id === updated.id) setDetail(updated);
     setEditing(null);
     setAlert({ type: 'success', msg: `"${updated.name}" updated successfully.` });
+  };
+
+  const handleDelete = async (ticket: AdminTicketType) => {
+    try {
+      await deleteTicketType(ticket.id);
+      setTickets(prev => prev.filter(t => t.id !== ticket.id));
+      setAlert({ type: 'success', msg: `"${ticket.name}" deleted successfully.` });
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail ?? 'Failed to delete ticket type.';
+      // 400 means the backend deactivated it instead of deleting (has existing bookings)
+      if (err?.response?.status === 400) {
+        setTickets(prev => prev.map(t => t.id === ticket.id ? { ...t, is_active: false } : t));
+      }
+      setAlert({ type: 'error', msg });
+    }
   };
 
   const exportCSV = () => {
@@ -229,6 +244,7 @@ const TicketTypes: React.FC = () => {
                             ticket={t}
                             onView={() => setDetail(t)}
                             onEdit={() => setEditing(t)}
+                            onDelete={() => handleDelete(t)}
                           />
                         </td>
                       </tr>
@@ -259,6 +275,7 @@ const TicketTypes: React.FC = () => {
                           ticket={t}
                           onView={() => setDetail(t)}
                           onEdit={() => setEditing(t)}
+                          onDelete={() => handleDelete(t)}
                         />
                       </div>
                     </div>
