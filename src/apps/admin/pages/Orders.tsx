@@ -58,7 +58,7 @@ const RowMenu: React.FC<{
         <div className="absolute right-0 z-20 mt-1 w-40 rounded-xl border border-gray-100 bg-white shadow-lg py-1">
           <button
             onClick={e => { e.stopPropagation(); setOpen(false); onView(); }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-purple-50"
           >
             <Eye className="w-4 h-4 text-gray-400" /> View Details
           </button>
@@ -238,7 +238,7 @@ const Orders: React.FC = () => {
                 <tbody>
                   {paginated.map(o => (
                     <Fragment key={o.id}>
-                      <tr className="cursor-pointer hover:bg-gray-50" onClick={() => toggleExpand(o.id)}>
+                      <tr className="cursor-pointer hover:bg-purple-50/50" onClick={() => toggleExpand(o.id)}>
                         <td className="w-8">
                           {expanded.has(o.id)
                             ? <ChevronDown className="w-4 h-4 text-gray-400" />
@@ -316,7 +316,7 @@ const Orders: React.FC = () => {
                   <div
                     key={o.id}
                     onClick={() => toggleExpand(o.id)}
-                    className="p-4 space-y-2 cursor-pointer active:bg-gray-50 transition-colors"
+                    className="p-4 space-y-2 cursor-pointer hover:bg-purple-50/50 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex items-start gap-2 flex-1">

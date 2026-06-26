@@ -353,7 +353,7 @@ const Users: React.FC = () => {
             {/* ── Mobile card list ── */}
             <div className="md:hidden divide-y divide-gray-100">
               {paginated.map(user => (
-                <div key={user.id} className="flex items-start gap-3 p-4">
+                <div key={user.id} className="flex items-start gap-3 p-4 hover:bg-purple-50/40 transition-colors">
                   <div className="w-10 h-10 rounded-full purple-gradient flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                     {getInitials(user.name)}
                   </div>
@@ -470,7 +470,7 @@ const UserActionsMenu: React.FC<{
         className="w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-1 text-sm animate-slide-up"
       >
         <button onClick={() => { onView(); setOpen(false); }}
-          className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-gray-50 text-gray-700">
+          className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-purple-50 text-gray-700">
           <Eye className="w-4 h-4 text-gray-400" /> View Details
         </button>
 

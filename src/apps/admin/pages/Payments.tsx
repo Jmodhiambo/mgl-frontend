@@ -173,7 +173,7 @@ const Payments: React.FC = () => {
             {/* ── Mobile card list ── */}
             <div className="md:hidden divide-y divide-gray-100">
               {paginated.map(p => (
-                <div key={p.id} className="p-4 space-y-2">
+                <div key={p.id} className="p-4 space-y-2 hover:bg-purple-50/40 transition-colors">
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-semibold text-sm text-gray-900">{p.user_name}</p>
                     <span className="font-bold text-emerald-700 text-sm">{formatKES(p.amount)}</span>

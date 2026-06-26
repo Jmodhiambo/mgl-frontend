@@ -250,7 +250,7 @@ const Settings: React.FC = () => {
               className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all
                 ${activeTab === t.id
                   ? 'bg-purple-600 text-white shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'}`}
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-purple-50/60'}`}
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
               <span>{t.label}</span>

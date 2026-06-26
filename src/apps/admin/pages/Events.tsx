@@ -299,7 +299,7 @@ const Events: React.FC = () => {
             {/* ── Mobile card list ── */}
             <div className="md:hidden divide-y divide-gray-100">
               {paginated.map(event => (
-                <div key={event.id} className="p-4 space-y-2">
+                <div key={event.id} className="p-4 space-y-2 hover:bg-purple-50/40 transition-colors">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold text-sm text-gray-900 leading-snug">{event.title}</p>

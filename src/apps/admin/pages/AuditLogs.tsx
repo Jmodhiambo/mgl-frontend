@@ -299,7 +299,7 @@ const AuditLogs: React.FC = () => {
             {/* Mobile card list */}
             <div className="md:hidden divide-y divide-gray-100">
               {paginated.map(log => (
-                <div key={log.id} className="p-4 space-y-2">
+                <div key={log.id} className="p-4 space-y-2 hover:bg-purple-50/40 transition-colors">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full purple-gradient flex items-center justify-center text-white text-xs font-bold flex-shrink-0">

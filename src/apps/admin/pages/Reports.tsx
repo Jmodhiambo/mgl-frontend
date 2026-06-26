@@ -220,7 +220,7 @@ const Reports: React.FC = () => {
                         className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all
                           ${active
                             ? 'border-purple-400 bg-purple-50'
-                            : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'}`}
+                            : 'border-gray-100 hover:border-purple-200 hover:bg-purple-50/50'}`}
                       >
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
                           ${active ? 'bg-purple-600' : 'bg-gray-100'}`}>
@@ -319,7 +319,7 @@ const Reports: React.FC = () => {
             <SectionCard title="Report History" noPadding>
               <div className="divide-y divide-gray-50">
                 {generated.map(r => (
-                  <div key={r.id} className="flex items-center gap-3 px-5 py-3">
+                  <div key={r.id} className="flex items-center gap-3 px-5 py-3 hover:bg-purple-50/40 transition-colors">
                     <FileText className="w-4 h-4 text-purple-500 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-800">{r.name}</p>

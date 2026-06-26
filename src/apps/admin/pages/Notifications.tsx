@@ -1,19 +1,4 @@
 // src/apps/admin/pages/Notifications.tsx
-// ─── API ENDPOINTS USED IN THIS FILE ─────────────────────────────────────────
-// GET    /admin/notifications              → load full list on mount
-// PATCH  /admin/notifications/:id/read    → markRead()     (Mark read / View →)
-// PATCH  /admin/notifications/read-all    → markAllRead()  (Mark all read button)
-// DELETE /admin/notifications/:id         → dismiss()      (X button on each card)
-// DELETE /admin/notifications/clear-read  → clearRead()    (Clear read button)
-//
-// Client-side only (no extra API calls):
-//   Unread filter  → showUnreadOnly toggle filters the loaded list locally
-//   Category filter → category tabs filter the loaded list locally
-//
-// Badge count for Header / Sidebar:
-//   GET /admin/notifications/count/unread → called from AdminLayout (not here)
-// ─────────────────────────────────────────────────────────────────────────────
-
 import { useState, useEffect, useCallback } from 'react';
 import {
   Bell, CheckCheck, Trash2, Calendar, Users, CreditCard,

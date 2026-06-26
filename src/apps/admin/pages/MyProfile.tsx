@@ -587,7 +587,7 @@ const MyProfile: React.FC = () => {
                 return (
                   <div key={session.session_id}
                     className={`flex items-start justify-between gap-4 p-4 rounded-xl border
-                      ${isCurrent ? 'border-purple-200 bg-purple-50' : 'border-gray-100 bg-gray-50'}`}
+                      ${isCurrent ? 'border-purple-200 bg-purple-50' : 'border-gray-100 bg-gray-50 hover:bg-purple-50/40'}`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0
@@ -662,7 +662,7 @@ const MyProfile: React.FC = () => {
           ) : (
             <div className="space-y-1">
               {activity.map(log => (
-                <div key={log.id} className="flex items-start gap-3 py-3 border-b border-gray-50 last:border-0">
+                <div key={log.id} className="flex items-start gap-3 py-3 border-b border-gray-50 last:border-0 hover:bg-purple-50/40 rounded-lg px-2 -mx-2 transition-colors">
                   <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
                     <Activity className="w-3.5 h-3.5 text-purple-600" />
                   </div>

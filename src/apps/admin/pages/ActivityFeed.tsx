@@ -294,7 +294,7 @@ const ActivityFeed: React.FC = () => {
                   return (
                     <div
                       key={log.id}
-                      className="flex items-start gap-4 px-6 py-4 hover:bg-gray-50/60 transition-colors"
+                      className="flex items-start gap-4 px-6 py-4 hover:bg-purple-50/60 transition-colors"
                     >
                       {/* Icon */}
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 ${bg}`}>

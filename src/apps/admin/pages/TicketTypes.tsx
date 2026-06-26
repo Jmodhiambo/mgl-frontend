@@ -259,7 +259,7 @@ const TicketTypes: React.FC = () => {
                 const event    = events.find(e => e.id === t.event_id);
                 const fillRate = Math.round((t.quantity_sold / t.total_quantity) * 100);
                 return (
-                  <div key={t.id} className="p-4 space-y-2">
+                  <div key={t.id} className="p-4 space-y-2 hover:bg-purple-50/40 transition-colors">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="font-semibold text-sm text-gray-900">{t.name}</p>

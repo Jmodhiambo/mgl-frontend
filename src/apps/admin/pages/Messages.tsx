@@ -1,3 +1,4 @@
+// src/apps/admin/pages/Messages.tsx
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { MessageSquare, X, Mail, Clock, CheckCircle, AlertTriangle, Trash2, RefreshCw, Tag } from 'lucide-react';
@@ -330,7 +331,7 @@ const Messages: React.FC = () => {
             {/* ── Mobile card list ── */}
             <div className="md:hidden divide-y divide-gray-100">
               {paginated.map(m => (
-                <div key={m.id} className={`p-4 space-y-2 ${m.status === 'new' ? 'bg-orange-50/40' : ''}`}>
+                <div key={m.id} className={`p-4 space-y-2 transition-colors hover:bg-purple-50/40 ${m.status === 'new' ? 'bg-orange-50/40' : ''}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold text-sm text-gray-900 truncate">{m.name}</p>
@@ -442,7 +443,7 @@ const MessageActionsMenu: React.FC<{
       >
         <button
           onClick={() => { onView(); setOpen(false); }}
-          className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-gray-50 text-gray-700"
+          className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-purple-50 text-gray-700"
         >
           <MessageSquare className="w-4 h-4 text-gray-400" /> Read Message
         </button>
@@ -468,7 +469,7 @@ const MessageActionsMenu: React.FC<{
         {s !== 'closed' && s !== 'spam' && (
           <button
             onClick={() => { onAction('closed'); setOpen(false); }}
-            className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-gray-50 text-gray-700"
+            className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-purple-50 text-gray-700"
           >
             <CheckCircle className="w-4 h-4" /> Close
           </button>
