@@ -1,7 +1,7 @@
 // src/apps/admin/types/index.ts
 
 
-export type EventLifecycleStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
+export type EventLifecycleStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled' | 'pending_deletion' | 'deleted';
 
 export interface AdminUser {
   id: number;
@@ -43,13 +43,14 @@ export interface AdminEvent {
   organizer_id: number;
   organizer_name?: string;
   flyer_url?: string;
-  status: 'draft' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled' | 'deleted';
+  status: 'draft' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled' | 'deleted' | 'pending_deletion';
   is_approved: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;
   total_bookings?: number;
   total_revenue?: number;
+  unresolved_bookings_count?: number;
 }
 
 export interface AdminBooking {
@@ -186,9 +187,14 @@ export interface AuditLog {
   created_at: string;
 }
 
+export interface AuditLogWithTotalCount {
+  total: number;
+  items: AuditLog[];
+}
+
 export type SortDirection = 'asc' | 'desc';
 export type UserRole = 'user' | 'organizer' | 'admin';
-export type EventStatus = 'draft' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled' | 'deleted';
+export type EventStatus = 'draft' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled' | 'deleted' | 'pending_deletion';
 export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'refunded';
 export type MessageStatus = 'open' | 'responded' | 'closed' | 'spam';
 

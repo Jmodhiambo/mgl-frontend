@@ -127,7 +127,7 @@ export const updateEvent = async (
 export const updateEventStatus = async (
   eventId: number,
   state: string,
-): Promise<boolean> => {
+): Promise<OrganizerEventOut> => {
   return (await api.patch(`/organizers/me/events/${eventId}`, null, {
     params: { state },
   })).data;

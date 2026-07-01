@@ -1,4 +1,5 @@
-import { useState } from 'react';
+// src/apps/user/pages/Login.tsx
+import { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
@@ -12,18 +13,36 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showReactivateLink, setShowReactivateLink] = useState(false);
-  
-  const { login } = useAuth();
+
+  const { login, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectUrl = searchParams.get('redirect');
+
+  // If the session was already restored (e.g. returning to a tab), redirect
+  // away from the login page without requiring the user to log in again.
+  useEffect(() => {
+    if (loading) return;
+
+    if (isAuthenticated) {
+      if (redirectUrl) {
+        if (redirectUrl.startsWith('http')) {
+          window.location.href = redirectUrl;
+        } else {
+          navigate(redirectUrl, { replace: true });
+        }
+      } else {
+        navigate('/browse-events', { replace: true });
+      }
+    }
+  }, [isAuthenticated, loading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setShowReactivateLink(false);
     setIsLoading(true);
-    
+
     try {
       const response = await loginUser({ email, password });
       await login(response);
@@ -32,16 +51,20 @@ const Login: React.FC = () => {
         if (redirectUrl.startsWith('http')) {
           window.location.href = redirectUrl;
         } else {
-          navigate(redirectUrl);
+          navigate(redirectUrl, { replace: true });
         }
       } else {
-        navigate('/browse-events');
+        navigate('/browse-events', { replace: true });
       }
     } catch (err: any) {
       const errorDetail = err.response?.data?.detail || 'Invalid email or password';
       setError(errorDetail);
-      
-      if (err.response?.status === 403 || errorDetail.toLowerCase().includes('inactive') || errorDetail.toLowerCase().includes('deactivated')) {
+
+      if (
+        err.response?.status === 403 ||
+        errorDetail.toLowerCase().includes('inactive') ||
+        errorDetail.toLowerCase().includes('deactivated')
+      ) {
         setShowReactivateLink(true);
         setError('Your account was deactivated!');
       }
@@ -50,6 +73,16 @@ const Login: React.FC = () => {
     }
   };
 
+  // Don't render the form while AuthContext is still restoring the session —
+  // prevents a flash of the login form for already-authenticated users.
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-200 border-t-orange-600" />
+      </div>
+    );
+  }
+
   return (
     <>
       <LoginSEO />
@@ -57,7 +90,7 @@ const Login: React.FC = () => {
         <div className="w-full max-w-md">
           <form onSubmit={handleSubmit} className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
             <h1 className="text-2xl font-bold mb-6 text-center">Login to MGLTickets</h1>
-            
+
             {error && (
               <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
                 {error}
@@ -70,7 +103,7 @@ const Login: React.FC = () => {
                 )}
               </div>
             )}
-            
+
             <div className="mb-4">
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
                 Email
@@ -86,7 +119,7 @@ const Login: React.FC = () => {
                 disabled={isLoading}
               />
             </div>
-            
+
             <div className="mb-4">
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
                 Password
@@ -119,9 +152,9 @@ const Login: React.FC = () => {
                 Forgot Password?
               </Link>
             </div>
-            
+
             <div className="mb-4">
-              <button 
+              <button
                 type="submit"
                 disabled={isLoading}
                 className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50 disabled:cursor-not-allowed w-full"
@@ -129,7 +162,7 @@ const Login: React.FC = () => {
                 {isLoading ? 'Logging in...' : 'Login'}
               </button>
             </div>
-            
+
             <div className="text-center">
               <p className="text-sm text-gray-600">
                 Don't have an account?{' '}
@@ -143,6 +176,6 @@ const Login: React.FC = () => {
       </div>
     </>
   );
-}
+};
 
 export default Login;

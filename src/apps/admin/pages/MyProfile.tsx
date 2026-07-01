@@ -75,6 +75,7 @@ const MyProfile: React.FC = () => {
   const [sessionError, setSessionError]       = useState<string | null>(null);
 
   const [activity, setActivity]               = useState<AuditLog[]>([]);
+  const [activityTotal, setActivityTotal]     = useState<number | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
 
   type NotifForm = Omit<AdminNotificationPrefs, 'user_id' | 'updated_at'>;
@@ -87,7 +88,7 @@ const MyProfile: React.FC = () => {
 
   useEffect(() => {
     if (tab === 'sessions' && sessions.length === 0 && !sessionsLoading) fetchSessions();
-    if (tab === 'activity' && activity.length === 0 && !activityLoading)  fetchActivity();
+    if ((tab === 'activity' || tab === 'profile') && activityTotal === null && !activityLoading) fetchActivity();
     if (tab === 'profile'  && notifPrefs === null  && !notifLoading)      fetchNotifPrefs();
   }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -151,7 +152,9 @@ const MyProfile: React.FC = () => {
   const fetchActivity = async () => {
     setActivityLoading(true);
     try {
-      setActivity(await getMyActivity());
+      const { items, total } = await getMyActivity(15);
+      setActivity(items);
+      setActivityTotal(total);
     } catch {
       // silently degrade
     } finally {
@@ -279,7 +282,7 @@ const MyProfile: React.FC = () => {
 
           <div className="flex gap-5 text-center flex-shrink-0">
             {[
-              { label: 'Actions',  value: activityLoading ? '…' : activity.length },
+              { label: 'Actions',  value: activityLoading && activityTotal === null ? '…' : activityTotal ?? activity.length },
               { label: 'Sessions', value: sessionsLoading ? '…' : sessions.length },
             ].map(s => (
               <div key={s.label}>
@@ -641,7 +644,9 @@ const MyProfile: React.FC = () => {
             <div>
               <h3 className="text-base font-bold text-gray-900">My Recent Admin Activity</h3>
               <p className="text-sm text-gray-500 mt-0.5">
-                {activityLoading ? 'Loading…' : `Your last ${activity.length} actions on the platform.`}
+                {activityLoading
+                  ? 'Loading…'
+                  : `Showing your ${activity.length} most recent actions${activityTotal !== null ? ` of ${activityTotal} total` : ''}.`}
               </p>
             </div>
             <button

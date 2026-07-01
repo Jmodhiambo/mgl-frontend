@@ -1,4 +1,4 @@
-// src/shared/types/events.ts
+// src/shared/types/Events.ts
 // ─────────────────────────────────────────────────────────────────────────────
 // Single source of truth for all event-related TypeScript types across the
 // user app, organizer app, and admin app.
@@ -102,6 +102,7 @@ export interface OrganizerEventOut {
   is_active: boolean;
   total_bookings: number;
   total_revenue: number;          // gross confirmed revenue
+  unresolved_bookings_count: number;
 
   // ── Commission ──────────────────────────────────────────────────────────
   commission_rate: number;                 // % locked in at event creation

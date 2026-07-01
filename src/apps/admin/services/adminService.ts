@@ -5,7 +5,7 @@ import api from '@shared/api/axiosConfig';
 
 import type {
   AdminUser, AdminEvent, AdminBooking, AdminPayment, AdminMe, AdminProfileUpdate,
-  ContactMessage, DashboardStats, AuditLog, RefreshSession, PlatformSettings,
+  ContactMessage, DashboardStats, AuditLog, AuditLogWithTotalCount, RefreshSession, PlatformSettings,
   AdminNotificationPrefs, ContactMessageStats, AdminTicketType, CreateTicketTypePayload,
   EventLifecycleStatus
 } from '@admin/types';
@@ -248,7 +248,11 @@ export const getUnapprovedEvents = async (): Promise<AdminEvent[]> => {
  
 export const getEventsByOrganizer = async (organizerId: number): Promise<AdminEvent[]> => {
   return (await api.get(`/admin/events/organizer/${organizerId}`)).data;
-}; 
+};
+
+export const confirmEventDeletionReady = async (eventId: number): Promise<boolean> => {
+  return (await api.patch(`/admin/events/${eventId}/confirm-deletion-ready`)).data;
+}
 
 // ─── Ticket Types ─────────────────────────────────────────────────────────────
  
@@ -372,7 +376,7 @@ export const listAuditLogs = async (params?: {
   to?: string;
   limit?: number;
   offset?: number;
-}): Promise<{ total: number; items: AuditLog[] }> => {
+}): Promise<AuditLogWithTotalCount> => {
   const query = new URLSearchParams();
   if (params?.admin_id)    query.set('admin_id',    String(params.admin_id));
   if (params?.action)      query.set('action',      params.action);
@@ -390,6 +394,6 @@ export const getAuditLogById = async (logId: number): Promise<AuditLog> => {
  
 // ─── My Activity (MyProfile.tsx — 'My Activity' tab) ─────────────────────────
  
-export const getMyActivity = async (): Promise<AuditLog[]> => {
-  return (await api.get('/admin/audit-logs/my')).data;
+export const getMyActivity = async (limit = 15): Promise<AuditLogWithTotalCount> => {
+  return (await api.get(`/admin/audit-logs/my?limit=${limit}`)).data;
 };

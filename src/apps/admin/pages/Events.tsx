@@ -1,12 +1,12 @@
 // src/apps/admin/pages/Events.tsx
 import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Calendar, MapPin, User, Plus, Download, Clock } from 'lucide-react';
+import { Calendar, MapPin, User, Plus, Download, Clock, Trash2 } from 'lucide-react';
 import {
   FilterBar, StatusBadge, ConfirmDialog, SectionCard,
   Pagination, TableSkeleton, EmptyState, AlertBanner,
 } from '@admin/components/ui';
-import { listAllEvents, approveEvent, rejectEvent, deleteEvent, updateEventStatus } from '@admin/services/adminService';
+import { listAllEvents, approveEvent, rejectEvent, deleteEvent, updateEventStatus, confirmEventDeletionReady } from '@admin/services/adminService';
 import { formatDate } from '@admin/utils/format';
 import type { AdminEvent, EventLifecycleStatus } from '@admin/types';
 
@@ -16,7 +16,7 @@ import EventActionsMenu from '@admin/components/menus/events/EventActionsMenu';
 import CreateTicketTypesModal, { type SavedTicketType } from '@admin/components/modals/ticketTypes/CreateTicketTypesModal';
 import ManageCoOrganizersModal from '@admin/components/modals/coOrganizers/ManageCoOrganizersModal';
 
-const STATUS_OPTS   = ['all', 'upcoming', 'ongoing', 'completed', 'cancelled', 'draft'];
+const STATUS_OPTS   = ['all', 'upcoming', 'ongoing', 'completed', 'cancelled', 'deleted', 'pending_deletion', 'draft'];
 const APPROVAL_OPTS = ['all', 'approved', 'unapproved'];
 const PAGE_SIZE     = 10;
 
@@ -35,7 +35,7 @@ const Events: React.FC = () => {
     searchParams.get('filter') === 'unapproved' ? 'unapproved' : 'all',
   );
   const [page, setPage]             = useState(1);
-  const [confirm, setConfirm]       = useState<{ action: 'approve' | 'reject' | 'delete'; event: AdminEvent } | null>(null);
+  const [confirm, setConfirm]       = useState<{ action: 'approve' | 'reject' | 'delete' | 'confirm_deletion_ready'; event: AdminEvent } | null>(null);
   const [actionLoading, setAL]      = useState(false);
   const [statusLoadingId, setStatusLoadingId] = useState<number | null>(null);
   const [alert, setAlert]           = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
@@ -73,6 +73,8 @@ const Events: React.FC = () => {
       setEvents(p => p.map(e => e.id === event.id ? { ...e, is_approved: false, is_active: false } : e));
     } else if (action === 'delete') {
       setEvents(p => p.filter(e => e.id !== event.id));
+    } else if (action === 'confirm_deletion_ready') {
+      setEvents(p => p.map(e => e.id === event.id ? { ...e, status: 'deleted' } : e));
     }
     setConfirm(null);
 
@@ -88,6 +90,16 @@ const Events: React.FC = () => {
       } else if (action === 'delete') {
         await deleteEvent(event.id);
         setAlert({ type: 'success', msg: `"${event.title}" deleted.` });
+      } else if (action === 'confirm_deletion_ready') {
+        // Backend re-verifies unresolved bookings == 0 at click-time
+        // regardless of what unresolved_bookings_count showed when the
+        // menu was rendered — if a booking's status changed in between
+        // (shouldn't happen once refunds are done, but the server doesn't
+        // trust the client's snapshot), this throws 400 and the catch
+        // block below rolls the optimistic status change back to
+        // 'pending_deletion'.
+        await confirmEventDeletionReady(event.id);
+        setAlert({ type: 'success', msg: `"${event.title}" confirmed ready — now deletable.` });
       }
     } catch (err: any) {
       // Roll back
@@ -97,6 +109,8 @@ const Events: React.FC = () => {
         setEvents(p => p.map(e => e.id === event.id ? { ...e, is_approved: true, is_active: true } : e));
       } else if (action === 'delete') {
         setEvents(p => [event, ...p]);
+      } else if (action === 'confirm_deletion_ready') {
+        setEvents(p => p.map(e => e.id === event.id ? { ...e, status: 'pending_deletion' } : e));
       }
       setAlert({ type: 'error', msg: err?.response?.data?.detail ?? 'Action failed. Please try again.' });
     } finally {
@@ -183,6 +197,9 @@ const Events: React.FC = () => {
   };
 
   const pendingCount = events.filter(e => !e.is_approved).length;
+  const pendingDeletionCount = events.filter(
+    e => e.status === 'deleted' || e.status === 'pending_deletion',
+  ).length;
 
   return (
     <div className="space-y-5">
@@ -194,6 +211,9 @@ const Events: React.FC = () => {
             {pendingCount > 0 && (
               <span className="ml-2 badge-warning">{pendingCount} pending approval</span>
             )}
+            {pendingDeletionCount > 0 && (
+              <span className="ml-2 badge-danger">{pendingDeletionCount} pending deletion</span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -202,6 +222,16 @@ const Events: React.FC = () => {
               <Clock className="w-4 h-4" />
               <span className="hidden sm:inline">Review Pending ({pendingCount})</span>
               <span className="sm:hidden">{pendingCount}</span>
+            </button>
+          )}
+          {pendingDeletionCount > 0 && (
+            <button
+              onClick={() => { setStatus('pending_deletion'); setPage(1); }}
+              className="btn-danger btn-sm flex items-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Pending Deletion ({pendingDeletionCount})</span>
+              <span className="sm:hidden">{pendingDeletionCount}</span>
             </button>
           )}
           <button onClick={() => setCreateFlow({ step: 'event' })} className="btn-secondary btn-sm flex items-center gap-2">
@@ -271,7 +301,27 @@ const Events: React.FC = () => {
                           <User className="w-3 h-3 text-gray-400" />{event.organizer_name}
                         </p>
                       </td>
-                      <td><StatusBadge status={event.status} /></td>
+                      <td>
+                        <StatusBadge status={event.status} />
+                        {event.status === 'deleted' && (
+                          <p className="text-[11px] text-red-500 mt-0.5 flex items-center gap-1">
+                            <Trash2 className="w-3 h-3" /> Awaiting admin delete
+                          </p>
+                        )}
+                        {event.status === 'pending_deletion' && (
+                          <p className="text-[11px] text-orange-500 mt-0.5 flex items-center gap-1">
+                            <Trash2 className="w-3 h-3" />
+                            {/* unresolved_bookings_count, not total_bookings — this
+                                is the field the backend's deletion guard actually
+                                checks, distinct from the Bookings stat column below.
+                                total_bookings is confirmed-only and would miss a
+                                pending booking that should still block deletion. */}
+                            {(event.unresolved_bookings_count ?? 0) > 0
+                              ? `${event.unresolved_bookings_count} booking(s) — refund first`
+                              : 'Ready — confirm deletion'}
+                          </p>
+                        )}
+                      </td>
                       <td>
                         {event.is_approved
                           ? <span className="badge-success">Approved</span>
@@ -299,7 +349,7 @@ const Events: React.FC = () => {
             {/* ── Mobile card list ── */}
             <div className="md:hidden divide-y divide-gray-100">
               {paginated.map(event => (
-                <div key={event.id} className="p-4 space-y-2 hover:bg-purple-50/40 transition-colors">
+                <div key={event.id} className="p-4 space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold text-sm text-gray-900 leading-snug">{event.title}</p>
@@ -323,6 +373,19 @@ const Events: React.FC = () => {
                     {event.is_approved
                       ? <span className="badge-success">Approved</span>
                       : <span className="badge-warning">Pending</span>}
+                    {event.status === 'deleted' && (
+                      <span className="text-[11px] text-red-500 flex items-center gap-1">
+                        <Trash2 className="w-3 h-3" /> Awaiting admin delete
+                      </span>
+                    )}
+                    {event.status === 'pending_deletion' && (
+                      <span className="text-[11px] text-orange-500 flex items-center gap-1">
+                        <Trash2 className="w-3 h-3" />
+                        {(event.unresolved_bookings_count ?? 0) > 0
+                          ? `${event.unresolved_bookings_count} booking(s) — refund first`
+                          : 'Ready — confirm deletion'}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center justify-between text-xs text-gray-500">
                     <span className="flex items-center gap-1">
@@ -345,17 +408,34 @@ const Events: React.FC = () => {
         )}
       </SectionCard>
 
-      {confirm && (
-        <ConfirmDialog
-          title={`${confirm.action.charAt(0).toUpperCase() + confirm.action.slice(1)} Event`}
-          message={`Are you sure you want to ${confirm.action} "${confirm.event.title}"?`}
-          confirmLabel={confirm.action.charAt(0).toUpperCase() + confirm.action.slice(1)}
-          variant={confirm.action === 'delete' || confirm.action === 'reject' ? 'danger' : 'info'}
-          onConfirm={handleAction}
-          onCancel={() => setConfirm(null)}
-          loading={actionLoading}
-        />
-      )}
+      {confirm && (() => {
+        const ACTION_LABELS: Record<typeof confirm.action, string> = {
+          approve: 'Approve',
+          reject: 'Reject',
+          delete: 'Delete',
+          confirm_deletion_ready: 'Confirm Deletion Ready',
+        };
+        const label = ACTION_LABELS[confirm.action];
+
+        const message =
+          confirm.action === 'delete' && (confirm.event.unresolved_bookings_count ?? 0) > 0
+            ? `"${confirm.event.title}" has ${confirm.event.unresolved_bookings_count} unresolved booking(s). The server will block this delete to protect payment records — cancel the event instead if you need to take it down.`
+            : confirm.action === 'confirm_deletion_ready'
+            ? `Mark "${confirm.event.title}" as ready for deletion? This moves it out of pending_deletion into deleted — only do this once all refunds for this event are confirmed processed. The event will then be admin-only and eligible for permanent removal.`
+            : `Are you sure you want to ${confirm.action} "${confirm.event.title}"?`;
+
+        return (
+          <ConfirmDialog
+            title={`${label} Event`}
+            message={message}
+            confirmLabel={label}
+            variant={confirm.action === 'delete' || confirm.action === 'reject' ? 'danger' : 'info'}
+            onConfirm={handleAction}
+            onCancel={() => setConfirm(null)}
+            loading={actionLoading}
+          />
+        );
+      })()}
 
       {detailEvent && (
         <EventDetailModal

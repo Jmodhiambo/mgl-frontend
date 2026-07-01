@@ -151,6 +151,7 @@ const MyEventsPage: React.FC = () => {
       ongoing:   'bg-green-100 text-green-700 border-green-200',
       completed: 'bg-gray-100 text-gray-700 border-gray-200',
       cancelled: 'bg-red-100 text-red-700 border-red-200',
+      pending_deletion: 'bg-amber-100 text-amber-700 border-amber-200',
     };
     return m[status] ?? 'bg-gray-100 text-gray-700 border-gray-200';
   };

@@ -34,6 +34,13 @@ const formatTime = (iso: string) =>
 const StatusBadge: React.FC<{ event: OrganizerEventOut }> = ({ event }) => {
   if (!event.is_approved)
     return <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-full">Pending Approval</span>;
+  if (event.status === 'pending_deletion') {
+    return (
+      <span className="px-3 py-1 bg-orange-100 text-orange-700 text-sm font-medium rounded-full">
+        Pending Deletion
+      </span>
+    );
+  }
   const colours: Record<string, string> = {
     upcoming:  'bg-blue-100 text-blue-700',
     ongoing:   'bg-green-100 text-green-700',
@@ -102,8 +109,8 @@ const EventDetails: React.FC = () => {
     setActionLoading(true);
     setActionError(null);
     try {
-      await updateEventStatus(event.id, 'cancelled');
-      setEvent(p => p ? { ...p, status: 'cancelled' } : p);
+      const updated = await updateEventStatus(event.id, 'cancelled');
+      setEvent(updated);
     } catch (err: any) {
       setActionError(parseApiError(err, 'Failed to cancel event.'));
     } finally {
@@ -116,12 +123,14 @@ const EventDetails: React.FC = () => {
     setActionLoading(true);
     setActionError(null);
     try {
-      await updateEventStatus(event.id, 'deleted');
-      navigate('/events');
+      const updated = await updateEventStatus(event.id, 'deleted');
+      setEvent(updated);
+      setShowDeleteModal(false);
     } catch (err: any) {
       setActionError(parseApiError(err, 'Failed to delete event.'));
-      setActionLoading(false);
       setShowDeleteModal(false);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -149,7 +158,7 @@ const EventDetails: React.FC = () => {
     );
   }
 
-  const canCancel = !['cancelled', 'completed', 'deleted'].includes(event.status);
+  const canCancel = !['cancelled', 'completed', 'deleted', 'pending_deletion'].includes(event.status);
 
   return (
     <div className="space-y-8">
@@ -198,13 +207,22 @@ const EventDetails: React.FC = () => {
                     <XCircle className="w-5 h-5" />
                   </button>
                 )}
-                <button
-                  onClick={() => setShowDeleteModal(true)}
-                  className="p-2 border-2 border-red-500 text-red-600 rounded-lg hover:bg-red-50"
-                  title="Delete Event"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                {event.status === 'pending_deletion' ? (
+                  <span
+                    className="p-2 flex items-center gap-1.5 text-orange-500 text-xs"
+                    title="Deletion requested — waiting on refunds"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => setShowDeleteModal(true)}
+                    className="p-2 border-2 border-red-500 text-red-600 rounded-lg hover:bg-red-50"
+                    title="Delete Event"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                )}
               </div>
             </div>
 

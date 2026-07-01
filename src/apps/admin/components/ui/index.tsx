@@ -21,6 +21,10 @@ const statusMap: Record<string, string> = {
   completed:    'badge-gray',
   cancelled:    'badge-danger',
   deleted:      'badge-danger',
+  // Visible to BOTH organizer and admin — distinct from plain 'deleted'
+  // (admin-only) because it still has unresolved bookings/refunds. Orange
+  // rather than red: it's a "needs action" state, not a terminal one.
+  pending_deletion: 'badge-orange',
   draft:        'badge-gray',
   approved:     'badge-success',
   unapproved:   'badge-warning',
@@ -43,9 +47,17 @@ const statusMap: Record<string, string> = {
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' }) => {
   const cls = statusMap[status.toLowerCase()] ?? 'badge-gray';
+  // Plain capitalize() breaks on snake_case values like 'pending_deletion'
+  // (-> "Pending_deletion"). Split on underscores and title-case each word
+  // instead — this is a no-op for every existing single-word status, so
+  // it's safe to apply unconditionally rather than special-casing.
+  const label = status
+    .split('_')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
   return (
     <span className={`${cls} ${size === 'sm' ? 'text-xs px-2 py-px' : ''}`}>
-      {status.charAt(0).toUpperCase() + status.slice(1)}
+      {label}
     </span>
   );
 };

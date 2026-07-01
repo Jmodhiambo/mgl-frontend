@@ -8,7 +8,7 @@ import {
 import { getMyEvents, updateEventStatus } from '@organizer/services/eventService';
 import type { OrganizerEventOut } from '@shared/types/Event';
 
-type StatusFilter = 'all' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
+type StatusFilter = 'all' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled' | 'pending_deletion';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -88,6 +88,13 @@ const EventsList: React.FC = () => {
     if (!event.is_approved) {
       return <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full">Pending Approval</span>;
     }
+    if (event.status === 'pending_deletion') {
+      return (
+        <span className="px-3 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">
+          Pending Deletion
+        </span>
+      );
+    }
     const colours: Record<string, string> = {
       upcoming:  'bg-blue-100 text-blue-700',
       ongoing:   'bg-green-100 text-green-700',
@@ -104,8 +111,8 @@ const EventsList: React.FC = () => {
   const handleCancel = async (eventId: number) => {
     setAL(true);
     try {
-      await updateEventStatus(eventId, 'cancelled');
-      setEvents(p => p.map(e => e.id === eventId ? { ...e, status: 'cancelled' } : e));
+      const updated = await updateEventStatus(eventId, 'cancelled');
+      setEvents(p => p.map(e => e.id === updated.id ? updated : e));
     } catch {
       // surface error if needed
     } finally {
@@ -116,8 +123,8 @@ const EventsList: React.FC = () => {
   const handleDelete = async (eventId: number) => {
     setAL(true);
     try {
-      await updateEventStatus(eventId, 'deleted');
-      setEvents(p => p.filter(e => e.id !== eventId));
+      const updated = await updateEventStatus(eventId, 'deleted');
+      setEvents(p => p.map(e => e.id === updated.id ? updated : e));
       setDeleteModal(null);
     } catch {
       // surface error if needed
@@ -186,6 +193,7 @@ const EventsList: React.FC = () => {
               <option value="ongoing">Ongoing</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
+              <option value="pending_deletion">Pending Deletion</option>
             </select>
           </div>
         </div>
@@ -311,7 +319,7 @@ const EventsList: React.FC = () => {
                             >
                               <Users className="w-4 h-4 mr-2" /> View Bookings
                             </button>
-                            {event.status !== 'cancelled' && event.status !== 'completed' && (
+                            {event.status !== 'cancelled' && event.status !== 'completed' && event.status !== 'pending_deletion' && (
                               <button
                                 onClick={() => { setOpenMenuId(null); handleCancel(event.id); }}
                                 disabled={actionLoading}
@@ -321,12 +329,19 @@ const EventsList: React.FC = () => {
                               </button>
                             )}
                             <div className="my-1 border-t border-gray-100" />
-                            <button
-                              onClick={() => { setOpenMenuId(null); setDeleteModal(event); }}
-                              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center"
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" /> Delete Event
-                            </button>
+                            {event.status === 'pending_deletion' ? (
+                              <div className="w-full px-4 py-2 text-left text-xs text-orange-600 flex items-start gap-2">
+                                <Trash2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                <span>Deletion requested — waiting on refunds</span>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => { setOpenMenuId(null); setDeleteModal(event); }}
+                                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" /> Delete Event
+                              </button>
+                            )}
                           </div>
                         </>
                       )}
