@@ -5,6 +5,7 @@ import {
   CheckCircle, AlertCircle, ChevronDown, Tag, Loader2,
 } from 'lucide-react';
 import { createTicketType } from '@organizer/services/ticketTypeService';
+import { parseApiError } from '@shared/utils/parseApiError';
 import type { OrganizerEventOut } from '@shared/types/Event';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -13,7 +14,7 @@ export interface TicketTypeInput {
   name: string;
   description: string;
   price: string;
-  quantity_available: string;
+  total_quantity: string;
 }
 
 export interface SavedTicketType extends TicketTypeInput {
@@ -23,7 +24,7 @@ export interface SavedTicketType extends TicketTypeInput {
 interface FieldErrors {
   name?: string;
   price?: string;
-  quantity_available?: string;
+  total_quantity?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -31,7 +32,7 @@ interface FieldErrors {
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 const emptyForm = (): TicketTypeInput => ({
-  name: '', description: '', price: '', quantity_available: '',
+  name: '', description: '', price: '', total_quantity: '',
 });
 
 const validateTicket = (t: TicketTypeInput): FieldErrors => {
@@ -42,8 +43,8 @@ const validateTicket = (t: TicketTypeInput): FieldErrors => {
   if (t.price.trim() === '' || isNaN(price) || price < 0)
     e.price = 'Price must be 0 or greater';
 
-  if (!t.quantity_available || parseInt(t.quantity_available) <= 0)
-    e.quantity_available = 'Quantity must be > 0';
+  if (!t.total_quantity || parseInt(t.total_quantity) <= 0)
+    e.total_quantity = 'Quantity must be > 0';
   return e;
 };
 
@@ -95,7 +96,7 @@ const TicketTypeRow: React.FC<{
           )}
           <span className="text-xs text-gray-500 flex items-center gap-1 mt-1">
             <Users className="w-3 h-3" />
-            {parseInt(ticket.quantity_available).toLocaleString()} available
+            {parseInt(ticket.total_quantity).toLocaleString()} available
           </span>
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -180,13 +181,13 @@ const TicketTypeRow: React.FC<{
           <div className="relative">
             <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
-              type="number" min="1" value={form.quantity_available} placeholder="100"
-              onChange={e => setForm(p => ({ ...p, quantity_available: e.target.value }))}
-              className={`${inp('quantity_available')} pl-9`}
+              type="number" min="1" value={form.total_quantity} placeholder="100"
+              onChange={e => setForm(p => ({ ...p, total_quantity: e.target.value }))}
+              className={`${inp('total_quantity')} pl-9`}
             />
           </div>
-          {errors.quantity_available && (
-            <p className="mt-1 text-xs text-red-600">{errors.quantity_available}</p>
+          {errors.total_quantity && (
+            <p className="mt-1 text-xs text-red-600">{errors.total_quantity}</p>
           )}
         </div>
       </div>
@@ -261,23 +262,22 @@ const OrganizerCreateTicketTypesModal: React.FC<OrganizerCreateTicketTypesModalP
           name: t.name,
           description: t.description,
           price: parseFloat(t.price),
-          quantity_available: parseInt(t.quantity_available),
+          total_quantity: parseInt(t.total_quantity),
         });
       }
       onFinish(event, tickets);
     } catch (err: any) {
-      const detail = err?.response?.data?.detail ?? 'Failed to save ticket types. Please try again.';
-      setSaveError(detail);
+      setSaveError(parseApiError(err, 'Failed to save ticket types. Please try again.'));
     } finally {
       setSaving(false);
     }
   };
 
   const totalCapacity = tickets.reduce(
-    (s, t) => s + (parseInt(t.quantity_available) || 0), 0,
+    (s, t) => s + (parseInt(t.total_quantity) || 0), 0,
   );
   const totalRevenuePotential = tickets.reduce(
-    (s, t) => s + (parseFloat(t.price) || 0) * (parseInt(t.quantity_available) || 0), 0,
+    (s, t) => s + (parseFloat(t.price) || 0) * (parseInt(t.total_quantity) || 0), 0,
   );
 
   return (

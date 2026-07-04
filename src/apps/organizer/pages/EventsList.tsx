@@ -1,27 +1,24 @@
 // src/apps/organizer/pages/EventsList.tsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Calendar, MapPin, Clock, Edit, Trash2, Users,
   DollarSign, Eye, Plus, Search, MoreVertical, XCircle, Ticket,
+  CheckCircle, X,
 } from 'lucide-react';
 import { getMyEvents, updateEventStatus } from '@organizer/services/eventService';
+import { formatDate, formatTime } from '@shared/utils/format';
 import type { OrganizerEventOut } from '@shared/types/Event';
 
 type StatusFilter = 'all' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled' | 'pending_deletion';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-const formatTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+const FLASH_DURATION_MS = 5000;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const EventsList: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [events, setEvents]           = useState<OrganizerEventOut[]>([]);
   const [filtered, setFiltered]       = useState<OrganizerEventOut[]>([]);
@@ -33,7 +30,26 @@ const EventsList: React.FC = () => {
   const [actionLoading, setAL]        = useState(false);
   const [openMenuId, setOpenMenuId]   = useState<number | null>(null);
   const [menuAlign, setMenuAlign]     = useState<'down' | 'up'>('down');
+  const [flash, setFlash]             = useState<string | null>(null);
   const menuBtnRefs = useRef<Record<number, HTMLButtonElement | null>>({});
+
+  // ── Flash banner: picked up once from router state (create/delete flows),
+  // then immediately scrubbed from history so it doesn't reappear on a
+  // back-navigation or refresh.
+  useEffect(() => {
+    const state = location.state as { flash?: string } | null;
+    if (state?.flash) {
+      setFlash(state.flash);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
+
+  useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => setFlash(null), FLASH_DURATION_MS);
+    return () => clearTimeout(t);
+  }, [flash]);
 
   const toggleMenu = (id: number) => {
     if (openMenuId === id) { setOpenMenuId(null); return; }
@@ -126,6 +142,9 @@ const EventsList: React.FC = () => {
       const updated = await updateEventStatus(eventId, 'deleted');
       setEvents(p => p.map(e => e.id === updated.id ? updated : e));
       setDeleteModal(null);
+      if (updated.status === 'deleted') {
+        setFlash(`"${updated.title}" was deleted.`);
+      }
     } catch {
       // surface error if needed
     } finally {
@@ -155,6 +174,21 @@ const EventsList: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {/* Flash banner (event created / deleted, etc.) */}
+        {flash && (
+          <div className="mb-6 flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-5 py-4">
+            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+            <p className="text-sm text-green-700 flex-1">{flash}</p>
+            <button
+              onClick={() => setFlash(null)}
+              className="p-1 rounded-lg hover:bg-green-100 text-green-600 flex-shrink-0"
+              title="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {/* Header */}
         <div className="flex items-center justify-between mb-8">

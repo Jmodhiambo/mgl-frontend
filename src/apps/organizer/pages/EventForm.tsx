@@ -12,6 +12,7 @@ import type { OrganizerEventOut } from '@shared/types/Event';
 import OrganizerCreateTicketTypesModal, {
   type SavedTicketType,
 } from '@organizer/components/modals/ticketTypes/OrganizerCreateTicketTypesModal';
+import EventDateTimeInput from '@organizer/components/forms/EventDateTimeInput';
 
 const CATEGORIES = ['Music', 'Tech', 'Sports', 'Food', 'Comedy', 'Culture', 'Party', 'Other'];
 
@@ -50,7 +51,9 @@ const EventForm: React.FC<EventFormProps> = ({ mode = 'create' }) => {
       getEventDetailsBySlug(slug)
         .then(({ event }) => {
           setEventDbId(event.id);
-          // datetime-local inputs expect 'YYYY-MM-DDTHH:MM' in LOCAL time.
+          // datetime-local inputs expect 'YYYY-MM-DDTHH:MM' in LOCAL time —
+          // EventDateTimeInput consumes the same shape, so no other change
+          // is needed here even though the input itself is now custom.
           const toLocal = (iso: string) => {
             const d      = new Date(iso);
             const offset = d.getTimezoneOffset() * 60000;
@@ -317,24 +320,18 @@ const EventForm: React.FC<EventFormProps> = ({ mode = 'create' }) => {
             <div className="bg-white rounded-xl shadow-md p-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Event Schedule</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Start Date & Time *</label>
-                  <input
-                    type="datetime-local" value={formData.start_time}
-                    onChange={e => setFormData(p => ({ ...p, start_time: e.target.value }))}
-                    className={inp('start_time')}
-                  />
-                  {errors.start_time && <p className="mt-2 text-sm text-red-600">{errors.start_time}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">End Date & Time *</label>
-                  <input
-                    type="datetime-local" value={formData.end_time}
-                    onChange={e => setFormData(p => ({ ...p, end_time: e.target.value }))}
-                    className={inp('end_time')}
-                  />
-                  {errors.end_time && <p className="mt-2 text-sm text-red-600">{errors.end_time}</p>}
-                </div>
+                <EventDateTimeInput
+                  label="Start Date & Time *"
+                  value={formData.start_time}
+                  onChange={v => setFormData(p => ({ ...p, start_time: v }))}
+                  error={errors.start_time}
+                />
+                <EventDateTimeInput
+                  label="End Date & Time *"
+                  value={formData.end_time}
+                  onChange={v => setFormData(p => ({ ...p, end_time: v }))}
+                  error={errors.end_time}
+                />
               </div>
             </div>
 

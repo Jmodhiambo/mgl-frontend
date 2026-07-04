@@ -10,6 +10,8 @@ import {
   updateOrganizerProfile,
   deleteOrganizerProfilePicture,
 } from '@shared/api/organizer/orgUserApi';
+import { useOrganizerProfile, FIELD_LABELS } from '@user/hooks/useOrganizerProfile';
+import { useAuth } from '@shared/contexts/AuthContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,6 +74,17 @@ const OrganizerProfileSetup: React.FC = () => {
   const [showSuccess, setShowSuccess]       = useState(false);
   const [errors, setErrors]                 = useState<Record<string, string>>({});
 
+  // Shared status hook — same source Navbar reads from. Calling its
+  // refetch() after a successful save is what makes the navbar switch to
+  // "Organizer Dashboard" without needing a page reload.
+  const { status: organizerStatus, refetch: refetchOrganizerStatus } = useOrganizerProfile();
+
+  // AuthContext's user.role is what Navbar actually gates the organizer UI
+  // on. The backend silently promotes 'user' -> 'organizer' on first
+  // profile completion, so we need to pull that change into client state too
+  // — refetching organizer status alone isn't enough for a first-timer.
+  const { refreshUser } = useAuth();
+
   const expertiseOptions = [
     'Music & Entertainment', 'Technology & Innovation', 'Food & Beverage',
     'Sports & Fitness',      'Arts & Culture',          'Business & Networking',
@@ -80,17 +93,19 @@ const OrganizerProfileSetup: React.FC = () => {
   ];
 
   // ── Completion score ──────────────────────────────────────────────────────
-
-  const completionFields = [
-    !!imagePreview,
-    !!formData.bio.trim(),
-    !!formData.organization_name.trim(),
-    !!formData.website_url.trim(),
-    formData.social_media_links.length > 0,
-    formData.area_of_expertise.length > 0,
-  ];
-  const completedCount = completionFields.filter(Boolean).length;
-  const completionPct  = Math.round((completedCount / completionFields.length) * 100);
+  //
+  // Driven by the server's status.missing_fields rather than recomputed
+  // locally, so the percentage can never drift from what the backend
+  // actually considers "complete" (this is also what unlocks the organizer
+  // dashboard link in the navbar). Note: FIELD_LABELS — and therefore this
+  // score — does NOT include social_media_links, because the backend's
+  // completion check doesn't track it. Social links are still saved and
+  // shown below, they just don't move this bar.
+  const trackedFieldKeys = Object.keys(FIELD_LABELS);
+  const missingFields    = organizerStatus?.missing_fields ?? [];
+  const completionPct    = organizerStatus
+    ? Math.round(((trackedFieldKeys.length - missingFields.length) / trackedFieldKeys.length) * 100)
+    : 0;
 
   // ── Load profile ──────────────────────────────────────────────────────────
 
@@ -215,7 +230,7 @@ const OrganizerProfileSetup: React.FC = () => {
       await updateOrganizerProfile(payload);
       setShowSuccess(true);
       setProfilePictureFile(null);
-      await loadProfile();
+      await Promise.all([loadProfile(), refetchOrganizerStatus(), refreshUser()]);
     } catch (err) {
       setSaveError(parseApiError(err, 'Failed to update profile. Please try again.'));
     } finally {
@@ -348,6 +363,12 @@ const OrganizerProfileSetup: React.FC = () => {
                       style={{ width: `${completionPct}%` }}
                     />
                   </div>
+
+                  {missingFields.length > 0 && (
+                    <p className="text-xs text-gray-400 mt-2">
+                      Still needed: {missingFields.map(f => FIELD_LABELS[f] ?? f).join(' · ')}
+                    </p>
+                  )}
                 </div>
 
                 {errors.profile_picture && (

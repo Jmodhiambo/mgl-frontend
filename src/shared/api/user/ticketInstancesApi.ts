@@ -15,9 +15,11 @@ import api from '@shared/api/axiosConfig';
 export interface TicketInstanceOut {
   id: number;
   booking_id: number;
+  event_id: number;
   ticket_type_id: number;
   user_id: number;
   code: string;              // unique QR/ticket code
+  qr_payload: string;        // signed JSON — use this for QR generation
   status: string;            // issued | used | cancelled
   price: number;
   issued_to: string | null;
@@ -54,7 +56,7 @@ export interface TicketInstanceAdminCreate {
 
 // ── User ──────────────────────────────────────────────────────────────────────
 
-export const getUserTicketInstances = async (): Promise<TicketInstanceOut[]> => {
+export const getUserTicketInstances = async (): Promise<TicketInstanceEnriched[]> => {
   return (await api.get('/users/me/ticket-instances')).data;
 };
 

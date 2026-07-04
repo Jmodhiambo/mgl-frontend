@@ -41,6 +41,7 @@ export interface AuthContextType {
     sessionId: string | null;
     login: (loginResponse: { access_token: string; session_id?: string }) => Promise<void>;
     logout: () => Promise<void>;
+    refreshUser: () => Promise<User | null>;
 }
 
 export interface ForgotPasswordResponse {

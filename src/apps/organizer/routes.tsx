@@ -11,6 +11,7 @@ import EventDetails from '@organizer/pages/EventDetails';
 import TicketTypes from '@organizer/pages/TicketTypes';
 import BookingsView from '@organizer/pages/BookingsView';
 import Profile from '@organizer/pages/Profile';
+import CheckInPage from '@organizer/pages/CheckIn';
 import CoOrganizers from '@organizer/pages/CoOrganizers';
 import OrganizerContact from './pages/OrganizerContact';
 import { NotFoundPage } from '@shared/pages';
@@ -82,6 +83,10 @@ export const router = createBrowserRouter([
         path: 'bookings',
         // All bookings across all events (no eventId needed)
         element: <BookingsView />,
+      },
+      {
+        path: 'check-in',
+        element: <CheckInPage />,
       },
       {
         path: 'co-organizers',

@@ -7,27 +7,10 @@ import {
   CheckCircle, AlertCircle, Loader2,
 } from 'lucide-react';
 import { getEventDetailsBySlug, updateEventStatus } from '@organizer/services/eventService';
-import { formatKES } from '@shared/utils/format';
+import { formatKES, formatDate, formatTime } from '@shared/utils/format';
+import { parseApiError } from '@shared/utils/parseApiError';
 import type { OrganizerEventOut, TicketTypeOut, EventStats } from '@shared/types/Event';
 import type { Booking as BookingOut } from '@shared/types/Booking';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function parseApiError(err: any, fallback: string): string {
-  const raw = err?.response?.data?.detail;
-  if (Array.isArray(raw))
-    return raw.map((e: any) => `${Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : 'field'}: ${e.msg}`).join('; ');
-  if (typeof raw === 'string') return raw;
-  return fallback;
-}
-
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-KE', {
-    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-  });
-
-const formatTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' });
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -124,8 +107,18 @@ const EventDetails: React.FC = () => {
     setActionError(null);
     try {
       const updated = await updateEventStatus(event.id, 'deleted');
-      setEvent(updated);
       setShowDeleteModal(false);
+
+      if (updated.status === 'deleted') {
+        // Event is fully gone — nothing left to show on this page.
+        navigate('/events', { state: { flash: `"${updated.title}" was deleted.` } });
+        return;
+      }
+
+      // Backend redirected 'deleted' -> 'pending_deletion' because of
+      // unresolved bookings. Stay put so the organizer sees the new badge
+      // and understands refunds are still outstanding.
+      setEvent(updated);
     } catch (err: any) {
       setActionError(parseApiError(err, 'Failed to delete event.'));
       setShowDeleteModal(false);
@@ -406,7 +399,7 @@ const EventDetails: React.FC = () => {
                     <div>
                       <p className="font-semibold text-gray-800 text-sm">Booking #{booking.id}</p>
                       <p className="text-xs text-gray-500">
-                        {new Date(booking.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        {formatDate(booking.created_at)}
                       </p>
                     </div>
                     <BookingStatusBadge status={booking.status} />

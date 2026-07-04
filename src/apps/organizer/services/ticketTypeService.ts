@@ -12,14 +12,14 @@ export interface CreateTicketTypePayload {
   name: string;
   description?: string;
   price: number;
-  quantity_available: number;
+  total_quantity: number;
 }
 
 export interface UpdateTicketTypePayload {
   name?: string;
   description?: string;
   price?: number;
-  quantity_available?: number;
+  total_quantity?: number;
 }
 
 // ─── Ticket Types ─────────────────────────────────────────────────────────────

@@ -97,6 +97,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // ── refreshUser ─────────────────────────────────────────────────────────────
+  // Re-fetches the current user and updates context state in place. Needed
+  // for cases where the server changes something about the user as a side
+  // effect of an unrelated request — e.g. PATCH /organizers/me/profile-update
+  // silently promoting a 'user' to 'organizer' on first profile completion.
+  // Without this, `user.role` in context stays stale until next login/reload,
+  // even after the organizer-status hook has refetched.
+  const refreshUser = async () => {
+    try {
+      const fetchedUser = await getCurrentUser();
+      setUser(fetchedUser);
+      return fetchedUser;
+    } catch (error) {
+      console.error("Failed to refresh user:", error);
+      throw error;
+    }
+  };
+
   // ── logout ──────────────────────────────────────────────────────────────────
 
   const logout = async () => {
@@ -124,6 +142,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         sessionId,
         login,
         logout,
+        refreshUser,
       }}
     >
       {children}
