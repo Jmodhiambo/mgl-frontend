@@ -1,4 +1,4 @@
-// src/shared/services/ticketInstanceService.ts
+// src/shared/api/user/ticketInstancesApi.ts
 // ─────────────────────────────────────────────────────────────────────────────
 // Ticket instance API calls — user and admin scopes.
 // Organizer access to ticket instances is intentionally absent
@@ -29,10 +29,26 @@ export interface TicketInstanceOut {
 }
 
 // Enriched shape for MyTickets.tsx — backend join adds event context
-export interface TicketInstanceEnriched extends TicketInstanceOut {
+export interface TicketInstanceEnriched {
+  id: number;
+  booking_id: number;
+  event_id: number;
+  ticket_type_id: number;
+  user_id: number;
+  code: string;
+  qr_payload: string;        // signed JSON — use this for QR generation
+  status: 'issued' | 'used' | 'cancelled';
+  price: number;
+  issued_to: string | null;
+  created_at: string;
+  updated_at: string;
+  used_at: string | null;
+  scanned_by: string | null; // name of staff who checked this ticket in (null if unused)
+  scan_method: string | null; // qr_scan | manual_code | null if not yet scanned
+  // enriched fields
   event_title: string;
-  event_date: string;
   venue: string;
+  event_date: string | null; // ISO string of events.start_time, or null
   ticket_type_name: string;
 }
 

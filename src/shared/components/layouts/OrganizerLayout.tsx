@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
-import { Calendar, LayoutDashboard, Ticket, Users, User, LogOut, Menu, X, ChevronRight, TicketCheck } from 'lucide-react';
+import { Calendar, LayoutDashboard, Ticket, Users, User, LogOut, Menu, X, ChevronRight, ScanLine } from 'lucide-react';
 
 interface NavItem {
   path: string;
@@ -21,7 +21,7 @@ const OrganizerLayout: React.FC = () => {
     { path: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
     { path: '/events', label: 'Events', icon: <Calendar className="w-5 h-5" /> },
     { path: '/bookings', label: 'Bookings', icon: <Ticket className="w-5 h-5" /> },
-    { path: '/check-in', label: 'Check-In', icon: <TicketCheck className="w-5 h-5" /> },
+    { path: '/check-in', label: 'Check-In', icon: <ScanLine className="w-5 h-5" /> },
     { path: '/co-organizers', label: 'Co-Organizers', icon: <Users className="w-5 h-5" /> },
     { path: '/profile', label: 'Profile', icon: <User className="w-5 h-5" /> },
   ];

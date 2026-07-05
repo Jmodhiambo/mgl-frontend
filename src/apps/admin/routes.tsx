@@ -11,6 +11,7 @@ import Orders      from '@admin/pages/Orders';
 import Bookings    from '@admin/pages/Bookings';
 import Payments    from '@admin/pages/Payments';
 import TicketTypes from '@admin/pages/TicketTypes';
+import CheckIn     from '@admin/pages/CheckIn';
 import Messages    from '@admin/pages/Messages';
 import Analytics   from '@admin/pages/Analytics';
 import Reports     from '@admin/pages/Reports';
@@ -43,6 +44,7 @@ export const router = createBrowserRouter([
       { path: 'orders',           element: <Orders /> },
       { path: 'bookings',         element: <Bookings /> },
       { path: 'payments',         element: <Payments /> },
+      { path: 'check-in',         element: <CheckIn /> },
       { path: 'ticket-types',     element: <TicketTypes /> },
       { path: 'messages',         element: <Messages /> },
       { path: 'analytics',        element: <Analytics /> },
