@@ -3,10 +3,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Calendar, MapPin, Clock, Edit, Trash2, Users, DollarSign,
-  Ticket, ArrowLeft, Plus, Eye, XCircle, TrendingUp,
+  Ticket, ArrowLeft, Plus, Eye, EyeOff, XCircle, TrendingUp,
   CheckCircle, AlertCircle, Loader2,
 } from 'lucide-react';
 import { getEventDetailsBySlug, updateEventStatus } from '@organizer/services/eventService';
+import { organizer_updateTicketType } from '@shared/api/user/ticketTypesApi';
 import { formatKES, formatDate, formatTime } from '@shared/utils/format';
 import { parseApiError } from '@shared/utils/parseApiError';
 import type { OrganizerEventOut, TicketTypeOut, EventStats } from '@shared/types/Event';
@@ -124,6 +125,16 @@ const EventDetails: React.FC = () => {
       setShowDeleteModal(false);
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleToggleTicketActive = async (ticket: TicketTypeOut) => {
+    setActionError(null);
+    try {
+      const updated = await organizer_updateTicketType(ticket.id, { is_active: !ticket.is_active });
+      setTicketTypes(prev => prev.map(t => t.id === updated.id ? updated : t));
+    } catch (err: any) {
+      setActionError(parseApiError(err, 'Failed to update ticket type status.'));
     }
   };
 
@@ -357,11 +368,21 @@ const EventDetails: React.FC = () => {
                       {formatKES(ticket.price)}
                     </span>
                   </div>
-                  <div className="flex justify-between text-xs text-gray-500">
+                  <div className="flex justify-between items-center text-xs text-gray-500 mb-2">
                     <span>Sold: {ticket.quantity_sold} / {ticket.quantity_available}</span>
-                    <span className={ticket.is_active ? 'text-green-600 font-medium' : 'text-red-500'}>
-                      {ticket.is_active ? 'Active' : 'Inactive'}
-                    </span>
+                    <button
+                      onClick={() => handleToggleTicketActive(ticket)}
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
+                        ticket.is_active
+                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                      title={ticket.is_active ? 'Deactivate ticket type' : 'Reactivate ticket type'}
+                    >
+                      {ticket.is_active
+                        ? <><Eye className="w-3 h-3" /> Active</>
+                        : <><EyeOff className="w-3 h-3" /> Inactive</>}
+                    </button>
                   </div>
                   <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                     <div

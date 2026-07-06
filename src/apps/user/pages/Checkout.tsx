@@ -29,6 +29,8 @@ import { TermsContent, RefundContent } from '@shared/pages';
 import { useAuth } from '@shared/contexts/AuthContext';
 import { createOrder } from '@shared/api/user/bookingsApi';
 import { initiateMpesaPayment, pollPaymentStatus } from '@shared/api/user/paymentsApi';
+import { formatDate, formatTime } from '@shared/utils/format';
+import { parseApiError } from '@shared/utils/parseApiError';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -61,16 +63,6 @@ interface FormErrors {
 }
 
 type PaymentStep = 'form' | 'awaiting_pin' | 'complete' | 'failed';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-US', {
-    weekday: 'short', month: 'long', day: 'numeric', year: 'numeric',
-  });
-
-const formatTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -181,9 +173,8 @@ const CheckoutBookingPage: React.FC = () => {
 
       cancelPollRef.current = cancelPoll;
 
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to process payment. Please try again.';
-      setErrors({ general: msg });
+    } catch (err: any) {
+      setErrors({ general: parseApiError(err, 'Failed to process payment. Please try again.') });
       setPaymentStep('form');
     } finally {
       setIsSubmitting(false);
