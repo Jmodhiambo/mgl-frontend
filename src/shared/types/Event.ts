@@ -27,6 +27,19 @@ export interface EventOut {
   updated_at: string;
 }
 
+export interface TicketTypeOrganizerOut extends TicketTypeOut {
+  suspended_by_admin_name: string | null;
+  suspension_reason: string | null;
+  suspended_at: string | null;
+}
+
+export interface TicketTypeAdminOut extends TicketTypeOut {
+  suspended_by_admin_id: number | null;
+  suspended_by_admin_name: string | null;
+  suspension_reason: string | null;
+  suspended_at: string | null;
+}
+
 // ─── Ticket types ─────────────────────────────────────────────────────────────
 
 /**
@@ -167,7 +180,7 @@ export interface BookingOutBrief {
 export interface EventDetails {
   event: OrganizerEventOut;
   stats: EventStats;
-  ticket_types: TicketTypeOut[];
+  ticket_types: TicketTypeOrganizerOut[];
   recent_bookings: BookingOutBrief[];
 }
 

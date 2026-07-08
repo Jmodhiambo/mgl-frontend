@@ -1,6 +1,6 @@
 // src/apps/admin/components/modals/ticketTypes/TicketDetailModal.tsx
 import { useState } from 'react';
-import { X, Tag, ImageOff, Pencil } from 'lucide-react';
+import { X, Tag, ImageOff, Pencil, Ban, ShieldCheck } from 'lucide-react';
 import { formatKES } from '@admin/utils/format';
 import type { AdminTicketType, AdminEvent } from '@admin/types';
 
@@ -9,9 +9,11 @@ interface Props {
   event?: AdminEvent;
   onClose: () => void;
   onEdit: () => void;
+  onSuspend: () => void;
+  onUnsuspend: () => void;
 }
 
-const TicketDetailModal: React.FC<Props> = ({ ticket, event, onClose, onEdit }) => {
+const TicketDetailModal: React.FC<Props> = ({ ticket, event, onClose, onEdit, onSuspend, onUnsuspend }) => {
   const fillRate  = Math.round((ticket.quantity_sold / ticket.total_quantity) * 100);
   const remaining = ticket.quantity_available;
   const flyerUrl  = (event as any)?.flyer_url as string | undefined;
@@ -62,11 +64,31 @@ const TicketDetailModal: React.FC<Props> = ({ ticket, event, onClose, onEdit }) 
             {ticket.price === 0 ? 'Free' : formatKES(ticket.price)}
           </p>
             <span className={`inline-block mt-2 text-xs px-2.5 py-0.5 rounded-full font-medium ${
-              ticket.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'
+              ticket.suspended_by_admin_id != null
+                ? 'bg-red-100 text-red-700'
+                : ticket.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'
             }`}>
-              {ticket.is_active ? 'Active' : 'Inactive'}
+              {ticket.suspended_by_admin_id != null ? 'Suspended' : ticket.is_active ? 'Active' : 'Inactive'}
             </span>
           </div>
+
+          {ticket.suspended_by_admin_id != null && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-5">
+              <p className="text-sm font-semibold text-red-700 mb-1">
+                Suspended by {ticket.suspended_by_admin_name ?? `admin #${ticket.suspended_by_admin_id}`}
+              </p>
+              {ticket.suspended_at && (
+                <p className="text-xs text-red-500 mb-2">
+                  {new Date(ticket.suspended_at).toLocaleString()}
+                </p>
+              )}
+              {ticket.suspension_reason && (
+                <p className="text-sm text-red-700 bg-white/60 rounded-lg px-3 py-2">
+                  "{ticket.suspension_reason}"
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Stats grid */}
           <div className="grid grid-cols-2 gap-4 mb-5">
@@ -115,6 +137,21 @@ const TicketDetailModal: React.FC<Props> = ({ ticket, event, onClose, onEdit }) 
           {/* Footer */}
           <div className="flex gap-3 pt-5 border-t border-gray-100">
             <button onClick={onClose} className="btn-secondary flex-1">Close</button>
+            {ticket.suspended_by_admin_id != null ? (
+              <button
+                onClick={onUnsuspend}
+                className="flex-1 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <ShieldCheck className="w-4 h-4" /> Unsuspend
+              </button>
+            ) : (
+              <button
+                onClick={onSuspend}
+                className="flex-1 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Ban className="w-4 h-4" /> Suspend
+              </button>
+            )}
             <button
               onClick={onEdit}
               className="btn-primary flex-1 flex items-center justify-center gap-1.5"

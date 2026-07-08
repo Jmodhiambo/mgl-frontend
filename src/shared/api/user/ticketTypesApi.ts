@@ -1,4 +1,4 @@
-// src/shared/services/ticketTypeService.ts
+// src/shared/api/user/ticketTypeService.ts
 // ─────────────────────────────────────────────────────────────────────────────
 // Ticket type API calls — user, organizer, and admin scopes.
 //
@@ -23,6 +23,19 @@ export interface TicketTypeOut {
   quantity_sold: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface TicketTypeOrganizerOut extends TicketTypeOut {
+  suspended_by_admin_name: string | null;
+  suspension_reason: string | null;
+  suspended_at: string | null;
+}
+
+export interface TicketTypeAdminOut extends TicketTypeOut {
+  suspended_by_admin_id: number | null;
+  suspended_by_admin_name: string | null;
+  suspension_reason: string | null;
+  suspended_at: string | null;
 }
 
 export interface TicketTypeCreate {
@@ -50,7 +63,7 @@ export interface TicketTypeUpdate {
 
 export const organizer_getEventTicketTypes = async (
   eventId: number,
-): Promise<TicketTypeOut[]> => {
+): Promise<TicketTypeOrganizerOut[]> => {
   return (
     await api.get(`/organizers/me/events/${eventId}/ticket-types`)
   ).data;
@@ -58,7 +71,7 @@ export const organizer_getEventTicketTypes = async (
 
 export const organizer_getTicketTypeById = async (
   ticketTypeId: number,
-): Promise<TicketTypeOut> => {
+): Promise<TicketTypeOrganizerOut> => {
   return (
     await api.get(`/organizers/me/ticket-types/${ticketTypeId}`)
   ).data;
@@ -67,7 +80,7 @@ export const organizer_getTicketTypeById = async (
 export const organizer_createTicketType = async (
   eventId: number,
   data: TicketTypeCreate,
-): Promise<TicketTypeOut> => {
+): Promise<TicketTypeOrganizerOut> => {
   return (
     await api.post(`/organizers/me/events/${eventId}/ticket-types`, data)
   ).data;
@@ -76,7 +89,7 @@ export const organizer_createTicketType = async (
 export const organizer_updateTicketType = async (
   ticketTypeId: number,
   data: TicketTypeUpdate,
-): Promise<TicketTypeOut> => {
+): Promise<TicketTypeOrganizerOut> => {
   return (
     await api.put(`/organizers/me/ticket-types/${ticketTypeId}`, data)
   ).data;
@@ -94,7 +107,7 @@ export const organizer_deleteTicketType = async (
 
 export const admin_getEventTicketTypes = async (
   eventId: number,
-): Promise<TicketTypeOut[]> => {
+): Promise<TicketTypeAdminOut[]> => {
   return (
     await api.get(`/admin/events/${eventId}/ticket-types`)
   ).data;
@@ -102,20 +115,20 @@ export const admin_getEventTicketTypes = async (
 
 export const admin_getTicketTypeById = async (
   ticketTypeId: number,
-): Promise<TicketTypeOut> => {
+): Promise<TicketTypeAdminOut> => {
   return (await api.get(`/admin/ticket-types/${ticketTypeId}`)).data;
 };
 
 export const admin_createTicketType = async (
   data: TicketTypeCreate,
-): Promise<TicketTypeOut> => {
+): Promise<TicketTypeAdminOut> => {
   return (await api.post('/admin/ticket-types', data)).data;
 };
 
 export const admin_updateTicketType = async (
   ticketTypeId: number,
   data: TicketTypeUpdate,
-): Promise<TicketTypeOut> => {
+): Promise<TicketTypeAdminOut> => {
   return (
     await api.put(`/admin/ticket-types/${ticketTypeId}`, data)
   ).data;

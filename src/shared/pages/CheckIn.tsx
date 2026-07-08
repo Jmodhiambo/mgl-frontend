@@ -16,7 +16,6 @@
 //       codeEndpoint="/admin/check-in/by-code"
 //       eventsFetcher={() => getAllEvents()}
 //     />
-//
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import jsQR from 'jsqr';
@@ -355,6 +354,7 @@ const CheckInPage: React.FC<CheckInPageProps> = ({
                   {!result.accepted && result.first_used_at && (
                     <p className="text-white/70 text-xs">
                       First scanned at {new Date(result.first_used_at).toLocaleTimeString()}
+                      {result.ticket?.scanned_by && ` by ${result.ticket.scanned_by}`}
                     </p>
                   )}
                 </div>

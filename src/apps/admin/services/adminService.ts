@@ -280,6 +280,23 @@ export const getTicketTypeById = async (ticketTypeId: number): Promise<AdminTick
 export const getTicketTypesByEvent = async (eventId: number): Promise<AdminTicketType[]> => {
   return (await api.get(`/admin/events/${eventId}/ticket-types`)).data;
 };
+
+export const suspendTicketType = async (
+  ticketTypeId: number,
+  reason: string,
+): Promise<AdminTicketType> => {
+  return (
+    await api.patch(`/admin/ticket-types/${ticketTypeId}/suspend`, { reason })
+  ).data;
+};
+
+export const unsuspendTicketType = async (
+  ticketTypeId: number,
+): Promise<AdminTicketType> => {
+  return (
+    await api.patch(`/admin/ticket-types/${ticketTypeId}/unsuspend`)
+  ).data;
+};
  
 // ─── Bookings ─────────────────────────────────────────────────────────────────
 

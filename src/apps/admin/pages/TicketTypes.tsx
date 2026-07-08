@@ -6,13 +6,14 @@ import {
 } from '@admin/components/ui';
 import { admin_getEventTicketTypes } from '@shared/api/user/ticketTypesApi';
 import { formatKES } from '@admin/utils/format';
-import { listAllEvents, deleteTicketType } from '@admin/services/adminService';
+import { listAllEvents, deleteTicketType, suspendTicketType, unsuspendTicketType } from '@admin/services/adminService';
 import type { AdminTicketType, AdminEvent } from '@admin/types';
 
 import CreateTicketTypesModal, { type SavedTicketType } from '@admin/components/modals/ticketTypes/CreateTicketTypesModal';
 import EventPickerModal   from '@admin/components/modals/ticketTypes/EventPickerModal';
 import EditTicketTypeModal from '@admin/components/modals/ticketTypes/EditTicketTypeModal';
 import TicketDetailModal  from '@admin/components/modals/ticketTypes/TicketDetailModal';
+import SuspendTicketTypeModal from '@admin/components/modals/ticketTypes/SuspendTicketTypeModal';
 import TicketActionsMenu  from '@admin/components/menus/ticketTypes/TicketActionsMenu';
 
 const PAGE_SIZE = 15;
@@ -30,6 +31,7 @@ const TicketTypes: React.FC = () => {
 
   const [detail, setDetail]               = useState<AdminTicketType | null>(null);
   const [editing, setEditing]             = useState<AdminTicketType | null>(null);
+  const [suspending, setSuspending]       = useState<AdminTicketType | null>(null);
   const [pickerOpen, setPickerOpen]       = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<AdminEvent | null>(null);
 
@@ -101,6 +103,33 @@ const TicketTypes: React.FC = () => {
       if (err?.response?.status === 400) {
         setTickets(prev => prev.map(t => t.id === ticket.id ? { ...t, is_active: false } : t));
       }
+      setAlert({ type: 'error', msg });
+    }
+  };
+
+  const handleSuspendConfirm = async (reason: string) => {
+    if (!suspending) return;
+    try {
+      const updated = await suspendTicketType(suspending.id, reason);
+      setTickets(prev => prev.map(t => t.id === updated.id ? updated : t));
+      if (detail?.id === updated.id) setDetail(updated);
+      setAlert({ type: 'success', msg: `"${updated.name}" suspended.` });
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail ?? 'Failed to suspend ticket type.';
+      setAlert({ type: 'error', msg });
+    } finally {
+      setSuspending(null);
+    }
+  };
+
+  const handleUnsuspend = async (ticket: AdminTicketType) => {
+    try {
+      const updated = await unsuspendTicketType(ticket.id);
+      setTickets(prev => prev.map(t => t.id === updated.id ? updated : t));
+      if (detail?.id === updated.id) setDetail(updated);
+      setAlert({ type: 'success', msg: `Suspension lifted on "${updated.name}". It's still inactive until reactivated.` });
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail ?? 'Failed to lift suspension.';
       setAlert({ type: 'error', msg });
     }
   };
@@ -235,7 +264,9 @@ const TicketTypes: React.FC = () => {
                           </div>
                         </td>
                         <td>
-                          {t.is_active
+                          {t.suspended_by_admin_id != null
+                            ? <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-red-100 text-red-700">Suspended</span>
+                            : t.is_active
                             ? <span className="badge-success">Active</span>
                             : <span className="badge-gray">Inactive</span>}
                         </td>
@@ -245,6 +276,8 @@ const TicketTypes: React.FC = () => {
                             onView={() => setDetail(t)}
                             onEdit={() => setEditing(t)}
                             onDelete={() => handleDelete(t)}
+                            onSuspend={() => setSuspending(t)}
+                            onUnsuspend={() => handleUnsuspend(t)}
                           />
                         </td>
                       </tr>
@@ -268,7 +301,9 @@ const TicketTypes: React.FC = () => {
                         </p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        {t.is_active
+                        {t.suspended_by_admin_id != null
+                          ? <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-red-100 text-red-700">Suspended</span>
+                          : t.is_active
                           ? <span className="badge-success">Active</span>
                           : <span className="badge-gray">Inactive</span>}
                         <TicketActionsMenu
@@ -276,6 +311,8 @@ const TicketTypes: React.FC = () => {
                           onView={() => setDetail(t)}
                           onEdit={() => setEditing(t)}
                           onDelete={() => handleDelete(t)}
+                          onSuspend={() => setSuspending(t)}
+                          onUnsuspend={() => handleUnsuspend(t)}
                         />
                       </div>
                     </div>
@@ -316,6 +353,16 @@ const TicketTypes: React.FC = () => {
           event={events.find(e => e.id === detail.event_id)}
           onClose={() => setDetail(null)}
           onEdit={() => { setEditing(detail); setDetail(null); }}
+          onSuspend={() => setSuspending(detail)}
+          onUnsuspend={() => handleUnsuspend(detail)}
+        />
+      )}
+
+      {suspending && (
+        <SuspendTicketTypeModal
+          ticket={suspending}
+          onCancel={() => setSuspending(null)}
+          onConfirm={handleSuspendConfirm}
         />
       )}
 

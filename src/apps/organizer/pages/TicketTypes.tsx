@@ -7,10 +7,11 @@ import {
   organizer_createTicketType,
   organizer_updateTicketType,
   organizer_deleteTicketType,
-  type TicketTypeOut,
+  type TicketTypeOrganizerOut,
   type TicketTypeCreate,
   type TicketTypeUpdate,
 } from '@shared/api/user/ticketTypesApi';
+import { parseApiError } from '@shared/utils/parseApiError';
 
 interface TicketTypeFormData {
   name: string;
@@ -22,13 +23,13 @@ interface TicketTypeFormData {
 const TicketTypesManagement: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
 
-  const [ticketTypes, setTicketTypes]   = useState<TicketTypeOut[]>([]);
+  const [ticketTypes, setTicketTypes]   = useState<TicketTypeOrganizerOut[]>([]);
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState<string | null>(null);
   const [showModal, setShowModal]       = useState(false);
-  const [editingTicket, setEditingTicket] = useState<TicketTypeOut | null>(null);
+  const [editingTicket, setEditingTicket] = useState<TicketTypeOrganizerOut | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [ticketToDelete, setTicketToDelete]   = useState<TicketTypeOut | null>(null);
+  const [ticketToDelete, setTicketToDelete]   = useState<TicketTypeOrganizerOut | null>(null);
   const [submitting, setSubmitting]     = useState(false);
 
   const [formData, setFormData] = useState<TicketTypeFormData>({
@@ -86,7 +87,7 @@ const TicketTypesManagement: React.FC = () => {
     setShowModal(true);
   };
 
-  const openEditModal = (ticket: TicketTypeOut) => {
+  const openEditModal = (ticket: TicketTypeOrganizerOut) => {
     setEditingTicket(ticket);
     setFormData({
       name:           ticket.name,
@@ -137,12 +138,12 @@ const TicketTypesManagement: React.FC = () => {
 
   // ── Toggle active ─────────────────────────────────────────────────────────
 
-  const handleToggleActive = async (ticket: TicketTypeOut) => {
+  const handleToggleActive = async (ticket: TicketTypeOrganizerOut) => {
     try {
       const updated = await organizer_updateTicketType(ticket.id, { is_active: !ticket.is_active });
       setTicketTypes(prev => prev.map(t => t.id === updated.id ? updated : t));
-    } catch {
-      setError('Failed to update ticket status.');
+    } catch (err: unknown) {
+      setError(parseApiError(err, 'Failed to update ticket status.'));
     }
   };
 
@@ -243,17 +244,24 @@ const TicketTypesManagement: React.FC = () => {
                       </span>
                       <button
                         onClick={() => handleToggleActive(ticket)}
-                        className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                        disabled={ticket.suspended_by_admin_name != null}
+                        title={ticket.suspended_by_admin_name ? 'Suspended by admin — contact support' : undefined}
+                        className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                           ticket.is_active
-                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                            : 'bg-green-50 text-green-600 hover:bg-green-100'
                         }`}
                       >
                         {ticket.is_active
-                          ? <><Eye className="w-4 h-4" /> Active</>
-                          : <><EyeOff className="w-4 h-4" /> Inactive</>}
+                          ? <><EyeOff className="w-4 h-4" /> Deactivate</>
+                          : <><Eye className="w-4 h-4" /> Activate</>}
                       </button>
                     </div>
+                    {ticket.suspended_by_admin_name && (
+                      <p className="text-xs text-red-500 font-medium mt-2">
+                        Suspended by admin — contact support to lift
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-3 mb-4">

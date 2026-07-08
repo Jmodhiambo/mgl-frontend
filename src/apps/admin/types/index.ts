@@ -100,6 +100,13 @@ export interface AdminTicketType {
   quantity_available: number;  // computed server-side: total_quantity - quantity_sold
   quantity_sold: number;
   is_active: boolean;
+  // Presence of suspended_by_admin_id is the source of truth for "is this
+  // suspended" — check `ticket.suspended_by_admin_id != null`, not a
+  // separate boolean. Name/reason/timestamp are denormalized for display.
+  suspended_by_admin_id: number | null;
+  suspended_by_admin_name: string | null;
+  suspension_reason: string | null;
+  suspended_at: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -3,14 +3,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Calendar, MapPin, Clock, Edit, Trash2, Users, DollarSign,
-  Ticket, ArrowLeft, Plus, Eye, EyeOff, XCircle, TrendingUp,
+  Ticket, ArrowLeft, Plus, Eye, XCircle, TrendingUp,
   CheckCircle, AlertCircle, Loader2,
 } from 'lucide-react';
 import { getEventDetailsBySlug, updateEventStatus } from '@organizer/services/eventService';
 import { organizer_updateTicketType } from '@shared/api/user/ticketTypesApi';
 import { formatKES, formatDate, formatTime } from '@shared/utils/format';
 import { parseApiError } from '@shared/utils/parseApiError';
-import type { OrganizerEventOut, TicketTypeOut, EventStats } from '@shared/types/Event';
+import type { OrganizerEventOut, TicketTypeOrganizerOut, EventStats } from '@shared/types/Event';
 import type { Booking as BookingOut } from '@shared/types/Booking';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ const EventDetails: React.FC = () => {
 
   const [event,          setEvent]          = useState<OrganizerEventOut | null>(null);
   const [stats,          setStats]          = useState<EventStats | null>(null);
-  const [ticketTypes,    setTicketTypes]    = useState<TicketTypeOut[]>([]);
+  const [ticketTypes,    setTicketTypes]    = useState<TicketTypeOrganizerOut[]>([]);
   const [recentBookings, setRecentBookings] = useState<BookingOut[]>([]);
   const [loading,        setLoading]        = useState(true);
   const [error,          setError]          = useState<string | null>(null);
@@ -128,7 +128,7 @@ const EventDetails: React.FC = () => {
     }
   };
 
-  const handleToggleTicketActive = async (ticket: TicketTypeOut) => {
+  const handleToggleTicketActive = async (ticket: TicketTypeOrganizerOut) => {
     setActionError(null);
     try {
       const updated = await organizer_updateTicketType(ticket.id, { is_active: !ticket.is_active });
@@ -357,32 +357,44 @@ const EventDetails: React.FC = () => {
             <div className="space-y-3">
               {ticketTypes.map(ticket => (
                 <div key={ticket.id} className="border border-gray-100 rounded-lg p-4 hover:border-blue-200 transition-colors">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-gray-800 text-sm">{ticket.name}</h3>
-                      {ticket.description && (
-                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{ticket.description}</p>
-                      )}
-                    </div>
-                    <span className="text-sm font-bold text-blue-600 flex-shrink-0 ml-3">
-                      {formatKES(ticket.price)}
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-gray-800 text-sm">{ticket.name}</h3>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                      ticket.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'
+                    }`}>
+                      {ticket.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center text-xs text-gray-500 mb-2">
-                    <span>Sold: {ticket.quantity_sold} / {ticket.quantity_available}</span>
+                  {ticket.description && (
+                    <p className="text-xs text-gray-500 mb-2 line-clamp-1">{ticket.description}</p>
+                  )}
+
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-bold text-blue-600">
+                      {formatKES(ticket.price)}
+                    </span>
                     <button
                       onClick={() => handleToggleTicketActive(ticket)}
-                      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors ${
+                      disabled={ticket.suspended_by_admin_name != null}
+                      title={ticket.suspended_by_admin_name ? 'Suspended by admin — contact support' : undefined}
+                      className={`text-xs font-semibold px-3 py-1 rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                         ticket.is_active
-                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          ? 'border-red-300 text-red-600 hover:bg-red-50'
+                          : 'border-green-300 text-green-600 hover:bg-green-50'
                       }`}
-                      title={ticket.is_active ? 'Deactivate ticket type' : 'Reactivate ticket type'}
                     >
-                      {ticket.is_active
-                        ? <><Eye className="w-3 h-3" /> Active</>
-                        : <><EyeOff className="w-3 h-3" /> Inactive</>}
+                      {ticket.is_active ? 'Deactivate' : 'Activate'}
                     </button>
+                  </div>
+
+                  {ticket.suspended_by_admin_name && (
+                    <p className="text-[11px] text-red-500 font-medium mb-2">
+                      Suspended by admin — contact support to lift
+                    </p>
+                  )}
+
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Sold: {ticket.quantity_sold} / {ticket.quantity_available}</span>
                   </div>
                   <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                     <div
