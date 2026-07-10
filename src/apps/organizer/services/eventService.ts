@@ -40,6 +40,15 @@ export interface UpdateEventPayload {
 // ─── Events ───────────────────────────────────────────────────────────────────
 
 /**
+ * Get event details by its ID.
+ * @param eventId - The ID of the event to retrieve.
+ * @returns A promise resolving to the event details.
+ */
+
+export const getEventById = async (eventId: number): Promise<OrganizerEventOut> => {
+  return (await api.get(`/organizers/me/events/${eventId}`)).data;
+}
+/**
  * Get all events for the current organizer with booking/revenue stats
  * and commission breakdown (commission_rate, platform_cut, organizer_net).
  * Used by: EventsList.tsx

@@ -1,7 +1,8 @@
 // src/apps/organizer/pages/TicketTypes.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
-import { Ticket, Plus, Edit, Trash2, X, Save, DollarSign, Users, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Ticket, Plus, Edit, Trash2, X, Save, DollarSign, Users, Eye, EyeOff, AlertCircle, Ban, ArrowLeft } from 'lucide-react';
+import { getEventDetails } from '@organizer/services/eventService';
 import {
   organizer_getEventTicketTypes,
   organizer_createTicketType,
@@ -22,6 +23,7 @@ interface TicketTypeFormData {
 
 const TicketTypesManagement: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
+  const navigate = useNavigate();
 
   const [ticketTypes, setTicketTypes]   = useState<TicketTypeOrganizerOut[]>([]);
   const [loading, setLoading]           = useState(false);
@@ -39,6 +41,8 @@ const TicketTypesManagement: React.FC = () => {
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
+  const [eventTitle, setEventTitle]     = useState<string>('');
+
   const loadTicketTypes = useCallback(async () => {
     if (!eventId) return;
     setLoading(true);
@@ -51,6 +55,15 @@ const TicketTypesManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  }, [eventId]);
+
+  useEffect(() => {
+    if (!eventId) return;
+    // Lightweight, best-effort — the page still works fine without a title
+    // if this fails, so a failure here doesn't block the ticket type list.
+    getEventDetails(Number(eventId))
+      .then(details => setEventTitle(details.event.title))
+      .catch(() => {});
   }, [eventId]);
 
   useEffect(() => { loadTicketTypes(); }, [loadTicketTypes]);
@@ -173,9 +186,25 @@ const TicketTypesManagement: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center text-gray-600 hover:text-blue-600 transition-colors mb-6"
+        >
+          <ArrowLeft className="w-4 h-4 mr-1.5" /> Back
+        </button>
+
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">Ticket Types</h1>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2 break-words">
+              {eventTitle ? (
+                <>
+                  Ticket{ticketTypes.length === 1 ? '' : 's'} for{' '}
+                  <span className="text-blue-600">{eventTitle}</span>
+                </>
+              ) : (
+                `Ticket Type${ticketTypes.length === 1 ? '' : 's'}`
+              )}
+            </h1>
             <p className="text-gray-600">Manage ticket types for your event</p>
           </div>
           <button
@@ -225,7 +254,11 @@ const TicketTypesManagement: React.FC = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-xl font-bold text-gray-800">{ticket.name}</h3>
-                        {!ticket.is_active && (
+                        {ticket.suspended_by_admin_name != null ? (
+                          <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-semibold rounded-full flex items-center">
+                            <Ban className="w-3 h-3 mr-1" /> Suspended
+                          </span>
+                        ) : !ticket.is_active && (
                           <span className="px-2 py-1 bg-gray-200 text-gray-600 text-xs font-medium rounded-full flex items-center">
                             <EyeOff className="w-3 h-3 mr-1" /> Inactive
                           </span>
@@ -257,9 +290,10 @@ const TicketTypesManagement: React.FC = () => {
                           : <><Eye className="w-4 h-4" /> Activate</>}
                       </button>
                     </div>
-                    {ticket.suspended_by_admin_name && (
-                      <p className="text-xs text-red-500 font-medium mt-2">
-                        Suspended by admin — contact support to lift
+                    {ticket.suspended_by_admin_name != null && (
+                      <p className="text-xs text-red-600 font-semibold mt-2">
+                        This ticket type has been suspended{ticket.suspension_reason ? `: "${ticket.suspension_reason}"` : ''}.
+                        Contact us to have it reactivated.
                       </p>
                     )}
                   </div>
@@ -290,13 +324,17 @@ const TicketTypesManagement: React.FC = () => {
                   <div className="flex gap-2 pt-4 border-t border-gray-100">
                     <button
                       onClick={() => openEditModal(ticket)}
-                      className="flex-1 px-4 py-2 border-2 border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium flex items-center justify-center"
+                      disabled={ticket.suspended_by_admin_name != null}
+                      title={ticket.suspended_by_admin_name != null ? 'Suspended by admin — contact support' : undefined}
+                      className="flex-1 px-4 py-2 border-2 border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                     >
                       <Edit className="w-4 h-4 mr-1" /> Edit
                     </button>
                     <button
                       onClick={() => { setTicketToDelete(ticket); setShowDeleteModal(true); }}
-                      className="px-4 py-2 border-2 border-red-500 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                      disabled={ticket.suspended_by_admin_name != null}
+                      title={ticket.suspended_by_admin_name != null ? 'Suspended by admin — contact support' : undefined}
+                      className="px-4 py-2 border-2 border-red-500 text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

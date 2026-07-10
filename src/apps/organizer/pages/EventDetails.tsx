@@ -360,9 +360,11 @@ const EventDetails: React.FC = () => {
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-semibold text-gray-800 text-sm">{ticket.name}</h3>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                      ticket.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'
+                      ticket.suspended_by_admin_name != null
+                        ? 'bg-red-100 text-red-700'
+                        : ticket.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'
                     }`}>
-                      {ticket.is_active ? 'Active' : 'Inactive'}
+                      {ticket.suspended_by_admin_name != null ? 'Suspended' : ticket.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
                   {ticket.description && (
@@ -387,9 +389,10 @@ const EventDetails: React.FC = () => {
                     </button>
                   </div>
 
-                  {ticket.suspended_by_admin_name && (
-                    <p className="text-[11px] text-red-500 font-medium mb-2">
-                      Suspended by admin — contact support to lift
+                  {ticket.suspended_by_admin_name != null && (
+                    <p className="text-[11px] text-red-600 font-semibold mb-2">
+                      This ticket type has been suspended{ticket.suspension_reason ? `: "${ticket.suspension_reason}"` : ''}.
+                      Contact us to have it reactivated.
                     </p>
                   )}
 

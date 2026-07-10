@@ -168,7 +168,7 @@ const CheckoutBookingPage: React.FC = () => {
           setErrors({ general: 'Payment confirmation timed out. Check your M-Pesa messages and contact support if charged.' });
         },
         intervalMs:  3000,
-        maxAttempts: 10,
+        maxAttempts: 30,
       });
 
       cancelPollRef.current = cancelPoll;

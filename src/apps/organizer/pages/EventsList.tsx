@@ -3,8 +3,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Calendar, MapPin, Clock, Edit, Trash2, Users,
-  DollarSign, Eye, Plus, Search, MoreVertical, XCircle, Ticket,
-  CheckCircle, X,
+  DollarSign, Plus, Search, MoreVertical, XCircle, Ticket,
+  CheckCircle, X, ChevronRight,
 } from 'lucide-react';
 import { getMyEvents, updateEventStatus } from '@organizer/services/eventService';
 import { formatDate, formatTime } from '@shared/utils/format';
@@ -256,9 +256,10 @@ const EventsList: React.FC = () => {
             {filtered.map(event => (
               <div
                 key={event.id}
-                className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 group"
+                onClick={() => navigate(`/events/${event.slug}`)}
+                className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group"
               >
-                <div className="relative h-48 overflow-hidden rounded-t-2xl">
+                <div className="relative h-48 overflow-hidden">
                   <img
                     src={event.flyer_url}
                     alt={event.title}
@@ -267,10 +268,18 @@ const EventsList: React.FC = () => {
                   <div className="absolute top-3 right-3">
                     {getStatusBadge(event)}
                   </div>
+                  {/* Date badge — mirrors BrowseEvents, blue for the organizer theme */}
+                  <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-lg">
+                    <p className="text-blue-600 font-bold text-sm">
+                      {new Date(event.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="p-5">
-                  <h3 className="text-lg font-bold text-gray-800 mb-2 line-clamp-2">{event.title}</h3>
+                  <h3 className="text-lg font-bold text-gray-800 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                    {event.title}
+                  </h3>
 
                   <div className="space-y-2 mb-4">
                     <div className="flex items-center text-gray-600 text-sm">
@@ -305,13 +314,14 @@ const EventsList: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex gap-2">
+                  {/* Actions — click stops here so Edit / View / menu don't
+                      also trigger the card's own navigate */}
+                  <div className="flex gap-2" onClick={e => e.stopPropagation()}>
                     <button
                       onClick={() => navigate(`/events/${event.slug}`)}
-                      className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center text-sm font-medium"
+                      className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2.5 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center gap-2 text-sm font-semibold shadow-md"
                     >
-                      <Eye className="w-4 h-4 mr-1" /> View
+                      View Details <ChevronRight size={16} />
                     </button>
                     <button
                       onClick={() => navigate(`/events/${event.slug}/edit`)}

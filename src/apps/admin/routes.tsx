@@ -2,6 +2,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import ProtectedRoute from '@shared/routing/ProtectedRoute';
 import AdminLayout from '@admin/components/layout/AdminLayout';
+import { RouteErrorBoundary } from '@shared/components/ErrorBoundary';
 
 // Pages
 import Dashboard   from '@admin/pages/Dashboard';
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <Navigate to="/dashboard" replace />,
+    errorElement: <RouteErrorBoundary theme="purple" />,
   },
 
   // All admin routes — protected, require role === 'admin'
@@ -36,6 +38,7 @@ export const router = createBrowserRouter([
         <AdminLayout />
       </ProtectedRoute>
     ),
+    errorElement: <RouteErrorBoundary theme="purple" />,
     children: [
       { index: true,              element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard',        element: <Dashboard /> },
@@ -61,5 +64,6 @@ export const router = createBrowserRouter([
   {
     path: '*',
     element: <Navigate to="/dashboard" replace />,
+    errorElement: <RouteErrorBoundary theme="purple" />,
   },
 ]);

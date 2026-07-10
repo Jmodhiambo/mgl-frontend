@@ -1,7 +1,9 @@
+// src/apps/organizer/routes.tsx
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import ProtectedRoute from '@shared/routing/ProtectedRoute';
 import PublicRoute from '@shared/routing/PublicRoute';
 import OrganizerLayout from '@shared/components/layouts/OrganizerLayout';
+import { RouteErrorBoundary } from '@shared/components/ErrorBoundary';
 
 // Import Organizer Pages
 import Dashboard from '@organizer/pages/Dashboard';
@@ -32,6 +34,7 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <Navigate to="/dashboard" replace />,
+    errorElement: <RouteErrorBoundary theme="blue" />,
   },
 
   // Protected Organizer Routes
@@ -43,6 +46,7 @@ export const router = createBrowserRouter([
         <OrganizerLayout />
       </ProtectedRoute>
     ),
+    errorElement: <RouteErrorBoundary theme="blue" />,
     children: [
       {
         index: true,
@@ -107,5 +111,6 @@ export const router = createBrowserRouter([
   {
     path: '*',
     element: <NotFoundPage />,
+    errorElement: <RouteErrorBoundary theme="blue" />,
   },
 ]);

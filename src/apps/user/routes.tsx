@@ -1,8 +1,10 @@
+// src/apps/user/routes.tsx
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import ProtectedRoute from '@shared/routing/ProtectedRoute';
 import PublicRoute from '@shared/routing/PublicRoute';
 import ProtectedLayout from '@shared/components/layouts/ProtectedLayout';
 import PublicLayout from '@shared/components/layouts/PublicLayout';
+import { RouteErrorBoundary } from '@shared/components/ErrorBoundary';
 import Home from '@user/pages/Home';
 import Dashboard from '@user/pages/Dashboard';
 import Events from '@user/pages/Events';
@@ -45,26 +47,32 @@ export const router = createBrowserRouter([
   {
     path: '/register',
     element: <Register />,
+    errorElement: <RouteErrorBoundary theme="orange" />,
   },
   {
     path: '/reactivate-account',
     element: <ReactivateAccount />,
+    errorElement: <RouteErrorBoundary theme="orange" />,
   },
   {
     path: '/forgot-password',
     element: <ForgotPassword />,
+    errorElement: <RouteErrorBoundary theme="orange" />,
   },
   {
     path: '/reset-password',
     element: <ResetPassword />,
+    errorElement: <RouteErrorBoundary theme="orange" />,
   },
   {
     path: '/verify-email',
     element: <EmailVerification />,
+    errorElement: <RouteErrorBoundary theme="orange" />,
   },
   {
     path: '/co-organizer-invitation',
     element: <AcceptCoOrganizerInvitation />,
+    errorElement: <RouteErrorBoundary theme="orange" />,
   },
 
   // ============================================================================
@@ -73,6 +81,7 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <PublicLayout />,
+    errorElement: <RouteErrorBoundary theme="orange" />,
     children: [
       // Landing page
       {
@@ -160,6 +169,7 @@ export const router = createBrowserRouter([
         <ProtectedLayout />
       </ProtectedRoute>
     ),
+    errorElement: <RouteErrorBoundary theme="orange" />,
     children: [
       {
         path: 'dashboard',
@@ -202,5 +212,6 @@ export const router = createBrowserRouter([
   {
     path: '*',
     element: <NotFoundPage />,
+    errorElement: <RouteErrorBoundary theme="orange" />,
   },
 ]);

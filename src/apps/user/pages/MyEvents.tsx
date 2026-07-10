@@ -1,8 +1,8 @@
 // src/apps/user/pages/MyEvents.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Calendar, MapPin, Clock, Search, Heart, Users, ExternalLink,
-  TrendingUp, X, DollarSign, Ticket, Eye, BarChart3,
+  TrendingUp, X, DollarSign, Ticket, Eye, ChevronRight,
   AlertTriangle, CheckCircle, Lock, RefreshCw, UserCheck,
 } from 'lucide-react';
 import { MyEventsSEO } from '@shared/components/SEO';
@@ -13,6 +13,7 @@ import {
   getMyOrganizerEvents,
   getCoOrganizingEvents,
   removeFavorite,
+  addFavorite,
 } from '@user/services/eventService';
 
 import type { EventOut, OrganizerEventOut, FavoriteWithEventOut } from '@shared/types/Event';
@@ -48,9 +49,6 @@ const formatDate = (iso: string) =>
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-const isOrganizerEvent = (e: AnyEvent): e is OrganizerEventOut =>
-  'total_bookings' in e;
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const MyEventsPage: React.FC = () => {
@@ -74,6 +72,11 @@ const MyEventsPage: React.FC = () => {
   const [searchTerm, setSearchTerm]                   = useState('');
   const [filteredEvents, setFilteredEvents]           = useState<AnyEvent[]>([]);
   const [showOrganizerPrompt, setShowOrganizerPrompt] = useState(false);
+
+  // Tracks event ids with an in-flight favourite add/remove request, so a
+  // card's heart button can be disabled to prevent double-firing on rapid
+  // clicks (or clicks on multiple cards while one is still resolving).
+  const [favTogglingIds, setFavTogglingIds] = useState<Set<number>>(new Set());
 
   // selectedEvent carries the OrganizerEventOut for the stats modal
   const [selectedEvent, setSelectedEvent]         = useState<OrganizerEventOut | null>(null);
@@ -117,16 +120,35 @@ const MyEventsPage: React.FC = () => {
     load();
   }, [load]);
 
+  // ── Canonical event map ────────────────────────────────────────────────────
+  // The same event can appear in more than one of the three fetched lists
+  // (e.g. an event you organize AND favorited). Each list gives a different
+  // shaped object for that event — favoriteEvents gives the plain EventOut
+  // (no stats), organizingEvents/coOrganizingEvents give the enriched
+  // OrganizerEventOut (with stats). Whichever tab you're viewing, we always
+  // want to render the richest available object for a given id — never the
+  // bare favorited copy for an event you actually organize — so this map is
+  // built once and every tab reads through it. Priority matches
+  // getPrimaryType: organizing > co-organizing > favorites.
+  const canonicalEvents = useMemo(() => {
+    const map = new Map<number, AnyEvent>();
+    for (const e of favoriteEvents) map.set(e.id, e);
+    for (const c of coOrganizingEvents) map.set(c.event.id, c.event);
+    for (const e of organizingEvents) map.set(e.id, e);
+    return map;
+  }, [favoriteEvents, organizingEvents, coOrganizingEvents]);
+
   // ── Filter + search ────────────────────────────────────────────────────────
   useEffect(() => {
-    // For co-organizer events, flatten to the embedded event for filtering
-    const coOrgFlat = coOrganizingEvents.map(c => c.event);
+    let ids: number[];
+    if (filterType === 'all')                 ids = Array.from(canonicalEvents.keys());
+    else if (filterType === 'favorites')      ids = favoriteEvents.map(e => e.id);
+    else if (filterType === 'organizing')     ids = organizingEvents.map(e => e.id);
+    else /* co-organizing */                  ids = coOrganizingEvents.map(c => c.event.id);
 
-    let base: AnyEvent[] = [];
-    if (filterType === 'all')            base = [...favoriteEvents, ...organizingEvents, ...coOrgFlat];
-    else if (filterType === 'favorites')     base = favoriteEvents;
-    else if (filterType === 'organizing')    base = organizingEvents;
-    else if (filterType === 'co-organizing') base = coOrgFlat;
+    let base = ids
+      .map(id => canonicalEvents.get(id))
+      .filter((e): e is AnyEvent => e !== undefined);
 
     const q = searchTerm.toLowerCase();
     if (q) {
@@ -135,15 +157,20 @@ const MyEventsPage: React.FC = () => {
       );
     }
     setFilteredEvents(base);
-  }, [filterType, searchTerm, favoriteEvents, organizingEvents, coOrganizingEvents]);
+  }, [filterType, searchTerm, favoriteEvents, organizingEvents, coOrganizingEvents, canonicalEvents]);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
-  const getEventTab = (id: number): FilterTab => {
-    if (favoriteEvents.some(e => e.id === id))              return 'favorites';
-    if (organizingEvents.some(e => e.id === id))            return 'organizing';
-    if (coOrganizingEvents.some(c => c.event.id === id))    return 'co-organizing';
+  // Priority matters here: an event can be BOTH favorited AND organized/
+  // co-organized by the same user. Organizing/co-organizing must win for
+  // determining stats/click behavior — being favorited is just an extra
+  // badge on top, never something that should hide stats or block the modal.
+  const getPrimaryType = (id: number): 'organizing' | 'co-organizing' | 'favorites' => {
+    if (organizingEvents.some(e => e.id === id))         return 'organizing';
+    if (coOrganizingEvents.some(c => c.event.id === id)) return 'co-organizing';
     return 'favorites';
   };
+
+  const isFavorited = (id: number) => favoriteEvents.some(e => e.id === id);
 
   const getStatusColor = (status: string) => {
     const m: Record<string, string> = {
@@ -156,20 +183,39 @@ const MyEventsPage: React.FC = () => {
     return m[status] ?? 'bg-gray-100 text-gray-700 border-gray-200';
   };
 
-  const handleRemoveFavorite = async (eventId: number) => {
+  // Unified add/remove — lets any card (favourited or not — including
+  // organizing/co-organizing cards) toggle favourite status without
+  // navigating back to Browse Events. Mirrors the toggle in
+  // BrowseEventDetails.tsx, but keyed off the card's own event object so we
+  // can optimistically add it into favoriteEvents (it's a superset of
+  // EventOut for organizing/co-organizing cards, so this assignment is safe).
+  const handleFavoriteToggle = async (event: AnyEvent, currentlyFavorited: boolean) => {
+    const id = event.id;
+    if (favTogglingIds.has(id)) return;
+
+    setFavTogglingIds(prev => new Set(prev).add(id));
     try {
-      await removeFavorite(eventId);
-      setFavoriteEvents(p => p.filter(e => e.id !== eventId));
-    } catch { /* silently ignore */ }
+      if (currentlyFavorited) {
+        await removeFavorite(id);
+        setFavoriteEvents(prev => prev.filter(e => e.id !== id));
+      } else {
+        await addFavorite(id);
+        setFavoriteEvents(prev => [...prev, event as EventOut]);
+      }
+    } catch {
+      /* silently ignore — consistent with prior remove-favorite behavior */
+    } finally {
+      setFavTogglingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
   };
 
   const handleEventClick = (event: AnyEvent) => {
-    const tab = getEventTab(event.id);
-    if (tab === 'favorites') {
-      window.location.href = `/browse-events/${event.slug}`;
-      return;
-    }
-    if (tab === 'co-organizing') {
+    const type = getPrimaryType(event.id);
+    if (type === 'co-organizing') {
       // Co-organizer: any role — look up the full CoOrganizerWithEvent record
       const coOrg = coOrganizingEvents.find(c => c.event.id === event.id) ?? null;
       setSelectedCoOrg(coOrg);
@@ -177,14 +223,18 @@ const MyEventsPage: React.FC = () => {
       setSelectedEventType('co-organizer');
       return;
     }
-    // organizing
-    if (!user?.role || user.role !== 'organizer') {
-      setShowOrganizerPrompt(true);
+    if (type === 'organizing') {
+      if (!user?.role || user.role !== 'organizer') {
+        setShowOrganizerPrompt(true);
+        return;
+      }
+      setSelectedCoOrg(null);
+      setSelectedEvent(event as OrganizerEventOut);
+      setSelectedEventType('organizer');
       return;
     }
-    setSelectedCoOrg(null);
-    setSelectedEvent(event as OrganizerEventOut);
-    setSelectedEventType('organizer');
+    // Purely a favorite — not organizing or co-organizing this event
+    window.location.href = `/browse-events/${event.slug}`;
   };
 
   const closeModal = () => {
@@ -313,13 +363,15 @@ const MyEventsPage: React.FC = () => {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {filteredEvents.map(event => {
-                const tab       = getEventTab(event.id);
-                const showStats = isOrganizerEvent(event) && tab !== 'favorites';
-                const isFav     = tab === 'favorites';
-                const isCoOrg   = tab === 'co-organizing';
-                const coOrg     = isCoOrg
+                const primaryType = getPrimaryType(event.id);
+                const showStats   = primaryType !== 'favorites';
+                const isOrganizingCard = primaryType === 'organizing';
+                const isCoOrg     = primaryType === 'co-organizing';
+                const isFav       = isFavorited(event.id);
+                const isToggling  = favTogglingIds.has(event.id);
+                const coOrg       = isCoOrg
                   ? coOrganizingEvents.find(c => c.event.id === event.id)
                   : undefined;
 
@@ -327,38 +379,65 @@ const MyEventsPage: React.FC = () => {
                   <div
                     key={event.id}
                     onClick={() => handleEventClick(event)}
-                    className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all cursor-pointer group"
+                    className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group"
                   >
                     <div className="relative h-48 overflow-hidden">
                       <img
                         src={event.flyer_url}
                         alt={event.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                       />
-                      {/* Remove favourite button */}
-                      {isFav && (
-                        <button
-                          onClick={ev => { ev.stopPropagation(); handleRemoveFavorite(event.id); }}
-                          className="absolute top-3 right-3 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-                          title="Remove from favourites"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      <div className="absolute top-4 left-4 flex gap-2 flex-wrap">
+                      {/* Favourite toggle — add or remove, works on every card
+                          (organizing / co-organizing / plain favourite alike),
+                          so organizers don't need to leave this page to
+                          favourite an event they're managing. z-10 so it stays
+                          clickable even when the badges row (below) grows wide
+                          enough on a narrow card to visually extend into this
+                          corner. */}
+                      <button
+                        onClick={ev => { ev.stopPropagation(); handleFavoriteToggle(event, isFav); }}
+                        disabled={isToggling}
+                        className={`absolute top-3 right-3 z-10 p-1.5 rounded-full transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                          isFav
+                            ? 'bg-red-500 text-white hover:bg-red-600'
+                            : 'bg-white/90 text-gray-500 hover:bg-white hover:text-red-500'
+                        }`}
+                        title={isFav ? 'Remove from favourites' : 'Add to favourites'}
+                      >
+                        <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-current' : ''}`} />
+                      </button>
+                      {/* Purely decorative — pointer-events-none so this never
+                          intercepts clicks meant for the favourite button above
+                          it, even when multiple badges make this row wide. */}
+                      <div className="absolute top-4 left-4 flex gap-2 flex-wrap pointer-events-none">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(event.status)}`}>
                           {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
                         </span>
-                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-200 flex items-center gap-1">
-                          {isFav    && <Heart className="w-3 h-3 fill-current text-red-500" />}
-                          {!isFav && !isCoOrg && <Users className="w-3 h-3" />}
-                          {isCoOrg  && <UserCheck className="w-3 h-3 text-blue-500" />}
-                          {isFav ? 'Favourite' : isCoOrg ? 'Co-Organizer' : 'Organizer'}
-                        </span>
+                        {isOrganizingCard && (
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-200 flex items-center gap-1">
+                            <Users className="w-3 h-3" /> Organizer
+                          </span>
+                        )}
+                        {isCoOrg && (
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-200 flex items-center gap-1">
+                            <UserCheck className="w-3 h-3 text-blue-500" /> Co-Organizer
+                          </span>
+                        )}
+                        {isFav && (
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-white text-gray-700 border border-gray-200 flex items-center gap-1">
+                            <Heart className="w-3 h-3 fill-current text-red-500" /> Favourite
+                          </span>
+                        )}
+                      </div>
+                      {/* Date badge — mirrors BrowseEvents */}
+                      <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-lg">
+                        <p className="text-orange-600 font-bold text-sm">
+                          {new Date(event.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </p>
                       </div>
                     </div>
 
-                    <div className="p-6">
+                    <div className="p-5">
                       <h3 className="text-lg font-bold text-gray-800 mb-2 line-clamp-2 group-hover:text-orange-600 transition-colors">
                         {event.title}
                       </h3>
@@ -377,28 +456,43 @@ const MyEventsPage: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Stats bar for organizer / co-organizer events */}
-                      {showStats && isOrganizerEvent(event) && (
+                      {/* Stats bar for organizer / co-organizer events.
+                          No fallback here on purpose — if total_bookings/total_revenue
+                          are missing (e.g. backend not yet enriching co-organizing
+                          events), we want that to surface as a real error via the
+                          route error boundary, not silently show KES 0. */}
+                      {showStats && (
                         <div className="pt-4 border-t border-gray-200">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <div className="text-xs text-gray-500 mb-1">Tickets Sold</div>
-                              <div className="text-sm font-bold text-gray-800">
-                                {event.total_bookings}
+                          <div className="flex items-end justify-between gap-3">
+                            <div className="flex-1 grid grid-cols-2 gap-4">
+                              <div>
+                                <div className="text-xs text-gray-500 mb-1">Tickets Sold</div>
+                                <div className="text-sm font-bold text-gray-800">
+                                  {(event as OrganizerEventOut).total_bookings}
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
+                                  <div
+                                    className="bg-gradient-to-r from-orange-500 to-orange-600 h-1.5 rounded-full"
+                                    style={{ width: `${(event as OrganizerEventOut).total_bookings > 0 ? 100 : 0}%` }}
+                                  />
+                                </div>
                               </div>
-                              <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
-                                <div
-                                  className="bg-gradient-to-r from-orange-500 to-orange-600 h-1.5 rounded-full"
-                                  style={{ width: `${event.total_bookings > 0 ? 100 : 0}%` }}
-                                />
+                              <div>
+                                <div className="text-xs text-gray-500 mb-1">Revenue</div>
+                                <div className="text-sm font-bold text-orange-600 flex items-center gap-1">
+                                  <TrendingUp className="w-3 h-3" />
+                                  KES {(event as OrganizerEventOut).total_revenue.toLocaleString()}
+                                </div>
                               </div>
                             </div>
-                            <div>
-                              <div className="text-xs text-gray-500 mb-1">Revenue</div>
-                              <div className="text-sm font-bold text-orange-600 flex items-center gap-1">
-                                <TrendingUp className="w-3 h-3" />
-                                KES {event.total_revenue.toLocaleString()}
-                              </div>
+                            {/* Purely visual cue that the card opens an insights modal —
+                                no click handler of its own; a click here bubbles up to
+                                the card's onClick like anywhere else on the card. */}
+                            <div
+                              title="View insights"
+                              className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-600 group-hover:bg-orange-500 group-hover:text-white transition-colors duration-200"
+                            >
+                              View Insights <ChevronRight className="w-3.5 h-3.5" />
                             </div>
                           </div>
                         </div>
