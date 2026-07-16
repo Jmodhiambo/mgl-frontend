@@ -489,12 +489,17 @@ const MyProfile: React.FC = () => {
               const labels = ['Current Password', 'New Password', 'Confirm New Password'];
               const showKey = field === 'current_password' ? 'current' : field === 'new_password' ? 'new' : 'confirm';
               const shown = showPw[showKey];
+              const fieldName =
+                field === 'current_password' ? 'current-password'
+                : field === 'new_password' ? 'new-password'
+                : 'confirm-new-password';
+              const autoComplete = field === 'current_password' ? 'current-password' : 'new-password';
               return (
                 <div key={field}>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{labels[idx]}</label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input type={shown ? 'text' : 'password'} value={pwForm[field]}
+                    <input type={shown ? 'text' : 'password'} name={fieldName} autoComplete={autoComplete} value={pwForm[field]}
                       onChange={e => setPwForm(p => ({ ...p, [field]: e.target.value }))}
                       className={`${inp(!!pwErrors[field])} pl-9 pr-10`} />
                     <button type="button" onClick={() => setShowPw(p => ({ ...p, [showKey]: !p[showKey] }))}

@@ -349,6 +349,8 @@ const ProfileSettingsPage: React.FC = () => {
                         <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                         <input
                           type="text"
+                          name="name"
+                          autoComplete="name"
                           value={profileForm.name}
                           onChange={e => { setProfileForm({ ...profileForm, name: e.target.value }); setErrors({ ...errors, name: undefined }); }}
                           className={`w-full pl-12 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 ${errors.name ? 'border-red-500' : 'border-gray-300'}`}
@@ -365,6 +367,8 @@ const ProfileSettingsPage: React.FC = () => {
                         <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                         <input
                           type="email"
+                          name="email"
+                          autoComplete="username"
                           value={profileForm.email}
                           disabled
                           className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
@@ -391,6 +395,8 @@ const ProfileSettingsPage: React.FC = () => {
                         <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                         <input
                           type="tel"
+                          name="tel"
+                          autoComplete="tel"
                           value={profileForm.phone_number}
                           onChange={e => { setProfileForm({ ...profileForm, phone_number: e.target.value }); setErrors({ ...errors, phone_number: undefined }); }}
                           className={`w-full pl-12 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 ${errors.phone_number ? 'border-red-500' : 'border-gray-300'}`}
@@ -426,6 +432,11 @@ const ProfileSettingsPage: React.FC = () => {
                       {(['old_password', 'new_password', 'confirm_password'] as const).map(field => {
                         const labels = { old_password: 'Current Password', new_password: 'New Password', confirm_password: 'Confirm New Password' };
                         const showKey = field === 'old_password' ? 'old' : field === 'new_password' ? 'new' : 'confirm';
+                        const fieldName =
+                          field === 'old_password' ? 'current-password'
+                          : field === 'new_password' ? 'new-password'
+                          : 'confirm-new-password';
+                        const autoComplete = field === 'old_password' ? 'current-password' : 'new-password';
                         return (
                           <div key={field}>
                             <label className="block text-sm font-medium text-gray-700 mb-2">{labels[field]}</label>
@@ -433,6 +444,8 @@ const ProfileSettingsPage: React.FC = () => {
                               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                               <input
                                 type={showPasswords[showKey] ? 'text' : 'password'}
+                                name={fieldName}
+                                autoComplete={autoComplete}
                                 value={passwordForm[field]}
                                 onChange={e => { setPasswordForm({ ...passwordForm, [field]: e.target.value }); setErrors({ ...errors, [field]: undefined }); }}
                                 className={`w-full pl-12 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 ${errors[field] ? 'border-red-500' : 'border-gray-300'}`}

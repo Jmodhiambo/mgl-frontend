@@ -21,3 +21,10 @@ export const revokeAllOtherOrganizerSessions = async (
     data: { current_session_id: currentSessionId },
   })).data;
 };
+
+export const changeOrganizerPassword = async (
+  old_password: string,
+  new_password: string
+): Promise<void> => {
+  await api.patch('/users/me/change-password', { old_password, new_password });
+};

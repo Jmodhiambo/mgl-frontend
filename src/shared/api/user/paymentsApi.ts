@@ -1,4 +1,4 @@
-// src/shared/services/paymentService.ts
+// src/shared/api/user/paymentService.ts
 // ─────────────────────────────────────────────────────────────────────────────
 // Payment API calls — user and admin scopes.
 // Organizer payment access is intentionally absent (see payments_organizer.py).

@@ -1,3 +1,4 @@
+//src/apps/user/pages/Register.tsx
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
@@ -97,6 +98,7 @@ const Register: React.FC = () => {
                 id="name"
                 name="name"
                 type="text"
+                autoComplete="name"
                 value={formData.name}
                 onChange={handleChange}
                 className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
@@ -113,6 +115,7 @@ const Register: React.FC = () => {
                 id="email"
                 name="email"
                 type="email"
+                autoComplete="username"
                 value={formData.email}
                 onChange={handleChange}
                 className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
@@ -129,6 +132,7 @@ const Register: React.FC = () => {
                 id="phone_number"
                 name="phone_number"
                 type="tel"
+                autoComplete="tel"
                 value={formData.phone_number}
                 onChange={handleChange}
                 className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
@@ -146,6 +150,7 @@ const Register: React.FC = () => {
                   id="password"
                   name="password"
                   type={showPasswords.password ? 'text' : 'password'}
+                  autoComplete="new-password"
                   value={formData.password}
                   onChange={handleChange}
                   className="shadow appearance-none border rounded w-full py-2 px-3 pr-10 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
@@ -175,6 +180,7 @@ const Register: React.FC = () => {
                   id="confirmPassword"
                   name="confirmPassword"
                   type={showPasswords.confirmPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   className="shadow appearance-none border rounded w-full py-2 px-3 pr-10 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"

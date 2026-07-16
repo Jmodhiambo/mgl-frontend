@@ -41,6 +41,14 @@ function getInitials(name?: string): string {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
 
+// Prepends https:// to a link if it's missing a scheme, so users can type
+// "instagram.com/handle" instead of being forced to type the full URL.
+function ensureHttps(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) return trimmed;
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -174,14 +182,9 @@ const OrganizerProfileSetup: React.FC = () => {
 
   const handleAddSocialLink = () => {
     if (!newSocialLink.trim()) return;
-    try {
-      new URL(newSocialLink);
-      setFormData(prev => ({ ...prev, social_media_links: [...prev.social_media_links, newSocialLink.trim()] }));
-      setNewSocialLink('');
-      setErrors(prev => ({ ...prev, social_link: '' }));
-    } catch {
-      setErrors(prev => ({ ...prev, social_link: 'Enter a valid URL (include https://)' }));
-    }
+    setFormData(prev => ({ ...prev, social_media_links: [...prev.social_media_links, newSocialLink.trim()] }));
+    setNewSocialLink('');
+    setErrors(prev => ({ ...prev, social_link: '' }));
   };
 
   const handleRemoveSocialLink = (index: number) =>
@@ -203,9 +206,6 @@ const OrganizerProfileSetup: React.FC = () => {
     if (!formData.bio.trim())                    errs.bio               = 'Bio is required';
     else if (formData.bio.trim().length < 50)    errs.bio               = 'Bio must be at least 50 characters';
     if (!formData.organization_name.trim())       errs.organization_name = 'Organization name is required';
-    if (formData.website_url.trim()) {
-      try { new URL(formData.website_url); } catch { errs.website_url = 'Enter a valid URL'; }
-    }
     if (formData.area_of_expertise.length === 0) errs.area_of_expertise = 'Select at least one area of expertise';
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -223,8 +223,8 @@ const OrganizerProfileSetup: React.FC = () => {
       const payload = new FormData();
       payload.append('bio',                formData.bio);
       payload.append('organization_name',  formData.organization_name);
-      payload.append('website_url',        formData.website_url);
-      payload.append('social_media_links', JSON.stringify(formData.social_media_links));
+      payload.append('website_url',        formData.website_url.trim() ? ensureHttps(formData.website_url) : '');
+      payload.append('social_media_links', JSON.stringify(formData.social_media_links.map(ensureHttps)));
       payload.append('area_of_expertise',  JSON.stringify(formData.area_of_expertise));
       if (profilePictureFile) payload.append('profile_picture', profilePictureFile);
       await updateOrganizerProfile(payload);
@@ -426,7 +426,7 @@ const OrganizerProfileSetup: React.FC = () => {
                   <div className="relative">
                     <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input
-                      type="url"
+                      type="text"
                       value={formData.website_url}
                       onChange={e => handleInputChange('website_url', e.target.value)}
                       placeholder="https://yourwebsite.com"
@@ -535,7 +535,7 @@ const OrganizerProfileSetup: React.FC = () => {
               {/* Add link */}
               <div className="flex gap-2">
                 <input
-                  type="url"
+                  type="text"
                   value={newSocialLink}
                   onChange={e => setNewSocialLink(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddSocialLink(); } }}
