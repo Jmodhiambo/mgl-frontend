@@ -1,6 +1,7 @@
 import React from 'react';
 import { Shield, Lock, Eye, Database, UserCheck, Mail, Calendar } from 'lucide-react';
 import { PrivacySEO } from '@shared/components/SEO';
+import { PRIVACY_EMAIL, SUPPORT_PHONE_NUMBER } from '@shared/components/ENV';
 
 const PrivacyPolicy: React.FC = () => {
   document.title = 'Privacy Policy - MGLTickets';
@@ -253,10 +254,10 @@ const PrivacyPolicy: React.FC = () => {
             </p>
             <div className="space-y-2">
               <p>
-                <span className="font-semibold">Email:</span> <a href="mailto:privacy@mgltickets.com" className="underline hover:text-orange-100">privacy@mgltickets.com</a>
+                <span className="font-semibold">Email:</span> <a href={`mailto:${PRIVACY_EMAIL}`} className="underline hover:text-orange-100">{PRIVACY_EMAIL}</a>
               </p>
               <p>
-                <span className="font-semibold">Phone:</span> +254 700 000 000
+                <span className="font-semibold">Phone:</span> {SUPPORT_PHONE_NUMBER ? <a href={`tel:${SUPPORT_PHONE_NUMBER}`} className="underline hover:text-orange-100">{SUPPORT_PHONE_NUMBER}</a> : 'Not available'}
               </p>
               <p>
                 <span className="font-semibold">Address:</span> MGLTickets, Nairobi, Kenya

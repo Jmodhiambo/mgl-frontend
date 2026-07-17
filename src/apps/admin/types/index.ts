@@ -55,6 +55,7 @@ export interface AdminEvent {
 
 export interface AdminBooking {
   id: number;
+  order_id: number;
   user_id: number;
   event_id: number;
   ticket_type_id: number;

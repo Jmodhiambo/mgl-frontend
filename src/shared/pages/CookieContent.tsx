@@ -1,5 +1,6 @@
 import React from 'react';
 import { Cookie, AlertCircle, CheckCircle, XCircle, Settings, Eye, Shield } from 'lucide-react';
+import {PRIVACY_EMAIL, SUPPORT_PHONE_NUMBER} from '@shared/components/ENV';
 
 /**
  * CookieContent
@@ -13,6 +14,7 @@ import { Cookie, AlertCircle, CheckCircle, XCircle, Settings, Eye, Shield } from
  *
  * When you update cookie policy copy, edit ONLY this file.
  */
+
 const CookieContent: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -326,10 +328,10 @@ const CookieContent: React.FC = () => {
         </p>
         <div className="space-y-2">
           <p>
-            <span className="font-semibold">Email:</span> <a href="mailto:privacy@mgltickets.com" className="underline hover:text-orange-100">privacy@mgltickets.com</a>
+            <span className="font-semibold">Email:</span> <a href={`mailto:${PRIVACY_EMAIL}`} className="underline hover:text-orange-100">{PRIVACY_EMAIL}</a>
           </p>
           <p>
-            <span className="font-semibold">Phone:</span> +254 700 000 000
+            <span className="font-semibold">Phone:</span> {SUPPORT_PHONE_NUMBER ? <a href={`tel:${SUPPORT_PHONE_NUMBER}`} className="underline hover:text-orange-100">{SUPPORT_PHONE_NUMBER}</a> : 'Not available'}
           </p>
           <p>
             <span className="font-semibold">Address:</span> MGLTickets, Nairobi, Kenya

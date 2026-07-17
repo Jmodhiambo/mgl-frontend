@@ -1,5 +1,6 @@
 import React from 'react';
 import { DollarSign, RefreshCw, Clock, CheckCircle, XCircle, AlertTriangle, Mail } from 'lucide-react';
+import { SUPPORT_PHONE_NUMBER, SUPPORT_EMAIL, BILLING_EMAIL } from '@shared/components/ENV';
 
 /**
  * RefundContent
@@ -242,7 +243,7 @@ const RefundContent: React.FC = () => {
 
               <div className="p-4 bg-orange-50 border-l-4 border-orange-500 rounded">
                 <p className="text-sm text-gray-700">
-                  <span className="font-semibold">Alternative:</span> If you're unable to request a refund through your account, email us at <a href="mailto:refunds@mgltickets.com" className="text-orange-600 font-medium hover:text-orange-700">refunds@mgltickets.com</a> with your booking reference number, event details, and reason for the refund request.
+                  <span className="font-semibold">Alternative:</span> If you're unable to request a refund through your account, email us at <a href={`mailto:${BILLING_EMAIL}`} className="text-orange-600 font-medium hover:text-orange-700">{BILLING_EMAIL}</a> with your booking reference number, event details, and reason for the refund request.
                 </p>
               </div>
             </div>
@@ -371,7 +372,7 @@ const RefundContent: React.FC = () => {
               <div>
                 <h3 className="font-semibold text-gray-900 mb-2">Fraudulent Purchases</h3>
                 <p>
-                  If you believe your account was compromised and tickets were purchased fraudulently, contact us immediately at <a href="mailto:security@mgltickets.com" className="text-orange-600 font-medium hover:text-orange-700">security@mgltickets.com</a>. We will investigate and process refunds for verified fraudulent transactions.
+                  If you believe your account was compromised and tickets were purchased fraudulently, contact us immediately at <a href={`mailto:${SUPPORT_EMAIL}`} className="text-orange-600 font-medium hover:text-orange-700">{SUPPORT_EMAIL}</a>. We will investigate and process refunds for verified fraudulent transactions.
                 </p>
               </div>
             </div>
@@ -419,7 +420,7 @@ const RefundContent: React.FC = () => {
               </p>
 
               <ol className="list-decimal list-inside space-y-2 ml-4">
-                <li>Emailing <a href="mailto:disputes@mgltickets.com" className="text-orange-600 font-medium hover:text-orange-700">disputes@mgltickets.com</a> with your booking reference number</li>
+                <li>Emailing <a href={`mailto:${SUPPORT_EMAIL}`} className="text-orange-600 font-medium hover:text-orange-700">{SUPPORT_EMAIL}</a> with your booking reference number</li>
                 <li>Providing a detailed explanation of why you believe you should receive a refund</li>
                 <li>Including any supporting documentation</li>
               </ol>
@@ -438,13 +439,13 @@ const RefundContent: React.FC = () => {
             </p>
             <div className="space-y-2">
               <p>
-                <span className="font-semibold">General Refunds:</span> <a href="mailto:refunds@mgltickets.com" className="underline hover:text-orange-100">refunds@mgltickets.com</a>
+                <span className="font-semibold">General Refunds:</span> <a href={`mailto:${BILLING_EMAIL}`} className="underline hover:text-orange-100">{BILLING_EMAIL}</a>
               </p>
               <p>
-                <span className="font-semibold">Disputes:</span> <a href="mailto:disputes@mgltickets.com" className="underline hover:text-orange-100">disputes@mgltickets.com</a>
+                <span className="font-semibold">Disputes:</span> <a href={`mailto:${SUPPORT_EMAIL}`} className="underline hover:text-orange-100">{SUPPORT_EMAIL}</a>
               </p>
               <p>
-                <span className="font-semibold">Phone Support:</span> +254 700 000 000 (Mon-Fri, 9AM-5PM EAT)
+                <span className="font-semibold">Phone Support:</span> {SUPPORT_PHONE_NUMBER ? <a href={`tel:${SUPPORT_PHONE_NUMBER}`} className="underline hover:text-orange-100">{SUPPORT_PHONE_NUMBER}</a> : 'Not available'}
               </p>
             </div>
           </div>

@@ -164,6 +164,7 @@ export interface CommissionBreakdown {
  */
 export interface BookingOutBrief {
   id: number;
+  order_id: number;
   user_id: number;
   ticket_type_id: number;
   quantity: number;

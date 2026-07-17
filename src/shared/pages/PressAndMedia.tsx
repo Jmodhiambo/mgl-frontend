@@ -54,7 +54,7 @@ const PressPage: React.FC = () => {
             <h2 className="text-3xl font-bold text-gray-900 mb-6">About MGLTickets</h2>
             <div className="space-y-4 text-gray-700 leading-relaxed">
               <p>
-                MGLTickets is Kenya's premier event ticketing platform, connecting event organizers with passionate audiences across the nation. Founded in 2024, we've quickly become the go-to solution for event ticketing, trusted by thousands of organizers and attendees.
+                MGLTickets is Kenya's premier event ticketing platform, connecting event organizers with passionate audiences across the nation. Founded in 2026, we've quickly become the go-to solution for event ticketing, trusted by thousands of organizers and attendees.
               </p>
               <p>
                 Our platform combines cutting-edge technology with local payment solutions like M-Pesa to provide a seamless ticketing experience. From small community gatherings to large-scale concerts and festivals, MGLTickets powers events of all sizes.

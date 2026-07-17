@@ -40,3 +40,5 @@ Include parseApiError like in BrowseEventDetails to all the pages with API calls
 Work on the ActivityFeed page under the admin console. The filter is not working save for event creation.
 
 Add cart so that users can go back to the booking at later time. I think it will need a separate table like cart to avoid complicating orders table. So the cart page can have different left bookings based on event. On clicking the event, we are redirected to the browseeventsdetails page where the cart data populates the booking and ready for checkout.
+
+Create email stats page on the organizer and admin pages based on the emails sent out by organizers. 

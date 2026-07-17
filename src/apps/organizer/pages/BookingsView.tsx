@@ -21,11 +21,13 @@ import {
   type OrganizerOrderBookingLine,
 } from '@shared/api/organizer/orgOrderApi';
 import { formatKES } from '@shared/utils/format';
+import { sendOrganizerEmail } from '@shared/api/organizer/orgEmailsApi';
  
 // ── Types ─────────────────────────────────────────────────────────────────────
  
 interface Booking {
   id: number;
+  order_id?: number;       // parent order — customer-facing reference
   user_id: number;
   event_id?: number;
   ticket_type_id: number;
@@ -75,7 +77,7 @@ Event Details:
 - Date & Time: {{event_date}}
 - Ticket Type: {{ticket_type}}
 - Quantity: {{quantity}} ticket(s)
-- Booking ID: #{{booking_id}}
+- Order: #{{order_id}}
  
 Please arrive 30 minutes before the event starts and bring a valid ID.
  
@@ -97,7 +99,7 @@ We have an important update regarding {{event_title}}.
 Your Booking:
 - Ticket Type: {{ticket_type}}
 - Quantity: {{quantity}} ticket(s)
-- Booking ID: #{{booking_id}}
+- Order: #{{order_id}}
  
 If you have any questions, please contact us immediately.
  
@@ -136,7 +138,7 @@ Your Booking:
 - Ticket Type: {{ticket_type}}
 - Quantity: {{quantity}} ticket(s)
 - Amount Paid: KES {{total_price}}
-- Booking ID: #{{booking_id}}
+- Order: #{{order_id}}
  
 A full refund will be processed within 5–7 business days to your original payment method.
  
@@ -162,7 +164,7 @@ New Venue: {{new_venue}}
 Date & Time: {{event_date}} (UNCHANGED)
 Ticket Type: {{ticket_type}}
 Quantity: {{quantity}} ticket(s)
-Booking ID: #{{booking_id}}
+Order: #{{order_id}}
  
 Your booking is still valid for the new venue.
  
@@ -187,7 +189,7 @@ New Date/Time: {{new_date_time}}
 Venue: {{venue}} (UNCHANGED)
 Ticket Type: {{ticket_type}}
 Quantity: {{quantity}} ticket(s)
-Booking ID: #{{booking_id}}
+Order: #{{order_id}}
  
 Best regards,
 {{organizer_name}}`,
@@ -206,7 +208,7 @@ const bookingReplacements = (ref: Booking | null, orgName: string): Record<strin
   event_title:    ref?.event_title          ?? '',
   ticket_type:    ref?.ticket_type_name     ?? '',
   quantity:       ref?.quantity?.toString() ?? '',
-  booking_id:     ref?.id?.toString()       ?? '',
+  order_id:       ref?.order_id?.toString() ?? ref?.id?.toString() ?? '',
   total_price:    ref?.total_price?.toLocaleString() ?? '',
   venue:          ref?.venue                ?? '',
   event_date:     ref?.event_date           ?? '',
@@ -327,7 +329,7 @@ const BookingsView: React.FC = () => {
   const { user }    = useAuth();
   const organizerName = user?.name.split(' ')[0] ?? 'Organizer';
  
-  const [activeTab, setActiveTab] = useState<ViewTab>('orders');
+  const [activeTab, setActiveTab] = useState<ViewTab>('bookings');
  
   // Orders state
   const [orders,          setOrders]          = useState<OrganizerOrderOut[]>([]);
@@ -537,13 +539,32 @@ const BookingsView: React.FC = () => {
     if (!emailData.subject || !emailData.message) { alert('Please fill in subject and message'); return; }
     setSendingEmail(true);
     try {
-      await new Promise(r => setTimeout(r, 1500)); // TODO: replace with real API call
-      alert(`Email sent to ${selectedBookings.length} recipient(s)`);
+      // Strip 'organizer.' prefix — backend expects e.g. 'reminder' not 'organizer.reminder'
+      const template_used = emailData.template.replace('organizer.', '') || 'custom';
+
+      const extra_variables = Object.keys(emailData.extraValues).length
+        ? emailData.extraValues
+        : undefined;
+
+      const result = await sendOrganizerEmail({
+        booking_ids: selectedBookings,
+        template_used,
+        subject: emailData.subject,
+        custom_message: template_used === 'custom' ? emailData.message : undefined,
+        extra_variables,
+      });
+
+      const msg = result.failed > 0
+        ? `${result.queued} email(s) queued. ${result.failed} failed.`
+        : `${result.queued} email(s) queued successfully.`;
+      alert(msg);
+
       setShowEmailModal(false);
       resetEmailData();
       clearSelection();
-    } catch {
-      alert('Failed to send email.');
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail ?? 'Failed to send email. Please try again.';
+      alert(detail);
     } finally {
       setSendingEmail(false);
     }
@@ -583,8 +604,8 @@ const BookingsView: React.FC = () => {
         {/* Tab switcher */}
         <div className="flex gap-2 mb-6">
           {([
-            { value: 'orders',   label: 'Orders',   icon: <Package className="w-4 h-4" /> },
             { value: 'bookings', label: 'Bookings', icon: <Ticket className="w-4 h-4" /> },
+            { value: 'orders',   label: 'Orders',   icon: <Package className="w-4 h-4" /> },
           ] as { value: ViewTab; label: string; icon: React.ReactNode }[]).map(tab => (
             <button
               key={tab.value}
@@ -807,18 +828,93 @@ const BookingsView: React.FC = () => {
                 </p>
               </div>
             ) : (
-              <BookingsTable
-                bookings={filteredBookings}
-                selectedBookings={selectedBookings}
-                selectAll={selectAll}
-                isBulkMode={isBulkMode}
-                onToggleSelectAll={toggleSelectAll}
-                onToggleBooking={toggleBookingSelection}
-                onViewBooking={handleViewBooking}
-                onEmailBooking={openEmailModal}
-                getStatusBadge={getStatusBadge}
-                formatDate={formatDate}
-              />
+              <>
+                {/* Desktop table — BookingsTable renders its own bg/shadow container */}
+                <div className="hidden md:block">
+                  <BookingsTable
+                    bookings={filteredBookings}
+                    selectedBookings={selectedBookings}
+                    selectAll={selectAll}
+                    isBulkMode={isBulkMode}
+                    onToggleSelectAll={toggleSelectAll}
+                    onToggleBooking={toggleBookingSelection}
+                    onViewBooking={handleViewBooking}
+                    onEmailBooking={openEmailModal}
+                    getStatusBadge={getStatusBadge}
+                    formatDate={formatDate}
+                  />
+                </div>
+
+                {/* Mobile cards */}
+                <div className="md:hidden bg-white rounded-xl shadow-md overflow-hidden divide-y divide-gray-200">
+                  {isBulkMode && filteredBookings.length > 0 && (
+                    <label className="flex items-center gap-2 px-4 py-3 bg-gray-50 text-sm font-medium text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={selectAll}
+                        onChange={toggleSelectAll}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      Select all
+                    </label>
+                  )}
+                  {filteredBookings.map(b => (
+                    <div
+                      key={b.id}
+                      className={`p-4 ${isBulkMode && selectedBookings.includes(b.id) ? 'bg-blue-50' : ''}`}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className={isBulkMode ? 'flex items-start gap-3 flex-1 min-w-0' : 'flex-1 min-w-0'}>
+                          {isBulkMode && (
+                            <input
+                              type="checkbox"
+                              checked={selectedBookings.includes(b.id)}
+                              onChange={() => toggleBookingSelection(b.id)}
+                              className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 flex-shrink-0"
+                            />
+                          )}
+                          <div
+                            className={!isBulkMode ? 'cursor-pointer min-w-0' : 'min-w-0'}
+                            onClick={() => !isBulkMode && handleViewBooking(b)}
+                          >
+                            <p className="text-xs text-gray-400">#{b.id}</p>
+                            <p className="font-semibold text-gray-800 text-sm truncate">
+                              {b.customer_name ?? 'Unknown customer'}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">{b.customer_email}</p>
+                            <p className="text-xs text-gray-500 truncate mt-0.5">
+                              {b.ticket_type_name} · {b.quantity} ticket{b.quantity !== 1 ? 's' : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0 ml-2">
+                          <p className="font-bold text-gray-800 text-sm">{formatKES(b.total_price)}</p>
+                          <div className="mt-1">{getStatusBadge(b.status)}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between mt-3">
+                        <p className="text-xs text-gray-400">{formatDate(b.created_at)}</p>
+                        {!isBulkMode && (
+                          <div className="flex items-center gap-4">
+                            <button
+                              onClick={() => handleViewBooking(b)}
+                              className="text-xs font-medium text-blue-600 hover:underline"
+                            >
+                              View
+                            </button>
+                            <button
+                              onClick={() => openEmailModal(b)}
+                              className="text-xs font-medium text-green-600 hover:underline"
+                            >
+                              Email
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </>
         )}

@@ -33,7 +33,9 @@ export const ORGANIZER_EMAIL = import.meta.env.VITE_ORGANIZER_EMAIL;
 export const NO_REPLY_EMAIL = import.meta.env.VITE_NO_REPLY_EMAIL;
 export const BILLING_EMAIL = import.meta.env.VITE_BILLING_EMAIL;
 export const PRESS_EMAIL = import.meta.env.VITE_PRESS_EMAIL;
+export const PRIVACY_EMAIL = import.meta.env.VITE_PRIVACY_EMAIL;
 export const TECH_EMAIL = import.meta.env.VITE_TECH_SUPPORT_EMAIL;
+export const LEGAL_EMAIL = import.meta.env.VITE_LEGAL_EMAIL;
 export const PARTNERSHIP_EMAIL = import.meta.env.VITE_PARTNERSHIP_EMAIL;
 
 // SEO

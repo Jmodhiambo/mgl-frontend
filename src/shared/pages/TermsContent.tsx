@@ -1,5 +1,6 @@
 import React from 'react';
 import { FileText, AlertCircle, CheckCircle, XCircle, Scale, ShieldAlert } from 'lucide-react';
+import { LEGAL_EMAIL, SUPPORT_PHONE_NUMBER } from '@shared/components/ENV';
 
 /**
  * TermsContent
@@ -329,8 +330,8 @@ const TermsContent: React.FC = () => {
         <h2 className="text-2xl font-bold mb-4">Contact Us</h2>
         <p className="mb-4">If you have any questions about these Terms of Service, please contact us:</p>
         <div className="space-y-2">
-          <p><span className="font-semibold">Email:</span> <a href="mailto:legal@mgltickets.com" className="underline hover:text-orange-100">legal@mgltickets.com</a></p>
-          <p><span className="font-semibold">Phone:</span> +254 700 000 000</p>
+          <p><span className="font-semibold">Email:</span> <a href={`mailto:${LEGAL_EMAIL}`} className="underline hover:text-orange-100">{LEGAL_EMAIL}</a></p>
+          <p><span className="font-semibold">Phone:</span> {SUPPORT_PHONE_NUMBER ? <a href={`tel:${SUPPORT_PHONE_NUMBER}`} className="underline hover:text-orange-100">{SUPPORT_PHONE_NUMBER}</a> : 'Not available'}</p>
           <p><span className="font-semibold">Address:</span> MGLTickets, Nairobi, Kenya</p>
         </div>
       </div>
