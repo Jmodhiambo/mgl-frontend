@@ -1,0 +1,1 @@
+// src/shared/articles/help/events/index.ts

@@ -20,6 +20,7 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [allUsersCount, setAllUsersCount] = useState<number>(0);
   const [pendingEvents, setPendingEvents] = useState<AdminEvent[]>([]);
   const [activityFeed, setActivityFeed] = useState<ActivityFeedItem[]>([]);
   const [revenueData, setRevenueData]   = useState<{ label: string; value: number }[]>([]);
@@ -39,6 +40,7 @@ const Dashboard: React.FC = () => {
         ]);
         setStats(s);
         setUsers(u);
+        setAllUsersCount(s.total_users + s.total_organizers + s.total_admins);
         setRevenueData(r);
         setGrowthData(g);
         setPendingEvents(pe);
@@ -77,7 +79,7 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger">
         <StatCard
           label="Total Users"
-          value={stats.total_users.toLocaleString()}
+          value={allUsersCount.toLocaleString()}
           delta={{ value: `+${stats.new_users_this_week} this week`, up: true }}
           icon={Users}
           iconBg="bg-purple-100"
