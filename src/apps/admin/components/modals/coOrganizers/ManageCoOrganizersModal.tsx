@@ -35,6 +35,14 @@ const RowMenu: React.FC<{ onRemove: () => void }> = ({ onRemove }) => {
   const [open, setOpen]   = useState(false);
   const [style, setStyle] = useState<React.CSSProperties>({});
   const triggerRef        = useRef<HTMLButtonElement>(null);
+  // Ref to the portal-rendered dropdown content. The dropdown mounts into
+  // document.body via createPortal, so it's NOT a DOM descendant of
+  // triggerRef — the outside-click check below must test both refs, or a
+  // mousedown on "Remove" gets treated as an "outside" click and closes
+  // the menu before the click event ever reaches the button, silently
+  // swallowing onRemove(). (Same fix as the organizer app's CoOrganizers
+  // page RowMenu — this component duplicates that pattern.)
+  const menuRef            = useRef<HTMLDivElement>(null);
 
   const handleOpen = () => {
     if (!triggerRef.current) return;
@@ -54,7 +62,10 @@ const RowMenu: React.FC<{ onRemove: () => void }> = ({ onRemove }) => {
   useEffect(() => {
     if (!open) return;
     const onOutside = (e: MouseEvent) => {
-      if (triggerRef.current && !triggerRef.current.contains(e.target as Node)) close();
+      const target = e.target as Node;
+      const insideTrigger = triggerRef.current?.contains(target);
+      const insideMenu     = menuRef.current?.contains(target);
+      if (!insideTrigger && !insideMenu) close();
     };
     window.addEventListener('mousedown', onOutside);
     window.addEventListener('scroll', close, true);
@@ -81,7 +92,11 @@ const RowMenu: React.FC<{ onRemove: () => void }> = ({ onRemove }) => {
       {open && createPortal(
         <>
           <div className="fixed inset-0 z-[9998]" onClick={close} />
-          <div style={{ ...style, zIndex: 9999 }} className="w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+          <div
+            ref={menuRef}
+            style={{ ...style, zIndex: 9999 }}
+            className="w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
+          >
             <button
               onClick={() => { close(); onRemove(); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"

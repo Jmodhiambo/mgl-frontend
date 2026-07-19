@@ -4,13 +4,28 @@
 //
 // Endpoints:
 //   POST   /organizers/me/events/{eventId}/co-organizers/{email}  → invite
-//   GET    /organizers/me/co-organizers                           → list all (every event)
-//   GET    /organizers/me/co-organizers/event/{eventId}           → list for one event
+//   GET    /organizers/me/co-organizers?limit=&offset=            → list all (every event), paginated
+//   GET    /organizers/me/co-organizers/event/{eventId}?limit=&offset=  → list for one event, paginated
 //   PATCH  /organizers/me/co-organizers/{id}                      → toggle create flag
 //   DELETE /organizers/me/co-organizers/{id}                      → remove
 // ─────────────────────────────────────────────────────────────────────────────
 
 import api from '@shared/api/axiosConfig';
+
+/**
+ * Generic paginated list envelope — mirrors the backend's
+ * app.schemas.pagination.PaginatedResponse[T].
+ *
+ * TODO: move to @shared/types/Pagination once other pages adopt it
+ * (BookingsView orders/bookings tabs are next).
+ */
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+}
 
 /**
  * Raw co-organizer record returned by POST (create).
@@ -75,25 +90,34 @@ export const createCoOrganizer = async (
 };
 
 /**
- * List co-organizers across ALL of the current organizer's events.
+ * List co-organizers across ALL of the current organizer's events, paginated.
  * Returns enriched rows including user info and event title.
  */
-export const getAllCoOrganizers = async (): Promise<CoOrganizerWithUserAndEvent[]> => {
+export const getAllCoOrganizers = async (
+  limit = 20,
+  offset = 0,
+): Promise<PaginatedResponse<CoOrganizerWithUserAndEvent>> => {
   return (
-    await api.get<CoOrganizerWithUserAndEvent[]>('/organizers/me/co-organizers')
+    await api.get<PaginatedResponse<CoOrganizerWithUserAndEvent>>(
+      '/organizers/me/co-organizers',
+      { params: { limit, offset } },
+    )
   ).data;
 };
 
 /**
- * List co-organizers for a single event owned by the current organizer.
+ * List co-organizers for a single event owned by the current organizer, paginated.
  * Returns enriched rows including user info and event title.
  */
 export const getCoOrganizersForEvent = async (
   eventId: number,
-): Promise<CoOrganizerWithUserAndEvent[]> => {
+  limit = 20,
+  offset = 0,
+): Promise<PaginatedResponse<CoOrganizerWithUserAndEvent>> => {
   return (
-    await api.get<CoOrganizerWithUserAndEvent[]>(
+    await api.get<PaginatedResponse<CoOrganizerWithUserAndEvent>>(
       `/organizers/me/co-organizers/event/${eventId}`,
+      { params: { limit, offset } },
     )
   ).data;
 };

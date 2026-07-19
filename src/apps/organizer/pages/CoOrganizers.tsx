@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import {
   UserPlus, Mail, Trash2, X, Send, Users,
   CheckCircle, AlertCircle, Loader2, MoreVertical,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import {
   createCoOrganizer,
@@ -35,6 +36,8 @@ interface CoOrganizer {
   role: string;
 }
 
+const PAGE_SIZE = 20;
+
 // ─── Row Action Menu ────────────────────────────────────────────────────────
 // Uses a portal + getBoundingClientRect so the dropdown is never clipped by
 // table overflow or pushed off-screen when there's only one row.
@@ -45,6 +48,13 @@ const RowMenu: React.FC<{ onRemove: () => void }> = ({ onRemove }) => {
   const [open, setOpen]         = useState(false);
   const [style, setStyle]       = useState<React.CSSProperties>({});
   const triggerRef              = useRef<HTMLButtonElement>(null);
+  // Ref to the portal-rendered dropdown content itself. The dropdown lives
+  // in document.body via createPortal, so it is NOT a DOM descendant of
+  // triggerRef — the outside-click check below must test both refs, or a
+  // mousedown on a menu item (like "Remove") gets treated as an "outside"
+  // click and closes the menu before the click event ever fires on the
+  // button, silently swallowing the action.
+  const menuRef                 = useRef<HTMLDivElement>(null);
 
   const handleOpen = () => {
     if (!triggerRef.current) return;
@@ -64,7 +74,10 @@ const RowMenu: React.FC<{ onRemove: () => void }> = ({ onRemove }) => {
   useEffect(() => {
     if (!open) return;
     const onOutside = (e: MouseEvent) => {
-      if (triggerRef.current && !triggerRef.current.contains(e.target as Node)) close();
+      const target = e.target as Node;
+      const insideTrigger = triggerRef.current?.contains(target);
+      const insideMenu     = menuRef.current?.contains(target);
+      if (!insideTrigger && !insideMenu) close();
     };
     window.addEventListener('mousedown', onOutside);
     window.addEventListener('scroll', close, true);
@@ -91,7 +104,11 @@ const RowMenu: React.FC<{ onRemove: () => void }> = ({ onRemove }) => {
       {open && createPortal(
         <>
           <div className="fixed inset-0 z-[9998]" onClick={close} />
-          <div style={{ ...style, zIndex: 9999 }} className="w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+          <div
+            ref={menuRef}
+            style={{ ...style, zIndex: 9999 }}
+            className="w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
+          >
             <button
               onClick={() => { close(); onRemove(); }}
               className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
@@ -106,6 +123,48 @@ const RowMenu: React.FC<{ onRemove: () => void }> = ({ onRemove }) => {
   );
 };
 
+// ─── Pagination footer ───────────────────────────────────────────────────────
+
+const PaginationFooter: React.FC<{
+  offset: number;
+  limit: number;
+  total: number;
+  hasMore: boolean;
+  loading: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+}> = ({ offset, limit, total, hasMore, loading, onPrev, onNext }) => {
+  if (total === 0) return null;
+
+  const rangeStart = offset + 1;
+  const rangeEnd   = Math.min(offset + limit, total);
+
+  return (
+    <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
+      <p className="text-sm text-gray-500">
+        Showing <span className="font-medium text-gray-700">{rangeStart}–{rangeEnd}</span> of{' '}
+        <span className="font-medium text-gray-700">{total}</span>
+      </p>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onPrev}
+          disabled={offset === 0 || loading}
+          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <ChevronLeft className="w-4 h-4" /> Prev
+        </button>
+        <button
+          onClick={onNext}
+          disabled={!hasMore || loading}
+          className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Next <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const CoOrganizerManagement: React.FC = () => {
@@ -114,6 +173,12 @@ const CoOrganizerManagement: React.FC = () => {
   const [loading,      setLoading]      = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error,        setError]        = useState<string | null>(null);
+
+  // Pagination state — offset/total/hasMore come back from the backend on
+  // every load; limit is fixed client-side (PAGE_SIZE).
+  const [offset,  setOffset]  = useState(0);
+  const [total,   setTotal]   = useState(0);
+  const [hasMore, setHasMore] = useState(false);
 
   const [showInviteModal, setShowInviteModal]   = useState(false);
   const [showDeleteModal, setShowDeleteModal]   = useState(false);
@@ -131,14 +196,33 @@ const CoOrganizerManagement: React.FC = () => {
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
-  const loadCoOrganizers = useCallback(async (eventId?: number) => {
+  const loadCoOrganizers = useCallback(async (eventId?: number, pageOffset = 0) => {
     setLoading(true);
     setError(null);
     try {
       const data = eventId
-        ? await getCoOrganizersForEvent(eventId)
-        : await getAllCoOrganizers();
-      setCoOrganizers(data);
+        ? await getCoOrganizersForEvent(eventId, PAGE_SIZE, pageOffset)
+        : await getAllCoOrganizers(PAGE_SIZE, pageOffset);
+
+      // If we asked for a page that's now empty (e.g. the last item on the
+      // last page was just deleted), step back one page and reload rather
+      // than showing an empty table with a broken "Prev" state.
+      if (data.items.length === 0 && pageOffset > 0) {
+        const backOffset = Math.max(0, pageOffset - PAGE_SIZE);
+        const retry = eventId
+          ? await getCoOrganizersForEvent(eventId, PAGE_SIZE, backOffset)
+          : await getAllCoOrganizers(PAGE_SIZE, backOffset);
+        setCoOrganizers(retry.items);
+        setTotal(retry.total);
+        setHasMore(retry.has_more);
+        setOffset(retry.offset);
+        return;
+      }
+
+      setCoOrganizers(data.items);
+      setTotal(data.total);
+      setHasMore(data.has_more);
+      setOffset(data.offset);
     } catch {
       setError('Failed to load co-organizers. Please try again.');
     } finally {
@@ -159,10 +243,23 @@ const CoOrganizerManagement: React.FC = () => {
     Promise.all([loadCoOrganizers(), loadEvents()]);
   }, [loadCoOrganizers, loadEvents]);
 
-  // Reload co-organizers when the selected event changes
+  // Reload co-organizers when the selected event changes — always back to page 1
   const handleEventFilterChange = (eventId: string) => {
     setSelectedEventId(eventId);
-    loadCoOrganizers(eventId ? Number(eventId) : undefined);
+    loadCoOrganizers(eventId ? Number(eventId) : undefined, 0);
+  };
+
+  // ── Pagination ───────────────────────────────────────────────────────────
+
+  const currentEventId = selectedEventId ? Number(selectedEventId) : undefined;
+
+  const goToPrevPage = () => {
+    loadCoOrganizers(currentEventId, Math.max(0, offset - PAGE_SIZE));
+  };
+
+  const goToNextPage = () => {
+    if (!hasMore) return;
+    loadCoOrganizers(currentEventId, offset + PAGE_SIZE);
   };
 
   // ── Invite ────────────────────────────────────────────────────────────────
@@ -189,7 +286,8 @@ const CoOrganizerManagement: React.FC = () => {
       await createCoOrganizer(Number(inviteData.eventId), inviteData.email);
       setShowInviteModal(false);
       setInviteData({ email: '', eventId: '' });
-      await loadCoOrganizers(selectedEventId ? Number(selectedEventId) : undefined);
+      // New rows sort first (created_at desc), so jump back to page 1 to see it.
+      await loadCoOrganizers(currentEventId, 0);
     } catch (err: any) {
       const detail = err?.response?.data?.detail ?? 'Failed to send invitation. Please try again.';
       setInviteError(typeof detail === 'string' ? detail : JSON.stringify(detail));
@@ -207,9 +305,11 @@ const CoOrganizerManagement: React.FC = () => {
       // selectedCoOrg.id is co_organizers.id (the row PK), not user_id —
       // the DELETE endpoint expects the co_organizer row id.
       await deleteCoOrganizer(selectedCoOrg.id);
-      setCoOrganizers(prev => prev.filter(c => c.id !== selectedCoOrg.id));
       setShowDeleteModal(false);
       setSelectedCoOrg(null);
+      // Reload the current page — loadCoOrganizers steps back a page on our
+      // behalf if this delete emptied the last page.
+      await loadCoOrganizers(currentEventId, offset);
     } catch (err: any) {
       setError(err?.response?.data?.detail ?? 'Failed to remove co-organizer.');
     } finally {
@@ -368,6 +468,17 @@ const CoOrganizerManagement: React.FC = () => {
                 </div>
               ))}
             </div>
+
+            {/* Pagination */}
+            <PaginationFooter
+              offset={offset}
+              limit={PAGE_SIZE}
+              total={total}
+              hasMore={hasMore}
+              loading={loading}
+              onPrev={goToPrevPage}
+              onNext={goToNextPage}
+            />
           </>
         )}
       </div>

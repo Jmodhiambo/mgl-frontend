@@ -10,7 +10,7 @@ export interface AdminUser {
   phone?: string;
   role: 'user' | 'organizer' | 'admin';
   is_active: boolean;
-  is_verified: boolean;
+  email_verified: boolean;
   created_at: string;
   updated_at: string;
   profile_picture_url?: string;

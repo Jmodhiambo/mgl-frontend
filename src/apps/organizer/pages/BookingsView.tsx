@@ -5,7 +5,7 @@ import { useAuth } from '@shared/contexts/AuthContext';
 import {
   Search, Ticket, User, DollarSign, Download,
   CheckCircle, Clock, XCircle, AlertCircle,
-  ChevronDown, ChevronRight, Package,
+  ChevronDown, ChevronRight, ChevronLeft, Package,
 } from 'lucide-react';
 import BookingDetailsModal from '@organizer/components/modals/bookings/BookingDetailsModal';
 import EmailModal from '@organizer/components/modals/bookings/EmailModal';
@@ -60,6 +60,9 @@ export interface EmailTemplate {
 }
  
 type ViewTab = 'orders' | 'bookings';
+
+const BOOKINGS_PAGE_SIZE = 20;
+const ORDERS_PAGE_SIZE = 20;
  
 // ── Email templates (unchanged) ───────────────────────────────────────────────
  
@@ -336,12 +339,27 @@ const BookingsView: React.FC = () => {
   const [filteredOrders,  setFilteredOrders]  = useState<OrganizerOrderOut[]>([]);
   const [ordersLoading,   setOrdersLoading]   = useState(true);
   const [ordersError,     setOrdersError]     = useState<string | null>(null);
+
+  // Pagination — offset/total/hasMore come back from the backend on every
+  // load. NOTE: search/status/date filters below only apply to the current
+  // page's orders (filteredOrders), same caveat as the Bookings tab.
+  const [ordersOffset,  setOrdersOffset]  = useState(0);
+  const [ordersTotal,   setOrdersTotal]   = useState(0);
+  const [ordersHasMore, setOrdersHasMore] = useState(false);
  
   // Bookings state
   const [bookings,         setBookings]         = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [bookingsLoading,  setBookingsLoading]  = useState(false);
   const [bookingsError,    setBookingsError]    = useState<string | null>(null);
+
+  // Pagination — offset/total/hasMore come back from the backend on every
+  // load. NOTE: search/status/date filters below only apply to the current
+  // page's bookings (filteredBookings), since the backend doesn't accept
+  // those as query params yet — see the caption rendered near the search box.
+  const [bookingsOffset,  setBookingsOffset]  = useState(0);
+  const [bookingsTotal,   setBookingsTotal]   = useState(0);
+  const [bookingsHasMore, setBookingsHasMore] = useState(false);
  
   // Shared filter state
   const [searchQuery,   setSearchQuery]   = useState('');
@@ -362,44 +380,56 @@ const BookingsView: React.FC = () => {
  
   // ── Load orders ──────────────────────────────────────────────────────────
  
-  const loadOrders = useCallback(async () => {
+  const loadOrders = useCallback(async (pageOffset = 0) => {
     setOrdersLoading(true);
     setOrdersError(null);
     try {
-      const data = await getOrganizerOrders();
-      // If we're on an event-specific page, filter client-side
-      const filtered = eventId
-        ? data.filter(o => o.event_id === Number(eventId))
-        : data;
-      setOrders(filtered);
-      setFilteredOrders(filtered);
+      // event_id is now filtered server-side (see orgOrderApi.ts) — the old
+      // client-side `data.filter(o => o.event_id === Number(eventId))` only
+      // worked because every order was fetched unpaginated; once paginated,
+      // filtering after the fact would miss matching orders on other pages.
+      const data = await getOrganizerOrders(
+        ORDERS_PAGE_SIZE,
+        pageOffset,
+        eventId ? Number(eventId) : undefined,
+      );
+      setOrders(data.items);
+      setFilteredOrders(data.items);
+      setOrdersTotal(data.total);
+      setOrdersHasMore(data.has_more);
+      setOrdersOffset(data.offset);
     } catch {
       setOrdersError('Failed to load orders. Please try again.');
     } finally {
       setOrdersLoading(false);
     }
   }, [eventId]);
+
+  const goToPrevOrdersPage = () => loadOrders(Math.max(0, ordersOffset - ORDERS_PAGE_SIZE));
+  const goToNextOrdersPage = () => { if (ordersHasMore) loadOrders(ordersOffset + ORDERS_PAGE_SIZE); };
  
   // ── Load bookings ────────────────────────────────────────────────────────
  
-  const loadBookings = useCallback(async () => {
+  const loadBookings = useCallback(async (pageOffset = 0) => {
     setBookingsLoading(true);
     setBookingsError(null);
     try {
-      let data: Booking[];
-      if (eventId) {
-        data = await organizer_getEventBookings(Number(eventId)) as Booking[];
-      } else {
-        data = await organizer_getRecentBookings(100) as Booking[];
-      }
-      setBookings(data);
-      setFilteredBookings(data);
+      const data = eventId
+        ? await organizer_getEventBookings(Number(eventId), BOOKINGS_PAGE_SIZE, pageOffset)
+        : await organizer_getRecentBookings(BOOKINGS_PAGE_SIZE, pageOffset);
+      setBookings(data.items as Booking[]);
+      setBookingsTotal(data.total);
+      setBookingsHasMore(data.has_more);
+      setBookingsOffset(data.offset);
     } catch {
       setBookingsError('Failed to load bookings. Please try again.');
     } finally {
       setBookingsLoading(false);
     }
   }, [eventId]);
+
+  const goToPrevBookingsPage = () => loadBookings(Math.max(0, bookingsOffset - BOOKINGS_PAGE_SIZE));
+  const goToNextBookingsPage = () => { if (bookingsHasMore) loadBookings(bookingsOffset + BOOKINGS_PAGE_SIZE); };
  
   useEffect(() => { loadOrders(); }, [loadOrders]);
  
@@ -471,13 +501,24 @@ const BookingsView: React.FC = () => {
   // ── Stats ────────────────────────────────────────────────────────────────
  
   const orderStats = {
-    totalOrders:   filteredOrders.length,
+    // Total Orders comes straight from the backend's paginated count, so
+    // it's accurate across the organizer's full history, not just this page.
+    totalOrders:   ordersTotal,
+    // Gross Revenue / Your Net below are still derived from whatever page is
+    // currently loaded (filteredOrders) — same "this page only" caveat as
+    // the Bookings tab's Tickets Sold / Total Revenue cards.
     totalRevenue:  filteredOrders.filter(o => o.status === 'confirmed').reduce((s, o) => s + o.total_price, 0),
     organizerNet:  filteredOrders.filter(o => o.status === 'confirmed').reduce((s, o) => s + o.organizer_net, 0),
   };
  
   const bookingStats = {
-    totalBookings: filteredBookings.length,
+    // Total Bookings comes straight from the backend's paginated count, so
+    // it's accurate across the organizer's full history, not just this page.
+    totalBookings: bookingsTotal,
+    // Tickets Sold / Total Revenue below are still derived from whatever
+    // page is currently loaded (filteredBookings) — the backend doesn't
+    // aggregate these across all pages yet, so these two numbers only
+    // reflect the visible page. See the "(this page)" captions on the cards.
     totalTickets:  filteredBookings.filter(b => b.status === 'confirmed').reduce((s, b) => s + b.quantity, 0),
     totalRevenue:  filteredBookings.filter(b => b.status === 'confirmed').reduce((s, b) => s + b.total_price, 0),
   };
@@ -571,6 +612,11 @@ const BookingsView: React.FC = () => {
   };
  
   const exportOrdersToCSV = () => {
+    // NOTE: exports the CURRENT PAGE only (filteredOrders), not every order
+    // matching the filters — now that Orders is paginated, doing a true
+    // "export everything" would mean fetching every page first. That's a
+    // real feature to build deliberately, not a side-effect of pagination,
+    // so it's flagged here rather than silently shipped as full export.
     const headers = ['Order ID', 'Customer', 'Email', 'Event', 'Total (KES)', 'Net (KES)', 'Status', 'Date'];
     const rows = filteredOrders.map(o => [
       o.id, o.customer_name, o.customer_email, o.event_title,
@@ -580,7 +626,7 @@ const BookingsView: React.FC = () => {
     const csv  = [headers, ...rows].map(r => r.join(',')).join('\n');
     const link = document.createElement('a');
     link.href  = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    link.setAttribute('download', `orders_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `orders_page_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -627,15 +673,16 @@ const BookingsView: React.FC = () => {
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               {[
-                { label: 'Total Orders',  value: orderStats.totalOrders,              icon: <Package className="w-6 h-6 text-blue-600" />,   bg: 'bg-blue-100',  color: 'text-gray-800'  },
-                { label: 'Gross Revenue', value: formatKES(orderStats.totalRevenue),  icon: <DollarSign className="w-6 h-6 text-green-600" />, bg: 'bg-green-100', color: 'text-green-600' },
-                { label: 'Your Net',      value: formatKES(orderStats.organizerNet),  icon: <CheckCircle className="w-6 h-6 text-blue-600" />, bg: 'bg-blue-100',  color: 'text-blue-700'  },
-              ].map(({ label, value, icon, bg, color }) => (
+                { label: 'Total Orders',  value: orderStats.totalOrders,              icon: <Package className="w-6 h-6 text-blue-600" />,   bg: 'bg-blue-100',  color: 'text-gray-800',  caption: undefined },
+                { label: 'Gross Revenue', value: formatKES(orderStats.totalRevenue),  icon: <DollarSign className="w-6 h-6 text-green-600" />, bg: 'bg-green-100', color: 'text-green-600', caption: 'This page only' },
+                { label: 'Your Net',      value: formatKES(orderStats.organizerNet),  icon: <CheckCircle className="w-6 h-6 text-blue-600" />, bg: 'bg-blue-100',  color: 'text-blue-700',  caption: 'This page only' },
+              ].map(({ label, value, icon, bg, color, caption }) => (
                 <div key={label} className="bg-white rounded-xl shadow-md p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-gray-600 text-sm mb-1">{label}</p>
                       <p className={`text-2xl font-bold ${color}`}>{value}</p>
+                      {caption && <p className="text-xs text-gray-400 mt-1">{caption}</p>}
                     </div>
                     <div className={`p-3 ${bg} rounded-lg`}>{icon}</div>
                   </div>
@@ -662,19 +709,24 @@ const BookingsView: React.FC = () => {
                     <option value="pending">Pending</option>
                     <option value="cancelled">Cancelled</option>
                   </select>
-                  <button onClick={exportOrdersToCSV}
+                  <button onClick={exportOrdersToCSV} title="Exports only the orders currently shown on this page"
                     className="px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg flex items-center font-medium hover:from-blue-600 hover:to-blue-700">
-                    <Download className="w-4 h-4 mr-2" /> Export
+                    <Download className="w-4 h-4 mr-2" /> Export Page
                   </button>
                 </div>
               </div>
+              {(searchQuery || statusFilter !== 'all' || dateRange.start) && (
+                <p className="text-xs text-gray-400 mt-3">
+                  Filters apply to the {orders.length} order{orders.length !== 1 ? 's' : ''} on this page only — use Prev/Next to search other pages.
+                </p>
+              )}
             </div>
  
             {ordersError && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-center gap-3">
                 <AlertCircle className="w-5 h-5 text-red-500" />
                 <p className="text-sm text-red-700">{ordersError}</p>
-                <button onClick={loadOrders} className="ml-auto text-sm text-red-600 underline">Retry</button>
+                <button onClick={() => loadOrders(ordersOffset)} className="ml-auto text-sm text-red-600 underline">Retry</button>
               </div>
             )}
  
@@ -735,6 +787,37 @@ const BookingsView: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* Pagination — based on the unfiltered page total, so it stays
+                usable even if search/status filters hide every row on this
+                page (the person can still Prev/Next to find what they want). */}
+            {ordersTotal > 0 && (
+              <div className="bg-white rounded-xl shadow-md mt-4 flex items-center justify-between px-6 py-4">
+                <p className="text-sm text-gray-500">
+                  Showing{' '}
+                  <span className="font-medium text-gray-700">
+                    {ordersOffset + 1}–{Math.min(ordersOffset + ORDERS_PAGE_SIZE, ordersTotal)}
+                  </span>{' '}
+                  of <span className="font-medium text-gray-700">{ordersTotal}</span>
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={goToPrevOrdersPage}
+                    disabled={ordersOffset === 0 || ordersLoading}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="w-4 h-4" /> Prev
+                  </button>
+                  <button
+                    onClick={goToNextOrdersPage}
+                    disabled={!ordersHasMore || ordersLoading}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Next <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
  
@@ -744,15 +827,16 @@ const BookingsView: React.FC = () => {
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               {[
-                { label: 'Total Bookings', value: bookingStats.totalBookings,          icon: <Ticket className="w-6 h-6 text-blue-600" />,    bg: 'bg-blue-100',  color: 'text-gray-800'  },
-                { label: 'Tickets Sold',   value: bookingStats.totalTickets,           icon: <User className="w-6 h-6 text-blue-600" />,      bg: 'bg-blue-100',  color: 'text-gray-800'  },
-                { label: 'Total Revenue',  value: formatKES(bookingStats.totalRevenue), icon: <DollarSign className="w-6 h-6 text-green-600" />, bg: 'bg-green-100', color: 'text-green-600' },
-              ].map(({ label, value, icon, bg, color }) => (
+                { label: 'Total Bookings', value: bookingStats.totalBookings,          icon: <Ticket className="w-6 h-6 text-blue-600" />,    bg: 'bg-blue-100',  color: 'text-gray-800', caption: undefined },
+                { label: 'Tickets Sold',   value: bookingStats.totalTickets,           icon: <User className="w-6 h-6 text-blue-600" />,      bg: 'bg-blue-100',  color: 'text-gray-800', caption: 'This page only' },
+                { label: 'Total Revenue',  value: formatKES(bookingStats.totalRevenue), icon: <DollarSign className="w-6 h-6 text-green-600" />, bg: 'bg-green-100', color: 'text-green-600', caption: 'This page only' },
+              ].map(({ label, value, icon, bg, color, caption }) => (
                 <div key={label} className="bg-white rounded-xl shadow-md p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-gray-600 text-sm mb-1">{label}</p>
                       <p className={`text-3xl font-bold ${color}`}>{value}</p>
+                      {caption && <p className="text-xs text-gray-400 mt-1">{caption}</p>}
                     </div>
                     <div className={`p-3 ${bg} rounded-lg`}>{icon}</div>
                   </div>
@@ -795,13 +879,18 @@ const BookingsView: React.FC = () => {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
+              {(searchQuery || statusFilter !== 'all' || dateRange.start) && (
+                <p className="text-xs text-gray-400 mt-3">
+                  Filters apply to the {bookings.length} booking{bookings.length !== 1 ? 's' : ''} on this page only — use Prev/Next to search other pages.
+                </p>
+              )}
             </div>
  
             {bookingsError && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-center gap-3">
                 <AlertCircle className="w-5 h-5 text-red-500" />
                 <p className="text-sm text-red-700">{bookingsError}</p>
-                <button onClick={loadBookings} className="ml-auto text-sm text-red-600 underline">Retry</button>
+                <button onClick={() => loadBookings(bookingsOffset)} className="ml-auto text-sm text-red-600 underline">Retry</button>
               </div>
             )}
  
@@ -915,6 +1004,37 @@ const BookingsView: React.FC = () => {
                   ))}
                 </div>
               </>
+            )}
+
+            {/* Pagination — based on the unfiltered page total, so it stays
+                usable even if search/status filters hide every row on this
+                page (the person can still Prev/Next to find what they want). */}
+            {bookingsTotal > 0 && (
+              <div className="bg-white rounded-xl shadow-md mt-4 flex items-center justify-between px-6 py-4">
+                <p className="text-sm text-gray-500">
+                  Showing{' '}
+                  <span className="font-medium text-gray-700">
+                    {bookingsOffset + 1}–{Math.min(bookingsOffset + BOOKINGS_PAGE_SIZE, bookingsTotal)}
+                  </span>{' '}
+                  of <span className="font-medium text-gray-700">{bookingsTotal}</span>
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={goToPrevBookingsPage}
+                    disabled={bookingsOffset === 0 || bookingsLoading}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="w-4 h-4" /> Prev
+                  </button>
+                  <button
+                    onClick={goToNextBookingsPage}
+                    disabled={!bookingsHasMore || bookingsLoading}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Next <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
             )}
           </>
         )}

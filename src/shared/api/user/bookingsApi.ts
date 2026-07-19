@@ -1,4 +1,4 @@
-// src/shared/services/bookingService.ts
+// src/api/user/bookingsApi.ts
 // ─────────────────────────────────────────────────────────────────────────────
 // Booking API calls — used across user, organizer, and admin apps.
 // Scoped by function prefix:
@@ -10,6 +10,21 @@
 import api from '@shared/api/axiosConfig';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Generic paginated list envelope — mirrors the backend's
+ * app.schemas.pagination.PaginatedResponse[T].
+ *
+ * TODO: move to @shared/types/Pagination — this is now duplicated between
+ * here and orgCoOrganizer.ts. Consolidate once that shared file exists.
+ */
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+}
 
 export interface BookingOut {
   id: number;
@@ -108,15 +123,20 @@ export const cancelBooking = async (bookingId: number): Promise<void> => {
 
 // ── Organizer ─────────────────────────────────────────────────────────────────
 
-// organizer_getRecentBookings returns BookingEnriched (backend does the join).
-// All other organizer booking endpoints currently return plain BookingOut.
-// Phase 3 will add joins to those endpoints so BookingsView.tsx can show
-// customer_name, event_title, ticket_type_name. Update return types then.
+// organizer_getEventBookings and organizer_getRecentBookings are paginated —
+// both back the BookingsView "Bookings" tab (scoped to one event, or across
+// all of the organizer's events when no eventId is given).
+// All other organizer booking endpoints currently return plain BookingOut
+// and are not paginated (not used by a page that needed it yet).
 export const organizer_getEventBookings = async (
   eventId: number,
-): Promise<BookingOut[]> => {
+  limit = 20,
+  offset = 0,
+): Promise<PaginatedResponse<BookingEnriched>> => {
   return (
-    await api.get(`/organizers/me/events/${eventId}/bookings`)
+    await api.get(`/organizers/me/events/${eventId}/bookings`, {
+      params: { limit, offset },
+    })
   ).data;
 };
 
@@ -138,10 +158,13 @@ export const organizer_getBookingsByTicketType = async (
 };
 
 export const organizer_getRecentBookings = async (
-  limit = 10,
-): Promise<BookingEnriched[]> => {
+  limit = 20,
+  offset = 0,
+): Promise<PaginatedResponse<BookingEnriched>> => {
   return (
-    await api.get(`/organizers/me/recent-bookings?limit=${limit}`)
+    await api.get('/organizers/me/recent-bookings', {
+      params: { limit, offset },
+    })
   ).data;
 };
 

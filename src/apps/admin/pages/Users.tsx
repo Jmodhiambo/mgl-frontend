@@ -89,7 +89,7 @@ const CreateUserModal: React.FC<{
         email:      form.email,
         role:       form.role,
         is_active:  true,
-        is_verified: false,
+        email_verified: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -205,8 +205,8 @@ const Users: React.FC = () => {
     if (roleFilter !== 'all' && u.role !== roleFilter) return false;
     if (statusFilter === 'active'     && !u.is_active)  return false;
     if (statusFilter === 'inactive'   &&  u.is_active)  return false;
-    if (statusFilter === 'verified'   && !u.is_verified) return false;
-    if (statusFilter === 'unverified' &&  u.is_verified) return false;
+    if (statusFilter === 'verified'   && !u.email_verified) return false;
+    if (statusFilter === 'unverified' &&  u.email_verified) return false;
     return true;
   }), [users, search, roleFilter, statusFilter]);
 
@@ -241,7 +241,7 @@ const Users: React.FC = () => {
   const exportCSV = () => {
     const rows = [
       ['ID', 'Name', 'Email', 'Role', 'Active', 'Verified', 'Created'],
-      ...filtered.map(u => [u.id, u.name, u.email, u.role, u.is_active, u.is_verified, u.created_at]),
+      ...filtered.map(u => [u.id, u.name, u.email, u.role, u.is_active, u.email_verified, u.created_at]),
     ];
     const a = document.createElement('a');
     a.href = 'data:text/csv,' + encodeURIComponent(rows.map(r => r.join(',')).join('\n'));
@@ -331,7 +331,7 @@ const Users: React.FC = () => {
                       <td><StatusBadge status={user.role} /></td>
                       <td><StatusBadge status={user.is_active ? 'active' : 'inactive'} /></td>
                       <td>
-                        {user.is_verified
+                        {user.email_verified
                           ? <span className="badge-success">Verified</span>
                           : <span className="badge-warning">Unverified</span>}
                       </td>
@@ -371,7 +371,7 @@ const Users: React.FC = () => {
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <StatusBadge status={user.role} />
                       <StatusBadge status={user.is_active ? 'active' : 'inactive'} />
-                      {user.is_verified
+                      {user.email_verified
                         ? <span className="badge-success">Verified</span>
                         : <span className="badge-warning">Unverified</span>}
                     </div>
@@ -487,7 +487,7 @@ const UserActionsMenu: React.FC<{
               <UserCheck className="w-4 h-4" /> Activate
             </button>
         }
-        {!user.is_verified && (
+        {!user.email_verified && (
           <button onClick={() => { onAction('resend-verification'); setOpen(false); }}
             className="flex items-center gap-2.5 w-full px-4 py-2.5 hover:bg-blue-50 text-blue-600">
             <Mail className="w-4 h-4" /> Resend Verification Email
@@ -582,7 +582,7 @@ const UserDetailModal: React.FC<{ user: AdminUser; onClose: () => void }> = ({ u
           ['User ID',       `#${user.id}`],
           ['Role',          user.role],
           ['Status',        user.is_active ? 'Active' : 'Inactive'],
-          ['Email Verified',user.is_verified ? 'Yes' : 'No'],
+          ['Email Verified',user.email_verified ? 'Yes' : 'No'],
           ['Phone',         getPhoneNumber(user)],
           ['Joined',        formatDateTime(user.created_at)],
           ['Last Updated',  formatDateTime(user.updated_at)],
