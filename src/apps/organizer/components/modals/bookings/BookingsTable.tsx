@@ -28,6 +28,16 @@ interface BookingsTableProps {
   onEmailBooking: (booking: Booking) => void;
   getStatusBadge: (status: string) => React.JSX.Element;
   formatDate: (date: string) => string;
+  /**
+   * Current page's offset (0-based), used to compute the "#" column as a
+   * running row number — offset + index + 1 — so it always starts at 1 on
+   * page 1 regardless of how bookings are sorted. Bookings are sorted
+   * newest-first, so the raw booking.id counts DOWN as you scroll (e.g.
+   * #13, #12, #11...), which read as confusing/broken even though it's
+   * correct. This column no longer reflects the actual database ID — the
+   * real booking.id is still shown in the booking details modal.
+   */
+  offset: number;
 }
 
 const BookingsTable: React.FC<BookingsTableProps> = ({
@@ -40,7 +50,8 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
   onViewBooking,
   onEmailBooking,
   getStatusBadge,
-  formatDate
+  formatDate,
+  offset,
 }) => {
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden">
@@ -59,7 +70,7 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
                 </th>
               )}
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Booking ID
+                #
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Customer
@@ -85,7 +96,7 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {bookings.map((booking) => (
+            {bookings.map((booking, index) => (
               <tr 
                 key={booking.id} 
                 className={`hover:bg-gray-50 transition-colors ${
@@ -103,7 +114,7 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
                   </td>
                 )}
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="text-sm font-medium text-gray-800">#{booking.id}</span>
+                  <span className="text-sm font-medium text-gray-800">{offset + index + 1}</span>
                 </td>
                 <td className="px-6 py-4">
                   <div>

@@ -10,12 +10,12 @@ echo "Building all apps..."
 npm run build
 
 echo "Syncing admin..."
-rsync -avz --delete -e "ssh -i ~/.ssh/authorized_keys" dist/admin/ $SERVER:$REMOTE_DIR/dist/admin/
+rsync -avz --delete -e "ssh -i ~/.ssh/id_ed25519" dist/admin/ $SERVER:$REMOTE_DIR/dist/admin/
 
 echo "Syncing organizer..."
-rsync -avz --delete -e "ssh -i ~/.ssh/authorized_keys" dist/organizer/ $SERVER:$REMOTE_DIR/dist/organizer/
+rsync -avz --delete -e "ssh -i ~/.ssh/id_ed25519" dist/organizer/ $SERVER:$REMOTE_DIR/dist/organizer/
 
 echo "Syncing user..."
-rsync -avz --delete -e "ssh -i ~/.ssh/authorized_keys" dist/user/ $SERVER:$REMOTE_DIR/dist/user/
+rsync -avz --delete -e "ssh -i ~/.ssh/id_ed25519" dist/user/ $SERVER:$REMOTE_DIR/dist/user/
 
 echo "Frontend deployment complete."

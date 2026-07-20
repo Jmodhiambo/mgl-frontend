@@ -1,16 +1,17 @@
 // src/apps/organizer/pages/BookingsView.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
 import {
   Search, Ticket, User, DollarSign, Download,
   CheckCircle, Clock, XCircle, AlertCircle,
-  ChevronDown, ChevronRight, ChevronLeft, Package,
+  ChevronRight, ChevronLeft, Package,
 } from 'lucide-react';
 import BookingDetailsModal from '@organizer/components/modals/bookings/BookingDetailsModal';
 import EmailModal from '@organizer/components/modals/bookings/EmailModal';
 import BulkActionBar from '@organizer/components/modals/bookings/BulkActionBar';
 import BookingsTable from '@organizer/components/modals/bookings/BookingsTable';
+import OrdersTable from '@organizer/components/modals/bookings/OrdersTable';
 import {
   organizer_getEventBookings,
   organizer_getRecentBookings,
@@ -18,7 +19,6 @@ import {
 import {
   getOrganizerOrders,
   type OrganizerOrderOut,
-  type OrganizerOrderBookingLine,
 } from '@shared/api/organizer/orgOrderApi';
 import { formatKES } from '@shared/utils/format';
 import { sendOrganizerEmail } from '@shared/api/organizer/orgEmailsApi';
@@ -239,92 +239,6 @@ const statusIcon: Record<string, React.ReactNode> = {
   cancelled: <XCircle className="w-4 h-4" />,
 };
  
-// ── Orders tab ────────────────────────────────────────────────────────────────
- 
-const OrderRow: React.FC<{ order: OrganizerOrderOut }> = ({ order }) => {
-  const [expanded, setExpanded] = useState(false);
-  const navigate = useNavigate();
- 
-  return (
-    <>
-      <tr
-        className="hover:bg-gray-50 cursor-pointer transition-colors"
-        onClick={() => setExpanded(p => !p)}
-      >
-        <td className="px-4 py-4 w-8">
-          {expanded
-            ? <ChevronDown className="w-4 h-4 text-gray-400" />
-            : <ChevronRight className="w-4 h-4 text-gray-400" />}
-        </td>
-        <td className="px-4 py-4 text-sm font-medium text-gray-800">#{order.id}</td>
-        <td className="px-4 py-4">
-          <p className="text-sm font-medium text-gray-800">{order.customer_name}</p>
-          <p className="text-xs text-gray-500">{order.customer_email}</p>
-        </td>
-        <td className="px-4 py-4">
-          <button
-            onClick={e => { e.stopPropagation(); navigate(`/events/${order.event_slug}`); }}
-            className="text-sm text-blue-600 hover:underline font-medium"
-          >
-            {order.event_title}
-          </button>
-        </td>
-        <td className="px-4 py-4 text-sm text-gray-600">{order.bookings.length} type{order.bookings.length !== 1 ? 's' : ''}</td>
-        <td className="px-4 py-4">
-          <p className="text-sm font-bold text-gray-800">{formatKES(order.total_price)}</p>
-          <p className="text-xs text-green-600">Net: {formatKES(order.organizer_net)}</p>
-        </td>
-        <td className="px-4 py-4">
-          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${statusStyle[order.status] ?? 'bg-gray-100 text-gray-700'}`}>
-            {statusIcon[order.status]}
-            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-          </span>
-        </td>
-        <td className="px-4 py-4 text-xs text-gray-500">{formatDate(order.created_at)}</td>
-      </tr>
- 
-      {/* Expanded booking line items */}
-      {expanded && (
-        <tr className="bg-blue-50">
-          <td colSpan={8} className="px-8 py-4">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              Booking line items
-            </p>
-            <div className="space-y-2">
-              {order.bookings.map((b: OrganizerOrderBookingLine) => (
-                <div
-                  key={b.id}
-                  className="flex items-center justify-between bg-white rounded-lg px-4 py-3 border border-blue-100"
-                >
-                  <div className="flex items-center gap-3">
-                    <Ticket className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">{b.ticket_type_name}</p>
-                      <p className="text-xs text-gray-500">{b.quantity} × ticket</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusStyle[b.status] ?? 'bg-gray-100 text-gray-700'}`}>
-                      {b.status.charAt(0).toUpperCase() + b.status.slice(1)}
-                    </span>
-                    <span className="text-sm font-bold text-gray-800">{formatKES(b.total_price)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {/* Commission breakdown for this order */}
-            <div className="mt-3 flex items-center gap-6 text-xs text-gray-500 border-t border-blue-100 pt-3">
-              <span>Commission: {order.commission_rate}%</span>
-              <span>Platform cut: <span className="text-red-500 font-medium">{formatKES(order.platform_cut)}</span></span>
-              <span>Your net: <span className="text-green-600 font-medium">{formatKES(order.organizer_net)}</span></span>
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
-  );
-};
- 
 // ── Main Component ────────────────────────────────────────────────────────────
  
 const BookingsView: React.FC = () => {
@@ -361,11 +275,20 @@ const BookingsView: React.FC = () => {
   const [bookingsTotal,   setBookingsTotal]   = useState(0);
   const [bookingsHasMore, setBookingsHasMore] = useState(false);
  
-  // Shared filter state
+  // Shared filter state. searchQuery is bound directly to the input (updates
+  // every keystroke); debouncedSearch is what actually gets sent to the
+  // backend, updated 400ms after typing stops, so we're not firing a
+  // request per character.
   const [searchQuery,   setSearchQuery]   = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter,  setStatusFilter]  = useState('all');
   const [dateRange,     setDateRange]     = useState({ start: '', end: '' });
- 
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 400);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
   // Bulk + modal state (bookings tab)
   const [isBulkMode,        setIsBulkMode]        = useState(false);
   const [selectedBookings,  setSelectedBookings]  = useState<number[]>([]);
@@ -384,14 +307,21 @@ const BookingsView: React.FC = () => {
     setOrdersLoading(true);
     setOrdersError(null);
     try {
-      // event_id is now filtered server-side (see orgOrderApi.ts) — the old
-      // client-side `data.filter(o => o.event_id === Number(eventId))` only
-      // worked because every order was fetched unpaginated; once paginated,
-      // filtering after the fact would miss matching orders on other pages.
+      // event_id AND search/status/date are all filtered server-side now
+      // (see orgOrderApi.ts) — this used to be client-side filtering over
+      // whatever page happened to be loaded, which only worked because
+      // pagination didn't exist yet. Search now actually searches the
+      // organizer's full order history, not just the visible page.
       const data = await getOrganizerOrders(
         ORDERS_PAGE_SIZE,
         pageOffset,
         eventId ? Number(eventId) : undefined,
+        {
+          search: debouncedSearch || undefined,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+          startDate: dateRange.start || undefined,
+          endDate: dateRange.end || undefined,
+        },
       );
       setOrders(data.items);
       setFilteredOrders(data.items);
@@ -403,7 +333,7 @@ const BookingsView: React.FC = () => {
     } finally {
       setOrdersLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, debouncedSearch, statusFilter, dateRange]);
 
   const goToPrevOrdersPage = () => loadOrders(Math.max(0, ordersOffset - ORDERS_PAGE_SIZE));
   const goToNextOrdersPage = () => { if (ordersHasMore) loadOrders(ordersOffset + ORDERS_PAGE_SIZE); };
@@ -414,10 +344,19 @@ const BookingsView: React.FC = () => {
     setBookingsLoading(true);
     setBookingsError(null);
     try {
+      // search/status/date are filtered server-side now — same reasoning as
+      // loadOrders above.
+      const filters = {
+        search: debouncedSearch || undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        startDate: dateRange.start || undefined,
+        endDate: dateRange.end || undefined,
+      };
       const data = eventId
-        ? await organizer_getEventBookings(Number(eventId), BOOKINGS_PAGE_SIZE, pageOffset)
-        : await organizer_getRecentBookings(BOOKINGS_PAGE_SIZE, pageOffset);
+        ? await organizer_getEventBookings(Number(eventId), BOOKINGS_PAGE_SIZE, pageOffset, filters)
+        : await organizer_getRecentBookings(BOOKINGS_PAGE_SIZE, pageOffset, filters);
       setBookings(data.items as Booking[]);
+      setFilteredBookings(data.items as Booking[]);
       setBookingsTotal(data.total);
       setBookingsHasMore(data.has_more);
       setBookingsOffset(data.offset);
@@ -426,62 +365,20 @@ const BookingsView: React.FC = () => {
     } finally {
       setBookingsLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, debouncedSearch, statusFilter, dateRange]);
 
   const goToPrevBookingsPage = () => loadBookings(Math.max(0, bookingsOffset - BOOKINGS_PAGE_SIZE));
   const goToNextBookingsPage = () => { if (bookingsHasMore) loadBookings(bookingsOffset + BOOKINGS_PAGE_SIZE); };
  
-  useEffect(() => { loadOrders(); }, [loadOrders]);
+  // Reload from page 1 whenever the event scope or any filter changes —
+  // loadOrders/loadBookings get a new identity (via useCallback's deps)
+  // each time eventId/debouncedSearch/statusFilter/dateRange change, so
+  // these effects re-fire automatically and reset to offset 0.
+  useEffect(() => { loadOrders(0); }, [loadOrders]);
  
   useEffect(() => {
-    if (activeTab === 'bookings' && bookings.length === 0 && !bookingsLoading) {
-      loadBookings();
-    }
-  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
- 
-  // ── Filter orders ────────────────────────────────────────────────────────
- 
-  useEffect(() => {
-    const q = searchQuery.toLowerCase();
-    setFilteredOrders(
-      orders.filter(o => {
-        const matchSearch =
-          !q ||
-          o.customer_name.toLowerCase().includes(q) ||
-          o.customer_email.toLowerCase().includes(q) ||
-          o.event_title.toLowerCase().includes(q);
-        const matchStatus = statusFilter === 'all' || o.status === statusFilter;
-        const matchDate = (() => {
-          if (!dateRange.start || !dateRange.end) return true;
-          const d = new Date(o.created_at);
-          return d >= new Date(dateRange.start) && d <= new Date(dateRange.end);
-        })();
-        return matchSearch && matchStatus && matchDate;
-      }),
-    );
-  }, [orders, searchQuery, statusFilter, dateRange]);
- 
-  // ── Filter bookings ──────────────────────────────────────────────────────
- 
-  useEffect(() => {
-    const q = searchQuery.toLowerCase();
-    setFilteredBookings(
-      bookings.filter(b => {
-        const matchSearch =
-          !q ||
-          (b.customer_name ?? '').toLowerCase().includes(q) ||
-          (b.customer_email ?? '').toLowerCase().includes(q) ||
-          (b.ticket_type_name ?? '').toLowerCase().includes(q);
-        const matchStatus = statusFilter === 'all' || b.status === statusFilter;
-        const matchDate = (() => {
-          if (!dateRange.start || !dateRange.end) return true;
-          const d = new Date(b.created_at);
-          return d >= new Date(dateRange.start) && d <= new Date(dateRange.end);
-        })();
-        return matchSearch && matchStatus && matchDate;
-      }),
-    );
-  }, [bookings, searchQuery, statusFilter, dateRange]);
+    if (activeTab === 'bookings') loadBookings(0);
+  }, [activeTab, loadBookings]);
  
   // ── Select all sync ──────────────────────────────────────────────────────
  
@@ -715,10 +612,8 @@ const BookingsView: React.FC = () => {
                   </button>
                 </div>
               </div>
-              {(searchQuery || statusFilter !== 'all' || dateRange.start) && (
-                <p className="text-xs text-gray-400 mt-3">
-                  Filters apply to the {orders.length} order{orders.length !== 1 ? 's' : ''} on this page only — use Prev/Next to search other pages.
-                </p>
+              {searchQuery !== debouncedSearch && (
+                <p className="text-xs text-gray-400 mt-3">Searching…</p>
               )}
             </div>
  
@@ -743,32 +638,23 @@ const BookingsView: React.FC = () => {
                 </p>
               </div>
             ) : (
-              <div className="bg-white rounded-xl shadow-md overflow-hidden">
-                {/* Desktop table */}
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr>
-                        <th className="w-8 px-4 py-4" />
-                        {['Order', 'Customer', 'Event', 'Items', 'Total', 'Status', 'Date'].map(h => (
-                          <th key={h} className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {filteredOrders.map(order => (
-                        <OrderRow key={order.id} order={order} />
-                      ))}
-                    </tbody>
-                  </table>
+              <>
+                {/* Desktop table — OrdersTable renders its own bg/shadow container */}
+                <div className="hidden md:block">
+                  <OrdersTable
+                    orders={filteredOrders}
+                    offset={ordersOffset}
+                    formatDate={formatDate}
+                  />
                 </div>
- 
+
                 {/* Mobile cards */}
-                <div className="md:hidden divide-y divide-gray-200">
-                  {filteredOrders.map(order => (
+                <div className="md:hidden bg-white rounded-xl shadow-md overflow-hidden divide-y divide-gray-200">
+                  {filteredOrders.map((order, index) => (
                     <div key={order.id} className="p-4">
                       <div className="flex items-start justify-between mb-2">
                         <div>
+                          <p className="text-xs text-gray-400">#{ordersOffset + index + 1}</p>
                           <p className="font-semibold text-gray-800 text-sm">Order #{order.id}</p>
                           <p className="text-xs text-gray-500">{order.customer_name}</p>
                           <p className="text-xs text-gray-500 truncate max-w-[200px]">{order.event_title}</p>
@@ -785,7 +671,7 @@ const BookingsView: React.FC = () => {
                     </div>
                   ))}
                 </div>
-              </div>
+              </>
             )}
 
             {/* Pagination — based on the unfiltered page total, so it stays
@@ -879,10 +765,8 @@ const BookingsView: React.FC = () => {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
-              {(searchQuery || statusFilter !== 'all' || dateRange.start) && (
-                <p className="text-xs text-gray-400 mt-3">
-                  Filters apply to the {bookings.length} booking{bookings.length !== 1 ? 's' : ''} on this page only — use Prev/Next to search other pages.
-                </p>
+              {searchQuery !== debouncedSearch && (
+                <p className="text-xs text-gray-400 mt-3">Searching…</p>
               )}
             </div>
  
@@ -931,6 +815,7 @@ const BookingsView: React.FC = () => {
                     onEmailBooking={openEmailModal}
                     getStatusBadge={getStatusBadge}
                     formatDate={formatDate}
+                    offset={bookingsOffset}
                   />
                 </div>
 
@@ -947,7 +832,7 @@ const BookingsView: React.FC = () => {
                       Select all
                     </label>
                   )}
-                  {filteredBookings.map(b => (
+                  {filteredBookings.map((b, index) => (
                     <div
                       key={b.id}
                       className={`p-4 ${isBulkMode && selectedBookings.includes(b.id) ? 'bg-blue-50' : ''}`}
@@ -966,7 +851,7 @@ const BookingsView: React.FC = () => {
                             className={!isBulkMode ? 'cursor-pointer min-w-0' : 'min-w-0'}
                             onClick={() => !isBulkMode && handleViewBooking(b)}
                           >
-                            <p className="text-xs text-gray-400">#{b.id}</p>
+                            <p className="text-xs text-gray-400">#{bookingsOffset + index + 1}</p>
                             <p className="font-semibold text-gray-800 text-sm truncate">
                               {b.customer_name ?? 'Unknown customer'}
                             </p>

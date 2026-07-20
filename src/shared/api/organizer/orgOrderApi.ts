@@ -96,16 +96,28 @@ export const getOrganizerStats = async (): Promise<DashboardStats> => {
 };
 
 /**
- * Paginated orders for the current organizer's events, optionally scoped to
- * a single event (used by the event-specific BookingsView route so it only
- * ever sees that event's orders, not the organizer's full history).
+ * Paginated, server-filtered orders for the current organizer's events,
+ * optionally scoped to a single event (used by the event-specific
+ * BookingsView route so it only ever sees that event's orders, not the
+ * organizer's full history). search/status/date filters used to be applied
+ * client-side over whatever page was loaded — they now go to the backend
+ * as query params so search actually covers the organizer's full order
+ * history, not just the current page.
  * Each order includes nested booking line items and commission breakdown.
  * Used by BookingsView — Orders tab.
  */
+export interface OrganizerOrdersFilters {
+  search?: string;
+  status?: string;      // sent as order_status to the backend
+  startDate?: string;   // ISO date string, e.g. '2026-07-01'
+  endDate?: string;
+}
+
 export const getOrganizerOrders = async (
   limit = 20,
   offset = 0,
   eventId?: number,
+  filters?: OrganizerOrdersFilters,
 ): Promise<PaginatedResponse<OrganizerOrderOut>> => {
   return (
     await api.get('/organizers/me/orders', {
@@ -113,6 +125,10 @@ export const getOrganizerOrders = async (
         limit,
         offset,
         ...(eventId !== undefined ? { event_id: eventId } : {}),
+        ...(filters?.search ? { search: filters.search } : {}),
+        ...(filters?.status ? { order_status: filters.status } : {}),
+        ...(filters?.startDate ? { start_date: filters.startDate } : {}),
+        ...(filters?.endDate ? { end_date: filters.endDate } : {}),
       },
     })
   ).data;

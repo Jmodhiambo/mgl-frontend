@@ -1,4 +1,4 @@
-// src/api/user/bookingsApi.ts
+// src/shared/api/user/bookingsApi.ts
 // ─────────────────────────────────────────────────────────────────────────────
 // Booking API calls — used across user, organizer, and admin apps.
 // Scoped by function prefix:
@@ -123,19 +123,44 @@ export const cancelBooking = async (bookingId: number): Promise<void> => {
 
 // ── Organizer ─────────────────────────────────────────────────────────────────
 
-// organizer_getEventBookings and organizer_getRecentBookings are paginated —
-// both back the BookingsView "Bookings" tab (scoped to one event, or across
-// all of the organizer's events when no eventId is given).
+// organizer_getEventBookings and organizer_getRecentBookings are paginated
+// AND filtered server-side — both back the BookingsView "Bookings" tab
+// (scoped to one event, or across all of the organizer's events when no
+// eventId is given). search/status/date filters used to be applied
+// client-side over whatever page was loaded, which meant search only ever
+// searched the currently-visible page — these now go to the backend as
+// query params so search actually covers the organizer's full history.
 // All other organizer booking endpoints currently return plain BookingOut
-// and are not paginated (not used by a page that needed it yet).
+// and are not paginated/filtered (not used by a page that needed it yet).
+export interface OrganizerBookingsFilters {
+  search?: string;
+  status?: string;      // sent as booking_status to the backend
+  startDate?: string;   // ISO date string, e.g. '2026-07-01'
+  endDate?: string;
+}
+
+const toBookingsParams = (
+  limit: number,
+  offset: number,
+  filters?: OrganizerBookingsFilters,
+) => ({
+  limit,
+  offset,
+  ...(filters?.search ? { search: filters.search } : {}),
+  ...(filters?.status ? { booking_status: filters.status } : {}),
+  ...(filters?.startDate ? { start_date: filters.startDate } : {}),
+  ...(filters?.endDate ? { end_date: filters.endDate } : {}),
+});
+
 export const organizer_getEventBookings = async (
   eventId: number,
   limit = 20,
   offset = 0,
+  filters?: OrganizerBookingsFilters,
 ): Promise<PaginatedResponse<BookingEnriched>> => {
   return (
     await api.get(`/organizers/me/events/${eventId}/bookings`, {
-      params: { limit, offset },
+      params: toBookingsParams(limit, offset, filters),
     })
   ).data;
 };
@@ -160,10 +185,11 @@ export const organizer_getBookingsByTicketType = async (
 export const organizer_getRecentBookings = async (
   limit = 20,
   offset = 0,
+  filters?: OrganizerBookingsFilters,
 ): Promise<PaginatedResponse<BookingEnriched>> => {
   return (
     await api.get('/organizers/me/recent-bookings', {
-      params: { limit, offset },
+      params: toBookingsParams(limit, offset, filters),
     })
   ).data;
 };
