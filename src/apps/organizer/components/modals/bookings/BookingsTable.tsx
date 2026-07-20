@@ -38,6 +38,14 @@ interface BookingsTableProps {
    * real booking.id is still shown in the booking details modal.
    */
   offset: number;
+  /**
+   * When true, renders the event title as small text under the ticket
+   * type. Only meaningful on the cross-event "all bookings" view — when
+   * scoped to a single event (BookingsView with an eventId param), every
+   * row already shares the same event, so showing it would just repeat
+   * the same text down the whole table for no benefit.
+   */
+  showEventTitle?: boolean;
 }
 
 const BookingsTable: React.FC<BookingsTableProps> = ({
@@ -52,6 +60,7 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
   getStatusBadge,
   formatDate,
   offset,
+  showEventTitle = false,
 }) => {
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden">
@@ -124,6 +133,9 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
                 </td>
                 <td className="px-6 py-4">
                   <span className="text-sm text-gray-800">{booking.ticket_type_name}</span>
+                  {showEventTitle && booking.event_title && (
+                    <p className="text-xs text-blue-600 truncate max-w-[200px] mt-0.5">{booking.event_title}</p>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className="text-sm font-semibold text-gray-800">{booking.quantity}</span>

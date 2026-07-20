@@ -816,6 +816,7 @@ const BookingsView: React.FC = () => {
                     getStatusBadge={getStatusBadge}
                     formatDate={formatDate}
                     offset={bookingsOffset}
+                    showEventTitle={!eventId}
                   />
                 </div>
 
@@ -859,6 +860,9 @@ const BookingsView: React.FC = () => {
                             <p className="text-xs text-gray-500 truncate mt-0.5">
                               {b.ticket_type_name} · {b.quantity} ticket{b.quantity !== 1 ? 's' : ''}
                             </p>
+                            {!eventId && b.event_title && (
+                              <p className="text-xs text-blue-600 truncate mt-0.5">{b.event_title}</p>
+                            )}
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0 ml-2">
