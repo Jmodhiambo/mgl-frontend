@@ -1,25 +1,26 @@
 import React from 'react';
 import { Newspaper, Download, Mail, Award, TrendingUp, Users, Calendar, Image } from 'lucide-react';
 import { PressSEO } from '@shared/components/SEO';
+import { PRESS_EMAIL, SUPPORT_EMAIL, SUPPORT_PHONE_NUMBER } from '@shared/components/ENV'
 
 const PressPage: React.FC = () => {
   document.title = 'Press & Media - MGLTickets';
 
   const pressReleases = [
     {
-      date: 'January 2025',
+      date: 'July 2026',
       title: 'MGLTickets Surpasses 500,000 Tickets Sold Milestone',
       excerpt: 'Leading Kenyan ticketing platform reaches major milestone, demonstrating strong growth in the local events industry.',
       link: '#'
     },
     {
-      date: 'December 2024',
+      date: 'May 2026',
       title: 'MGLTickets Partners with Major Kenyan Venues',
       excerpt: 'Strategic partnerships expand platform reach across Kenya\'s premier event venues.',
       link: '#'
     },
     {
-      date: 'November 2024',
+      date: 'January 2026',
       title: 'MGLTickets Launches Enhanced Mobile Experience',
       excerpt: 'New mobile features make ticket purchasing and management easier than ever for event-goers.',
       link: '#'
@@ -66,7 +67,7 @@ const PressPage: React.FC = () => {
           </div>
 
           {/* Key Metrics */}
-          <div className="mb-12">
+          {/* <div className="mb-12">
             <h2 className="text-2xl font-bold text-gray-900 text-center mb-8">By the Numbers</h2>
             <div className="grid md:grid-cols-4 gap-6">
               {achievements.map((achievement, index) => {
@@ -82,7 +83,7 @@ const PressPage: React.FC = () => {
                 );
               })}
             </div>
-          </div>
+          </div> */}
 
           {/* Recent Press Releases */}
           <div className="mb-12">
@@ -193,14 +194,14 @@ const PressPage: React.FC = () => {
             <div className="space-y-4">
               <div>
                 <p className="font-semibold mb-1">Press Contact</p>
-                <a href="mailto:press@mgltickets.com" className="text-orange-400 hover:text-orange-300">
-                  press@mgltickets.com
+                <a href={`mailto:${PRESS_EMAIL}`} className="text-orange-400 hover:text-orange-300">
+                  {PRESS_EMAIL}
                 </a>
               </div>
               <div>
                 <p className="font-semibold mb-1">Phone</p>
-                <a href="tel:+254700000000" className="text-orange-400 hover:text-orange-300">
-                  +254 700 000 000
+                <a href={`tel:${SUPPORT_PHONE_NUMBER}`} className="text-orange-400 hover:text-orange-300">
+                  {SUPPORT_PHONE_NUMBER}
                 </a>
               </div>
               <div>

@@ -43,4 +43,4 @@ Add cart so that users can go back to the booking at later time. I think it will
 
 Create email stats page on the organizer and admin pages based on the emails sent out by organizers. 
 
-Work on the stats section on the home page and the about page.
+Work on the stats section on the home, about and press pages.
