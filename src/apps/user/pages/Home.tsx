@@ -159,7 +159,7 @@ const HomePage: React.FC = () => {
         </section>
 
         {/* ── Stats ─────────────────────────────────────────────────────────── */}
-        <section className="bg-white py-12 border-b border-gray-100">
+        {/* <section className="bg-white py-12 border-b border-gray-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
               {[
@@ -174,7 +174,7 @@ const HomePage: React.FC = () => {
               ))}
             </div>
           </div>
-        </section>
+        </section> */}
 
         {/* ── Featured Events ────────────────────────────────────────────────── */}
         <section id="events" className="py-20">

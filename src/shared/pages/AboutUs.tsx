@@ -96,7 +96,7 @@ const AboutUs: React.FC = () => {
           </div>
 
           {/* Stats Section */}
-          <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
+          {/* <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12 mb-12">
             <h2 className="text-3xl font-bold text-gray-900 text-center mb-10">Our Impact</h2>
             <div className="grid md:grid-cols-4 gap-8">
               <div className="text-center">
@@ -116,7 +116,7 @@ const AboutUs: React.FC = () => {
                 <p className="text-gray-600">Uptime</p>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* What We Offer */}
           <div className="mb-12">
