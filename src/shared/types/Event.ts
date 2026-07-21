@@ -52,10 +52,53 @@ export interface TicketTypeOut {
   description: string | null;
   price: number;
   is_active: boolean;
+  total_quantity: number;
   quantity_available: number;
   quantity_sold: number;
+  /** Cap on how many of this ticket type a single buyer can take in one order. */
+  max_per_booking: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface TicketTypeOrganizerOut extends TicketTypeOut {
+  suspended_by_admin_name: string | null;
+  suspension_reason: string | null;
+  suspended_at: string | null;
+}
+
+export interface TicketTypeAdminOut extends TicketTypeOut {
+  suspended_by_admin_id: number | null;
+  suspended_by_admin_name: string | null;
+  suspension_reason: string | null;
+  suspended_at: string | null;
+}
+
+export interface TicketTypeCreate {
+  event_id: number;
+  name: string;
+  description?: string;
+  price: number;
+  is_active?: boolean;
+  total_quantity: number;
+  max_per_booking?: number;
+}
+
+export interface TicketTypeUpdate {
+  name?: string;
+  description?: string;
+  price?: number;
+  is_active?: boolean;
+  total_quantity?: number;
+  max_per_booking?: number;
+}
+
+export interface TicketTypeFormData {
+  name: string;
+  description: string;
+  price: string;
+  total_quantity: string;
+  max_per_booking: string;
 }
 
 // ─── Favorites ────────────────────────────────────────────────────────────────
@@ -232,47 +275,3 @@ export interface CoOrganizerWithEvent {
   created_at:          string;   // ISO — when the relationship was created
   event:               OrganizerEventOut;
 }
-
-
-// Old types
-
-// export interface Event {
-//   id: number;
-//   title: string;
-//   organizer_id: number;
-//   description?: string;
-//   venue: string;
-//   price?: number;
-//   start_time: string;
-//   end_time: string;
-//   original_filename: string;
-//   flyer_url: string;
-//   status: string;
-//   created_at: string;
-//   update_at: string;
-// }
-
-// export interface EventCreate {
-//     title: string;
-//     description?: string;
-//     venue: string;
-//     start_time: string;
-//     end_time: string;
-// }
-
-// export interface EventUpdate {
-//     title?: string;
-//     description?: string;
-//     venue?: string;
-//     start_time?: string;
-//     end_time?: string;
-// }
-
-// export interface OrganizerEventsResponse extends Event {
-//     approved: boolean;
-//     rejected: boolean;
-// }
-
-// export interface EventStatus {
-//     status: "upcoming" | "ongoing" | "completed" | "cancelled" | "deleted";
-// }

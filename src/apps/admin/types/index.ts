@@ -1,6 +1,5 @@
 // src/apps/admin/types/index.ts
 
-
 export type EventLifecycleStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled' | 'pending_deletion' | 'deleted';
 
 export interface AdminUser {
@@ -100,6 +99,8 @@ export interface AdminTicketType {
   total_quantity: number;      // the ceiling — set at creation, raised by organizer
   quantity_available: number;  // computed server-side: total_quantity - quantity_sold
   quantity_sold: number;
+  /** Cap on how many of this ticket type a single buyer can take in one order. */
+  max_per_booking: number;
   is_active: boolean;
   // Presence of suspended_by_admin_id is the source of truth for "is this
   // suspended" — check `ticket.suspended_by_admin_id != null`, not a
@@ -127,23 +128,9 @@ export interface CreateTicketTypePayload {
   description?: string;
   price: number;
   total_quantity: number;
+  max_per_booking?: number;
   is_active?: boolean;
 }
-
-// export interface ContactMessage {
-//   id: number;
-//   reference_id: string;
-//   name: string;
-//   email: string;
-//   phone?: string;
-//   subject: string;
-//   category: string;
-//   message: string;
-//   status: 'new' | 'pending' | 'responded' | 'closed' | 'spam';
-//   created_at: string;
-//   updated_at: string;
-//   handled_by?: number;
-// }
 
 export interface ContactMessage {
   id: number;

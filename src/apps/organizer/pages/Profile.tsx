@@ -2,17 +2,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  User, Mail, Phone, Globe, Upload, Camera, Check, Plus,
+  User, Mail, Phone, Globe, Camera, Check, Plus,
   X, Save, Edit, Trash2, Clock, LogOut,
   AlertCircle, ExternalLink, Loader2, ShieldCheck, ShieldOff,
-  Lock, Eye, EyeOff, Key,
+  Key,
 } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
 import {
   getOrganizerSessions,
   revokeOrganizerSession,
   revokeAllOtherOrganizerSessions,
-  changeOrganizerPassword,
 } from '@shared/api/organizer/orgProfileApi';
 import {
   getOrganizerProfile,
@@ -21,6 +20,14 @@ import {
 } from '@shared/api/organizer/orgUserApi';
 import { timeAgo } from '@shared/utils/timeAgo';
 import type { RefreshSession } from '@shared/types/Auth';
+
+// Password changes are handled exclusively in the user app (mgltickets.com).
+// All three apps share one account/password, but the browser's saved-password
+// entry is scoped per-origin — organizer.mgltickets.com, admin.mgltickets.com,
+// and mgltickets.com are three separate "sites" to Chrome/Safari's password
+// manager. Consolidating the change form into one origin keeps that one
+// saved entry current instead of fragmenting it across three.
+const USER_APP_PROFILE_URL = 'https://mgltickets.com/profile';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -39,12 +46,6 @@ interface OrganizerProfile {
   profile_picture_url?: string | null;
   social_media_links?: string[] | null;
   area_of_expertise?: string[] | null;
-}
-
-interface PasswordForm {
-  current_password: string;
-  new_password: string;
-  confirm_password: string;
 }
 
 type ActiveTab = 'profile' | 'security' | 'sessions';
@@ -120,39 +121,6 @@ const OrganizerProfile: React.FC = () => {
   const [sessions,        setSessions]        = useState<RefreshSession[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionError,    setSessionError]    = useState<string | null>(null);
-
-  // ── Password change ───────────────────────────────────────────────────────
-
-  const [pwForm, setPwForm]       = useState<PasswordForm>({ current_password: '', new_password: '', confirm_password: '' });
-  const [showPw, setShowPw]       = useState({ current: false, new: false, confirm: false });
-  const [pwErrors, setPwErrors]   = useState<Partial<Record<keyof PasswordForm, string>>>({});
-  const [pwLoading, setPwLoading] = useState(false);
-  const [pwSuccess, setPwSuccess] = useState(false);
-
-  const validatePassword = (): boolean => {
-    const e: Partial<Record<keyof PasswordForm, string>> = {};
-    if (!pwForm.current_password) e.current_password = 'Required';
-    if (pwForm.new_password.length < 8) e.new_password = 'Min. 8 characters';
-    if (pwForm.new_password !== pwForm.confirm_password) e.confirm_password = 'Passwords do not match';
-    setPwErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const handlePasswordChange = async () => {
-    if (!validatePassword()) return;
-    setPwLoading(true);
-    setPwSuccess(false);
-    try {
-      await changeOrganizerPassword(pwForm.current_password, pwForm.new_password);
-      setPwForm({ current_password: '', new_password: '', confirm_password: '' });
-      setPwSuccess(true);
-      setTimeout(() => setPwSuccess(false), 3000);
-    } catch (err) {
-      setPwErrors({ current_password: parseApiError(err, 'Failed to update password. Please check your current password.') });
-    } finally {
-      setPwLoading(false);
-    }
-  };
 
   // ── Load profile ──────────────────────────────────────────────────────────
 
@@ -662,80 +630,29 @@ const OrganizerProfile: React.FC = () => {
 
         {/* ══ SECURITY TAB ══ */}
         {activeTab === 'security' && (
-          <div className="space-y-6 pb-8">
+          <div className="space-y-4 pb-8">
             <div className="bg-white rounded-2xl p-6 shadow-sm">
-              <SectionLabel>Change password</SectionLabel>
-              <p className="text-sm font-medium text-gray-600 -mt-2 mb-5">Choose a strong password. We recommend at least 8 characters.</p>
-
-              {pwSuccess && (
-                <div className="flex items-center gap-3 px-5 py-4 bg-green-50 border border-green-200 rounded-2xl mb-5">
-                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                    <Check className="w-4 h-4 text-green-600" />
-                  </div>
-                  <p className="text-sm font-semibold text-green-800">Password updated successfully.</p>
+              <div className="flex items-start gap-4">
+                <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <Key className="w-5 h-5 text-blue-600" />
                 </div>
-              )}
-
-              <div className="space-y-5">
-                {(['current_password', 'new_password', 'confirm_password'] as const).map(field => {
-                  const labels: Record<typeof field, string> = {
-                    current_password: 'Current password',
-                    new_password: 'New password',
-                    confirm_password: 'Confirm new password',
-                  };
-                  const showKey = field === 'current_password' ? 'current' : field === 'new_password' ? 'new' : 'confirm';
-                  const shown = showPw[showKey];
-                  const fieldName =
-                    field === 'current_password' ? 'current-password'
-                    : field === 'new_password' ? 'new-password'
-                    : 'confirm-new-password';
-                  const autoComplete = field === 'current_password' ? 'current-password' : 'new-password';
-                  return (
-                    <div key={field}>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">{labels[field]}</label>
-                      <div className="relative">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                        <input
-                          type={shown ? 'text' : 'password'}
-                          name={fieldName}
-                          autoComplete={autoComplete}
-                          value={pwForm[field]}
-                          onChange={e => setPwForm(p => ({ ...p, [field]: e.target.value }))}
-                          className={`w-full pl-11 pr-11 py-3 bg-gray-50 border ${pwErrors[field] ? 'border-red-400' : 'border-gray-200'} rounded-xl text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-colors`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPw(p => ({ ...p, [showKey]: !p[showKey] }))}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                        >
-                          {shown ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                      <FieldError msg={pwErrors[field]} />
-                      {field === 'new_password' && pwForm.new_password && (
-                        <div className="mt-2 flex gap-1">
-                          {[8, 12, 16].map(len => (
-                            <div key={len} className={`h-1 flex-1 rounded-full transition-colors ${
-                              pwForm.new_password.length >= len ? 'bg-blue-500' : 'bg-gray-200'
-                            }`} />
-                          ))}
-                          <span className="text-xs text-gray-400 ml-2">
-                            {pwForm.new_password.length < 8 ? 'Too short' : pwForm.new_password.length < 12 ? 'Fair' : 'Strong'}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="flex justify-end mt-6">
-                <button onClick={handlePasswordChange} disabled={pwLoading}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-50">
-                  {pwLoading
-                    ? <Loader2 className="w-4 h-4 animate-spin" />
-                    : <><Key className="w-4 h-4" /> Update password</>}
-                </button>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-bold text-gray-900">Change Password</h3>
+                  <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                    Your organizer login is the same account used across every MGLTickets
+                    app. Password changes are handled in one place — your main account
+                    settings — so your browser's saved password stays accurate instead of
+                    going stale on one app after you update it on another.
+                  </p>
+                  <a
+                    href={USER_APP_PROFILE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 mt-3 text-sm font-semibold text-blue-600 hover:text-blue-700"
+                  >
+                    Update password on mgltickets.com <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
               </div>
             </div>
           </div>

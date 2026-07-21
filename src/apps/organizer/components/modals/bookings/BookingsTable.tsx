@@ -1,6 +1,7 @@
 // src/organizer/components/BookingsTable.tsx
-import React from 'react';
-import { Eye, Mail } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { Eye, Mail, MoreVertical } from 'lucide-react';
 
 interface Booking {
   id: number;
@@ -48,6 +49,93 @@ interface BookingsTableProps {
   showEventTitle?: boolean;
 }
 
+// ── Row actions menu ─────────────────────────────────────────────────────────
+// Rendered via a portal (not a plain absolutely-positioned <div>) because
+// this table lives inside an `overflow-x-auto` wrapper — a normal dropdown
+// would get clipped by that container the moment the row isn't near the very
+// top of the visible table. Same pattern as CoOrganizers.tsx's RowMenu.
+
+const RowActionsMenu: React.FC<{
+  onView: () => void;
+  /** undefined in bulk-select mode — email sending is single-booking only,
+   * matching the button-based version's previous behaviour. */
+  onEmail?: () => void;
+}> = ({ onView, onEmail }) => {
+  const [open, setOpen] = useState(false);
+  const [style, setStyle] = useState<React.CSSProperties>({});
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // Menu height varies: one item (bulk mode, View only) vs two (View + Email).
+  const menuHeight = onEmail ? 88 : 48;
+
+  const handleOpen = () => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < menuHeight + 8 && rect.top > menuHeight;
+    setStyle(
+      openUpward
+        ? { position: 'fixed', bottom: window.innerHeight - rect.top + 4, right: window.innerWidth - rect.right, top: 'auto' }
+        : { position: 'fixed', top: rect.bottom + 4, right: window.innerWidth - rect.right },
+    );
+    setOpen(o => !o);
+  };
+
+  const close = () => setOpen(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onOutside = (e: MouseEvent) => {
+      if (triggerRef.current && !triggerRef.current.contains(e.target as Node)) close();
+    };
+    window.addEventListener('mousedown', onOutside);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('mousedown', onOutside);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        onClick={handleOpen}
+        className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+        aria-label="Open actions menu"
+        aria-haspopup="true"
+        aria-expanded={open}
+      >
+        <MoreVertical className="w-4 h-4" />
+      </button>
+      {open && createPortal(
+        <>
+          <div className="fixed inset-0 z-[9998]" onClick={close} />
+          <div style={{ ...style, zIndex: 9999 }} className="w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+            <button
+              onClick={() => { close(); onView(); }}
+              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <Eye className="w-4 h-4" /> View Details
+            </button>
+            {onEmail && (
+              <button
+                onClick={() => { close(); onEmail(); }}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-green-600 hover:bg-green-50 transition-colors"
+              >
+                <Mail className="w-4 h-4" /> Send Email
+              </button>
+            )}
+          </div>
+        </>,
+        document.body,
+      )}
+    </>
+  );
+};
+
 const BookingsTable: React.FC<BookingsTableProps> = ({
   bookings,
   selectedBookings,
@@ -84,7 +172,13 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Customer
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              {/* Fixed width — this column used to grow with the event title
+                  (added below the ticket type) and push Quantity/Total/
+                  Status/Date/Actions off-screen, forcing horizontal scroll.
+                  w-48 caps it regardless of content; both lines inside
+                  truncate with an ellipsis and show the full text on hover
+                  via the title attribute. */}
+              <th className="w-48 px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Ticket Type
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -131,10 +225,20 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
                     <div className="text-sm text-gray-500">{booking.customer_email}</div>
                   </div>
                 </td>
-                <td className="px-6 py-4">
-                  <span className="text-sm text-gray-800">{booking.ticket_type_name}</span>
+                <td className="w-48 px-6 py-4">
+                  <span
+                    title={booking.ticket_type_name}
+                    className="text-sm text-gray-800 truncate block max-w-[160px]"
+                  >
+                    {booking.ticket_type_name}
+                  </span>
                   {showEventTitle && booking.event_title && (
-                    <p className="text-xs text-blue-600 truncate max-w-[200px] mt-0.5">{booking.event_title}</p>
+                    <p
+                      title={booking.event_title}
+                      className="text-xs text-blue-600 truncate max-w-[160px] mt-0.5"
+                    >
+                      {booking.event_title}
+                    </p>
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -152,26 +256,10 @@ const BookingsTable: React.FC<BookingsTableProps> = ({
                   <span className="text-sm text-gray-600">{formatDate(booking.created_at)}</span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => onViewBooking(booking)}
-                      className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center transition-colors"
-                      title="View Details"
-                    >
-                      <Eye className="w-4 h-4 mr-1" />
-                      View
-                    </button>
-                    {!isBulkMode && (
-                      <button 
-                        onClick={() => onEmailBooking(booking)}
-                        className="text-green-600 hover:text-green-700 font-medium text-sm flex items-center transition-colors"
-                        title="Send Email"
-                      >
-                        <Mail className="w-4 h-4 mr-1" />
-                        Email
-                      </button>
-                    )}
-                  </div>
+                  <RowActionsMenu
+                    onView={() => onViewBooking(booking)}
+                    onEmail={!isBulkMode ? () => onEmailBooking(booking) : undefined}
+                  />
                 </td>
               </tr>
             ))}

@@ -1,25 +1,17 @@
 // src/apps/organizer/pages/TicketTypes.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Ticket, Plus, Edit, Trash2, X, Save, DollarSign, Users, Eye, EyeOff, AlertCircle, Ban, ArrowLeft } from 'lucide-react';
+import { Ticket, Plus, Edit, Trash2, X, Save, DollarSign, Users, Eye, EyeOff, AlertCircle, Ban, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { getEventDetails } from '@organizer/services/eventService';
 import {
   organizer_getEventTicketTypes,
   organizer_createTicketType,
   organizer_updateTicketType,
   organizer_deleteTicketType,
-  type TicketTypeOrganizerOut,
-  type TicketTypeCreate,
-  type TicketTypeUpdate,
 } from '@shared/api/user/ticketTypesApi';
+import { TicketTypeOrganizerOut, TicketTypeCreate, TicketTypeUpdate, TicketTypeFormData } from '@shared/types/Event';
 import { parseApiError } from '@shared/utils/parseApiError';
 
-interface TicketTypeFormData {
-  name: string;
-  description: string;
-  price: string;
-  total_quantity: string;
-}
 
 const TicketTypesManagement: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
@@ -35,7 +27,7 @@ const TicketTypesManagement: React.FC = () => {
   const [submitting, setSubmitting]     = useState(false);
 
   const [formData, setFormData] = useState<TicketTypeFormData>({
-    name: '', description: '', price: '', total_quantity: '',
+    name: '', description: '', price: '', total_quantity: '', max_per_booking: '10',
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
@@ -89,13 +81,18 @@ const TicketTypesManagement: React.FC = () => {
     } else if (editingTicket && parseInt(formData.total_quantity) < editingTicket.quantity_sold) {
       errs.total_quantity = `Cannot be less than ${editingTicket.quantity_sold} (already sold)`;
     }
+
+    if (!formData.max_per_booking || parseInt(formData.max_per_booking) <= 0) {
+      errs.max_per_booking = 'Must be greater than 0';
+    }
+
     setFormErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
   const openCreateModal = () => {
     setEditingTicket(null);
-    setFormData({ name: '', description: '', price: '', total_quantity: '' });
+    setFormData({ name: '', description: '', price: '', total_quantity: '', max_per_booking: '10' });
     setFormErrors({});
     setShowModal(true);
   };
@@ -103,10 +100,11 @@ const TicketTypesManagement: React.FC = () => {
   const openEditModal = (ticket: TicketTypeOrganizerOut) => {
     setEditingTicket(ticket);
     setFormData({
-      name:           ticket.name,
-      description:    ticket.description ?? '',
-      price:          ticket.price.toString(),
-      total_quantity: ticket.total_quantity.toString(),
+      name:             ticket.name,
+      description:      ticket.description ?? '',
+      price:            ticket.price.toString(),
+      total_quantity:   ticket.total_quantity.toString(),
+      max_per_booking:  ticket.max_per_booking.toString(),
     });
     setFormErrors({});
     setShowModal(true);
@@ -121,21 +119,23 @@ const TicketTypesManagement: React.FC = () => {
     try {
       if (editingTicket) {
         const update: TicketTypeUpdate = {
-          name:           formData.name,
-          description:    formData.description || undefined,
-          price:          parseFloat(formData.price),
-          total_quantity: parseInt(formData.total_quantity),
+          name:             formData.name,
+          description:      formData.description || undefined,
+          price:            parseFloat(formData.price),
+          total_quantity:   parseInt(formData.total_quantity),
+          max_per_booking:  parseInt(formData.max_per_booking),
         };
         const updated = await organizer_updateTicketType(editingTicket.id, update);
         setTicketTypes(prev => prev.map(t => t.id === updated.id ? updated : t));
       } else {
         const create: TicketTypeCreate = {
-          event_id:       Number(eventId),
-          name:           formData.name,
-          description:    formData.description || undefined,
-          price:          parseFloat(formData.price),
-          total_quantity: parseInt(formData.total_quantity),
-          is_active:      true,
+          event_id:         Number(eventId),
+          name:             formData.name,
+          description:      formData.description || undefined,
+          price:            parseFloat(formData.price),
+          total_quantity:   parseInt(formData.total_quantity),
+          max_per_booking:  parseInt(formData.max_per_booking),
+          is_active:        true,
         };
         const created = await organizer_createTicketType(Number(eventId), create);
         setTicketTypes(prev => [...prev, created]);
@@ -319,6 +319,12 @@ const TicketTypesManagement: React.FC = () => {
                         {ticket.quantity_available} tickets
                       </span>
                     </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600 flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5" /> Max per booking:
+                      </span>
+                      <span className="font-semibold text-gray-800">{ticket.max_per_booking}</span>
+                    </div>
                   </div>
 
                   <div className="flex gap-2 pt-4 border-t border-gray-100">
@@ -415,6 +421,24 @@ const TicketTypesManagement: React.FC = () => {
                     </p>
                   )}
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Max per Booking * <span className="text-gray-400 font-normal">— cap per single order</span>
+                </label>
+                <div className="relative">
+                  <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="number" name="max_per_booking" min="1" value={formData.max_per_booking} onChange={handleInputChange}
+                    placeholder="10"
+                    className={`w-full pl-10 pr-4 py-3 border ${formErrors.max_per_booking ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500`}
+                  />
+                </div>
+                {formErrors.max_per_booking && <p className="mt-1 text-sm text-red-600">{formErrors.max_per_booking}</p>}
+                <p className="mt-1 text-xs text-gray-500">
+                  How many of this ticket type one buyer can take in a single order. Separate from total capacity.
+                </p>
               </div>
             </div>
 

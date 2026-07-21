@@ -1,27 +1,12 @@
-// src/apps/admin/components/modals/events/CreateTicketTypesModal.tsx
+// src/apps/admin/components/modals/ticketTypes/CreateTicketTypesModal.tsx
 import { useState } from 'react';
 import {
   Ticket, Plus, Trash2, Save, X, DollarSign, Users,
-  CheckCircle, AlertCircle, ChevronDown, Tag, Loader2,
+  CheckCircle, AlertCircle, ChevronDown, Tag, Loader2, ShieldCheck,
 } from 'lucide-react';
 import { createTicketType } from '@admin/services/adminService';
+import { parseApiError } from '@shared/utils/parseApiError';
 import type { AdminEvent } from '@admin/types';
-
-// ─── Helper ───────────────────────────────────────────────────────────────────
-
-function parseApiError(err: any, fallback: string): string {
-  const raw = err?.response?.data?.detail;
-  if (Array.isArray(raw)) {
-    return raw
-      .map((e: any) => {
-        const field = Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : 'field';
-        return `${field}: ${e.msg}`;
-      })
-      .join('; ');
-  }
-  if (typeof raw === 'string') return raw;
-  return fallback;
-}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,6 +15,7 @@ export interface TicketTypeInput {
   description: string;
   price: string;
   total_quantity: string;
+  max_per_booking: string;
 }
 
 export interface SavedTicketType extends TicketTypeInput {
@@ -40,6 +26,7 @@ interface FieldErrors {
   name?: string;
   price?: string;
   total_quantity?: string;
+  max_per_booking?: string;
 }
 
 /**
@@ -55,7 +42,7 @@ export type CreateTicketTypesMode = 'post-create' | 'standalone';
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 const emptyForm = (): TicketTypeInput => ({
-  name: '', description: '', price: '', total_quantity: '',
+  name: '', description: '', price: '', total_quantity: '', max_per_booking: '10',
 });
 
 const validateTicket = (t: TicketTypeInput): FieldErrors => {
@@ -64,6 +51,8 @@ const validateTicket = (t: TicketTypeInput): FieldErrors => {
   if (t.price === '' || t.price === undefined || parseFloat(t.price) < 0) e.price = 'Price must be 0 or more';
   if (!t.total_quantity || parseInt(t.total_quantity) <= 0)
     e.total_quantity = 'Quantity must be > 0';
+  if (!t.max_per_booking || parseInt(t.max_per_booking) <= 0)
+    e.max_per_booking = 'Must be > 0';
   return e;
 };
 
@@ -109,9 +98,15 @@ const TicketTypeRow: React.FC<{
           {ticket.description && (
             <p className="text-xs text-gray-500 truncate mt-0.5">{ticket.description}</p>
           )}
-          <span className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-            <Users className="w-3 h-3" />
-            {parseInt(ticket.total_quantity).toLocaleString()} available
+          <span className="text-xs text-gray-500 flex items-center gap-3 mt-1">
+            <span className="flex items-center gap-1">
+              <Users className="w-3 h-3" />
+              {parseInt(ticket.total_quantity).toLocaleString()} available
+            </span>
+            <span className="flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3" />
+              Max {ticket.max_per_booking}/booking
+            </span>
           </span>
         </div>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -206,6 +201,22 @@ const TicketTypeRow: React.FC<{
         </div>
       </div>
 
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">
+          Max per Booking <span className="text-red-500">*</span>
+          <span className="text-gray-400 font-normal"> — cap per single order</span>
+        </label>
+        <div className="relative">
+          <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="number" min="1" value={form.max_per_booking} placeholder="10"
+            onChange={e => setForm(p => ({ ...p, max_per_booking: e.target.value }))}
+            className={`${inp('max_per_booking')} pl-9`}
+          />
+        </div>
+        {errors.max_per_booking && <p className="mt-1 text-xs text-red-600">{errors.max_per_booking}</p>}
+      </div>
+
       <div className="flex justify-end gap-2 pt-1">
         <button
           onClick={() => onEditToggle(ticket._id)}
@@ -285,7 +296,8 @@ const CreateTicketTypesModal: React.FC<CreateTicketTypesModalProps> = ({
           name:               t.name,
           description:        t.description || undefined,
           price:              parseFloat(t.price),
-          total_quantity: parseInt(t.total_quantity),
+          total_quantity:     parseInt(t.total_quantity),
+          max_per_booking:    parseInt(t.max_per_booking),
         });
       }
       onFinish(event, tickets);

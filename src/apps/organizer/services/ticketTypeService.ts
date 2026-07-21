@@ -13,6 +13,7 @@ export interface CreateTicketTypePayload {
   description?: string;
   price: number;
   total_quantity: number;
+  max_per_booking?: number;
 }
 
 export interface UpdateTicketTypePayload {
@@ -20,6 +21,7 @@ export interface UpdateTicketTypePayload {
   description?: string;
   price?: number;
   total_quantity?: number;
+  max_per_booking?: number;
 }
 
 // ─── Ticket Types ─────────────────────────────────────────────────────────────

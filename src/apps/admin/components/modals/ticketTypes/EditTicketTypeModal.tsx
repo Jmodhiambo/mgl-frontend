@@ -1,29 +1,17 @@
 // src/apps/admin/components/modals/ticketTypes/EditTicketTypeModal.tsx
 import { useState } from 'react';
-import { X, Pencil, DollarSign, Users, Loader2, AlertCircle, ImageOff } from 'lucide-react';
+import { X, Pencil, DollarSign, Users, Loader2, AlertCircle, ImageOff, ShieldCheck } from 'lucide-react';
 import { updateTicketType } from '@admin/services/adminService';
 import { formatKES } from '@admin/utils/format';
+import { parseApiError } from '@shared/utils/parseApiError';
 import type { AdminTicketType, AdminEvent } from '@admin/types';
-
-function parseApiError(err: any, fallback: string): string {
-  const raw = err?.response?.data?.detail;
-  if (Array.isArray(raw)) {
-    return raw
-      .map((e: any) => {
-        const field = Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : 'field';
-        return `${field}: ${e.msg}`;
-      })
-      .join('; ');
-  }
-  if (typeof raw === 'string') return raw;
-  return fallback;
-}
 
 interface EditForm {
   name: string;
   description: string;
   price: string;
   total_quantity: string;
+  max_per_booking: string;
   is_active: boolean;
 }
 
@@ -31,6 +19,7 @@ interface EditErrors {
   name?: string;
   price?: string;
   total_quantity?: string;
+  max_per_booking?: string;
 }
 
 interface Props {
@@ -42,11 +31,12 @@ interface Props {
 
 const EditTicketTypeModal: React.FC<Props> = ({ ticket, event, onClose, onSaved }) => {
   const [form, setForm] = useState<EditForm>({
-    name:           ticket.name,
-    description:    ticket.description ?? '',
-    price:          String(ticket.price),
-    total_quantity: String(ticket.total_quantity),
-    is_active:      ticket.is_active,
+    name:             ticket.name,
+    description:      ticket.description ?? '',
+    price:            String(ticket.price),
+    total_quantity:   String(ticket.total_quantity),
+    max_per_booking:  String(ticket.max_per_booking),
+    is_active:        ticket.is_active,
   });
   const [errors, setErrors]       = useState<EditErrors>({});
   const [saving, setSaving]       = useState(false);
@@ -60,6 +50,9 @@ const EditTicketTypeModal: React.FC<Props> = ({ ticket, event, onClose, onSaved 
     if (!form.total_quantity || qty <= 0)            e.total_quantity = 'Quantity must be > 0';
     if (qty < ticket.quantity_sold)
       e.total_quantity = `Cannot be less than ${ticket.quantity_sold} already sold`;
+    const maxPerBooking = parseInt(form.max_per_booking);
+    if (!form.max_per_booking || maxPerBooking <= 0)
+      e.max_per_booking = 'Must be > 0';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -70,11 +63,12 @@ const EditTicketTypeModal: React.FC<Props> = ({ ticket, event, onClose, onSaved 
     setSaveError('');
     try {
       const updated = await updateTicketType(ticket.id, {
-        name:           form.name.trim(),
-        description:    form.description.trim() || undefined,
-        price:          parseFloat(form.price),
-        total_quantity: parseInt(form.total_quantity),
-        is_active:      form.is_active,
+        name:             form.name.trim(),
+        description:      form.description.trim() || undefined,
+        price:            parseFloat(form.price),
+        total_quantity:   parseInt(form.total_quantity),
+        max_per_booking:  parseInt(form.max_per_booking),
+        is_active:        form.is_active,
       });
       onSaved(updated);
     } catch (err: any) {
@@ -210,6 +204,23 @@ const EditTicketTypeModal: React.FC<Props> = ({ ticket, event, onClose, onSaved 
               </div>
               {errors.total_quantity && <p className="mt-1 text-xs text-red-600">{errors.total_quantity}</p>}
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+              Max per Booking <span className="text-red-500">*</span>
+              <span className="text-gray-400 font-normal"> — cap per single order</span>
+            </label>
+            <div className="relative">
+              <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="number" min="1" value={form.max_per_booking}
+                onChange={e => { setForm(p => ({ ...p, max_per_booking: e.target.value })); setErrors(p => ({ ...p, max_per_booking: undefined })); }}
+                placeholder="10"
+                className={`${inp('max_per_booking')} pl-9`}
+              />
+            </div>
+            {errors.max_per_booking && <p className="mt-1 text-xs text-red-600">{errors.max_per_booking}</p>}
           </div>
 
           {/* Active toggle */}

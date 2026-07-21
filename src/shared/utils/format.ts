@@ -16,3 +16,10 @@ export const formatDateTime = (iso: string): string =>
 // vary silently by browser/runtime default.
 export const formatTime = (iso: string): string =>
   new Date(iso).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+export const getDurationHours = (start: string, end: string): string => {
+  const diff = (new Date(end).getTime() - new Date(start).getTime()) / 1000 / 60 / 60;
+  if (diff < 1)  return `${Math.round(diff * 60)} min`;
+  if (diff === Math.floor(diff)) return `${diff}h`;
+  return `${Math.floor(diff)}h ${Math.round((diff % 1) * 60)}min`;
+};

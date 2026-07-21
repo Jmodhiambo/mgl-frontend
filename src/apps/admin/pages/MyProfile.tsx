@@ -2,20 +2,28 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  User, Mail, Phone, Lock, Eye, EyeOff, Shield, Camera,
+  User, Mail, Phone, Lock, Shield, Camera,
   Save, CheckCircle, AlertCircle, Clock, Activity,
   LogOut, Key, Globe, Bell, Trash2, X, Loader2, Info,
-  ArrowRight,
+  ArrowRight, ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
 import {
   getMyAdminSessions, revokeAdminSession, revokeAllOtherAdminSessions,
-  getMyActivity, updateAdminProfile, changeAdminPassword, getMyAdminProfile,
+  getMyActivity, updateAdminProfile, getMyAdminProfile,
   getAdminNotificationPrefs, updateAdminNotificationPrefs,
 } from '@admin/services/adminService';
 import { timeAgo } from '@shared/utils/timeAgo';
 import type { RefreshSession } from '@shared/types/Auth';
-import type { AuditLog, AdminNotificationPrefs, ProfileForm, PasswordForm } from '@admin/types';
+import type { AuditLog, AdminNotificationPrefs, ProfileForm } from '@admin/types';
+
+// Password changes are handled exclusively in the user app (mgltickets.com).
+// All three apps share one account/password, but the browser's saved-password
+// entry is scoped per-origin — admin.mgltickets.com, organizer.mgltickets.com,
+// and mgltickets.com are three separate "sites" to Chrome/Safari's password
+// manager. Consolidating the change form into one origin keeps that one
+// saved entry current instead of fragmenting it across three.
+const USER_APP_PROFILE_URL = 'https://mgltickets.com/profile';
 
 type Tab = 'profile' | 'security' | 'sessions' | 'activity';
 
@@ -63,12 +71,6 @@ const MyProfile: React.FC = () => {
     };
     fetchProfile();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const [pwForm, setPwForm]     = useState<PasswordForm>({ current_password: '', new_password: '', confirm_password: '' });
-  const [showPw, setShowPw]     = useState({ current: false, new: false, confirm: false });
-  const [pwErrors, setPwErrors] = useState<Partial<Record<keyof PasswordForm, string>>>({});
-  const [pwLoading, setPwLoading] = useState(false);
-  const [pwSuccess, setPwSuccess] = useState(false);
 
   const [sessions, setSessions]               = useState<RefreshSession[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
@@ -184,29 +186,6 @@ const MyProfile: React.FC = () => {
       setProfileSaved(false);
     } finally {
       setProfileLoading(false);
-    }
-  };
-
-  const validatePassword = (): boolean => {
-    const e: Partial<Record<keyof PasswordForm, string>> = {};
-    if (!pwForm.current_password) e.current_password = 'Required';
-    if (pwForm.new_password.length < 8) e.new_password = 'Min. 8 characters';
-    if (pwForm.new_password !== pwForm.confirm_password) e.confirm_password = 'Passwords do not match';
-    setPwErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const handlePasswordChange = async () => {
-    if (!validatePassword()) return;
-    setPwLoading(true);
-    try {
-      await changeAdminPassword(pwForm.current_password, pwForm.new_password);
-      setPwSuccess(true);
-      setTimeout(() => setPwSuccess(false), 3000);
-    } catch {
-      setPwErrors({ current_password: 'Incorrect current password' });
-    } finally {
-      setPwLoading(false);
     }
   };
 
@@ -470,67 +449,28 @@ const MyProfile: React.FC = () => {
       {/* ── Security Tab ── */}
       {tab === 'security' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
-            <div>
-              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                <Key className="w-4 h-4 text-purple-600" /> Change Password
-              </h3>
-              <p className="text-sm text-gray-500 mt-0.5">Choose a strong password. We recommend at least 8 characters.</p>
-            </div>
-
-            {pwSuccess && (
-              <div className="flex items-center gap-2.5 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-                <CheckCircle className="w-4 h-4 text-emerald-600" />
-                <p className="text-sm text-emerald-800 font-medium">Password updated successfully.</p>
+          <div className="bg-white rounded-2xl border border-gray-100 p-6">
+            <div className="flex items-start gap-4">
+              <div className="w-11 h-11 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+                <Key className="w-5 h-5 text-purple-600" />
               </div>
-            )}
-
-            {(['current_password', 'new_password', 'confirm_password'] as const).map((field, idx) => {
-              const labels = ['Current Password', 'New Password', 'Confirm New Password'];
-              const showKey = field === 'current_password' ? 'current' : field === 'new_password' ? 'new' : 'confirm';
-              const shown = showPw[showKey];
-              const fieldName =
-                field === 'current_password' ? 'current-password'
-                : field === 'new_password' ? 'new-password'
-                : 'confirm-new-password';
-              const autoComplete = field === 'current_password' ? 'current-password' : 'new-password';
-              return (
-                <div key={field}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{labels[idx]}</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input type={shown ? 'text' : 'password'} name={fieldName} autoComplete={autoComplete} value={pwForm[field]}
-                      onChange={e => setPwForm(p => ({ ...p, [field]: e.target.value }))}
-                      className={`${inp(!!pwErrors[field])} pl-9 pr-10`} />
-                    <button type="button" onClick={() => setShowPw(p => ({ ...p, [showKey]: !p[showKey] }))}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                      {shown ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  {pwErrors[field] && <p className="mt-1 text-xs text-red-600">{pwErrors[field]}</p>}
-                  {field === 'new_password' && pwForm.new_password && (
-                    <div className="mt-2 flex gap-1">
-                      {[8, 12, 16].map(len => (
-                        <div key={len} className={`h-1 flex-1 rounded-full transition-colors ${
-                          pwForm.new_password.length >= len ? 'bg-emerald-500' : 'bg-gray-200'
-                        }`} />
-                      ))}
-                      <span className="text-xs text-gray-400 ml-2">
-                        {pwForm.new_password.length < 8 ? 'Too short' : pwForm.new_password.length < 12 ? 'Fair' : 'Strong'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            <div className="flex justify-end">
-              <button onClick={handlePasswordChange} disabled={pwLoading}
-                className="btn-primary flex items-center gap-2 disabled:opacity-60">
-                {pwLoading
-                  ? <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                  : <><Key className="w-4 h-4" /> Update Password</>}
-              </button>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-bold text-gray-900">Change Password</h3>
+                <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                  Your admin login is the same account used across every MGLTickets app.
+                  Password changes are handled in one place — your main account settings —
+                  so your browser's saved password stays accurate instead of going stale on
+                  one app after you update it on another.
+                </p>
+                <a
+                  href={USER_APP_PROFILE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 mt-3 text-sm font-semibold text-purple-600 hover:text-purple-700"
+                >
+                  Update password on mgltickets.com <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
             </div>
           </div>
 

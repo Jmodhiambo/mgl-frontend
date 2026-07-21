@@ -427,56 +427,94 @@ const ProfileSettingsPage: React.FC = () => {
               {activeTab === 'security' && (
                 <div className="space-y-6">
                   <div className="bg-white rounded-xl shadow-md p-8">
-                    <h3 className="text-2xl font-bold text-gray-800 mb-6">Change Password</h3>
-                    <div className="space-y-6">
-                      {(['old_password', 'new_password', 'confirm_password'] as const).map(field => {
-                        const labels = { old_password: 'Current Password', new_password: 'New Password', confirm_password: 'Confirm New Password' };
-                        const showKey = field === 'old_password' ? 'old' : field === 'new_password' ? 'new' : 'confirm';
-                        const fieldName =
-                          field === 'old_password' ? 'current-password'
-                          : field === 'new_password' ? 'new-password'
-                          : 'confirm-new-password';
-                        const autoComplete = field === 'old_password' ? 'current-password' : 'new-password';
-                        return (
-                          <div key={field}>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">{labels[field]}</label>
-                            <div className="relative">
-                              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                              <input
-                                type={showPasswords[showKey] ? 'text' : 'password'}
-                                name={fieldName}
-                                autoComplete={autoComplete}
-                                value={passwordForm[field]}
-                                onChange={e => { setPasswordForm({ ...passwordForm, [field]: e.target.value }); setErrors({ ...errors, [field]: undefined }); }}
-                                className={`w-full pl-12 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 ${errors[field] ? 'border-red-500' : 'border-gray-300'}`}
-                                placeholder={field === 'old_password' ? 'Enter current password' : field === 'new_password' ? 'Enter new password' : 'Confirm new password'}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => setShowPasswords({ ...showPasswords, [showKey]: !showPasswords[showKey] })}
-                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                              >
-                                {showPasswords[showKey] ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                              </button>
-                            </div>
-                            {errors[field] && <p className="mt-2 text-sm text-red-600 flex items-center"><AlertCircle className="w-4 h-4 mr-1" />{errors[field]}</p>}
+                    <h3 className="text-2xl font-bold text-gray-800 mb-1">Change Password</h3>
+                    <p className="text-sm text-gray-500 mb-6">
+                      This updates the password for your whole MGLTickets account —
+                      it applies to the organizer and admin apps too.
+                    </p>
+
+                    {/*
+                      Real <form> with an explicit onSubmit — the update now
+                      only fires on a click (or Enter within a field), never
+                      as a side-effect of typing or of the browser's
+                      "suggest strong password" autofill.
+
+                      The disabled email field is deliberate: without a
+                      username-type field to anchor to, the browser's
+                      password manager can behave unpredictably around
+                      password-only forms (including firing saves without a
+                      click). autoComplete="username" is the standard fix,
+                      and it also tells the password manager which account
+                      the new password belongs to.
+                    */}
+                    <form onSubmit={e => { e.preventDefault(); handlePasswordChange(); }} autoComplete="off">
+                      <div className="space-y-6">
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                          <div className="relative">
+                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                            <input
+                              type="email"
+                              name="email"
+                              autoComplete="username"
+                              value={profileForm.email}
+                              disabled
+                              readOnly
+                              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                            />
                           </div>
-                        );
-                      })}
-                      <div className="pt-4">
-                        <button
-                          onClick={handlePasswordChange}
-                          disabled={isSaving}
-                          className={`w-full md:w-auto px-8 py-3 rounded-lg font-semibold transition-all flex items-center justify-center ${
-                            isSaving ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white'
-                          }`}
-                        >
-                          {isSaving
-                            ? <><div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2" />Updating...</>
-                            : 'Update Password'}
-                        </button>
+                        </div>
+
+                        {(['old_password', 'new_password', 'confirm_password'] as const).map(field => {
+                          const labels = { old_password: 'Current Password', new_password: 'New Password', confirm_password: 'Confirm New Password' };
+                          const showKey = field === 'old_password' ? 'old' : field === 'new_password' ? 'new' : 'confirm';
+                          const fieldName =
+                            field === 'old_password' ? 'current-password'
+                            : field === 'new_password' ? 'new-password'
+                            : 'confirm-new-password';
+                          const autoComplete = field === 'old_password' ? 'current-password' : 'new-password';
+                          return (
+                            <div key={field}>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">{labels[field]}</label>
+                              <div className="relative">
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                <input
+                                  type={showPasswords[showKey] ? 'text' : 'password'}
+                                  name={fieldName}
+                                  autoComplete={autoComplete}
+                                  value={passwordForm[field]}
+                                  onChange={e => { setPasswordForm({ ...passwordForm, [field]: e.target.value }); setErrors({ ...errors, [field]: undefined }); }}
+                                  className={`w-full pl-12 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 ${errors[field] ? 'border-red-500' : 'border-gray-300'}`}
+                                  placeholder={field === 'old_password' ? 'Enter current password' : field === 'new_password' ? 'Enter new password' : 'Confirm new password'}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setShowPasswords({ ...showPasswords, [showKey]: !showPasswords[showKey] })}
+                                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                  {showPasswords[showKey] ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
+                              </div>
+                              {errors[field] && <p className="mt-2 text-sm text-red-600 flex items-center"><AlertCircle className="w-4 h-4 mr-1" />{errors[field]}</p>}
+                            </div>
+                          );
+                        })}
+                        <div className="pt-4">
+                          <button
+                            type="submit"
+                            disabled={isSaving}
+                            className={`w-full md:w-auto px-8 py-3 rounded-lg font-semibold transition-all flex items-center justify-center ${
+                              isSaving ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white'
+                            }`}
+                          >
+                            {isSaving
+                              ? <><div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2" />Updating...</>
+                              : 'Update Password'}
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    </form>
                   </div>
 
                   <div className="bg-white rounded-xl shadow-md p-8 border-2 border-red-200">

@@ -8,52 +8,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import api from '@shared/api/axiosConfig';
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface TicketTypeOut {
-  id: number;
-  event_id: number;
-  name: string;
-  description: string | null;
-  price: number;
-  is_active: boolean;
-  total_quantity: number;      // the ceiling — never decrements
-  quantity_available: number;  // computed: total_quantity - quantity_sold
-  quantity_sold: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface TicketTypeOrganizerOut extends TicketTypeOut {
-  suspended_by_admin_name: string | null;
-  suspension_reason: string | null;
-  suspended_at: string | null;
-}
-
-export interface TicketTypeAdminOut extends TicketTypeOut {
-  suspended_by_admin_id: number | null;
-  suspended_by_admin_name: string | null;
-  suspension_reason: string | null;
-  suspended_at: string | null;
-}
-
-export interface TicketTypeCreate {
-  event_id: number;
-  name: string;
-  description?: string;
-  price: number;
-  is_active?: boolean;
-  total_quantity: number;
-}
-
-export interface TicketTypeUpdate {
-  name?: string;
-  description?: string;
-  price?: number;
-  is_active?: boolean;
-  total_quantity?: number;
-}
+import type { 
+  TicketTypeCreate, TicketTypeUpdate, TicketTypeOrganizerOut, TicketTypeAdminOut
+} from '@shared/types/Event';
 
 // ── User (public read) ────────────────────────────────────────────────────────
 // getTicketTypesByEvent lives in @user/services/eventService — left there

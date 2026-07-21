@@ -147,7 +147,7 @@ const PressPage: React.FC = () => {
             <div className="grid md:grid-cols-2 gap-8">
               <div>
                 <h3 className="font-semibold text-gray-900 mb-2">Founded</h3>
-                <p className="text-gray-700">2024</p>
+                <p className="text-gray-700">2026</p>
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900 mb-2">Headquarters</h3>

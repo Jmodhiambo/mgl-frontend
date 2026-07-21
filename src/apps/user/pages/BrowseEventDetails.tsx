@@ -13,7 +13,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   Calendar, MapPin, Clock, Users, Share2, Heart,
-  ChevronLeft, Ticket, AlertCircle, RefreshCw, Tag,
+  ChevronLeft, Ticket, AlertCircle, RefreshCw, Tag, ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
 import SEO from '@shared/components/SEO';
@@ -24,36 +24,11 @@ import {
   addFavorite,
   removeFavorite,
 } from '@user/services/eventService';
+import { parseApiError } from '@shared/utils/parseApiError';
+import { formatDate, formatTime, getDurationHours } from '@shared/utils/format';
 import type { EventOut, TicketTypeOut, SelectedTickets } from '@shared/types/Event';
 
 const baseUrl = import.meta.env.VITE_BASE_URL ?? 'https://mgltickets.com';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function parseApiError(err: any, fallback: string): string {
-  const raw = err?.response?.data?.detail;
-  if (Array.isArray(raw))
-    return raw
-      .map((e: any) => `${Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : 'field'}: ${e.msg}`)
-      .join('; ');
-  if (typeof raw === 'string') return raw;
-  return fallback;
-}
-
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-  });
-
-const formatTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-
-const getDurationHours = (start: string, end: string): string => {
-  const diff = (new Date(end).getTime() - new Date(start).getTime()) / 1000 / 60 / 60;
-  if (diff < 1)  return `${Math.round(diff * 60)} min`;
-  if (diff === Math.floor(diff)) return `${diff}h`;
-  return `${Math.floor(diff)}h ${Math.round((diff % 1) * 60)}min`;
-};
 
 // ─── Ticket selector row ──────────────────────────────────────────────────────
 
@@ -65,6 +40,10 @@ const TicketRow: React.FC<{
   const available  = ticket.quantity_available;
   const isLowStock = available <= 10 && available > 0;
   const isSoldOut  = available <= 0;
+  // The buyer can never take more than what's in stock, and never more
+  // than this ticket type's per-booking cap — whichever is smaller wins.
+  const effectiveMax = Math.min(available, ticket.max_per_booking);
+  const capIsBindingConstraint = ticket.max_per_booking < available;
 
   return (
     <div
@@ -96,10 +75,16 @@ const TicketRow: React.FC<{
             <p className="text-gray-500 text-sm leading-relaxed mb-2">{ticket.description}</p>
           )}
           {!isSoldOut && (
-            <p className="text-xs text-gray-400 flex items-center gap-1">
-              <Users className="w-3 h-3" />
-              {available} tickets remaining
-            </p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <p className="text-xs text-gray-400 flex items-center gap-1">
+                <Users className="w-3 h-3" />
+                {available} tickets remaining
+              </p>
+              <p className="text-xs text-gray-400 flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3" />
+                Max {ticket.max_per_booking} per booking
+              </p>
+            </div>
           )}
         </div>
 
@@ -113,22 +98,27 @@ const TicketRow: React.FC<{
             </span>
           )}
           {!isSoldOut && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onChange(ticket.id, Math.max(0, selectedQty - 1))}
-                disabled={selectedQty === 0}
-                className="w-8 h-8 rounded-lg border-2 border-orange-400 text-orange-600 font-bold text-sm hover:bg-orange-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center justify-center"
-              >
-                −
-              </button>
-              <span className="w-8 text-center font-bold text-gray-800">{selectedQty}</span>
-              <button
-                onClick={() => onChange(ticket.id, Math.min(available, selectedQty + 1))}
-                disabled={selectedQty >= available}
-                className="w-8 h-8 rounded-lg border-2 border-orange-500 bg-orange-500 text-white font-bold text-sm hover:bg-orange-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center justify-center"
-              >
-                +
-              </button>
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onChange(ticket.id, Math.max(0, selectedQty - 1))}
+                  disabled={selectedQty === 0}
+                  className="w-8 h-8 rounded-lg border-2 border-orange-400 text-orange-600 font-bold text-sm hover:bg-orange-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center justify-center"
+                >
+                  −
+                </button>
+                <span className="w-8 text-center font-bold text-gray-800">{selectedQty}</span>
+                <button
+                  onClick={() => onChange(ticket.id, Math.min(effectiveMax, selectedQty + 1))}
+                  disabled={selectedQty >= effectiveMax}
+                  className="w-8 h-8 rounded-lg border-2 border-orange-500 bg-orange-500 text-white font-bold text-sm hover:bg-orange-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center justify-center"
+                >
+                  +
+                </button>
+              </div>
+              {capIsBindingConstraint && selectedQty >= effectiveMax && (
+                <span className="text-[11px] text-orange-500 font-medium">Booking limit reached</span>
+              )}
             </div>
           )}
         </div>
