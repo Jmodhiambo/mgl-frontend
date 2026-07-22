@@ -1,7 +1,7 @@
 // src/apps/user/pages/Profile.tsx
 
 import axios from 'axios';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
 import {
@@ -25,12 +25,6 @@ interface ProfileFormData {
   name: string;
   email: string;
   phone_number: string;
-}
-
-interface PasswordFormData {
-  old_password: string;
-  new_password: string;
-  confirm_password: string;
 }
 
 interface ShowPasswordsState {
@@ -80,9 +74,18 @@ const ProfileSettingsPage: React.FC = () => {
     name: '', email: '', phone_number: '',
   });
 
-  const [passwordForm, setPasswordForm] = useState<PasswordFormData>({
-    old_password: '', new_password: '', confirm_password: '',
-  });
+  // Password fields are uncontrolled (ref-based) rather than React state.
+  // Chrome's "suggest strong password" doesn't always dispatch the events a
+  // controlled input relies on to update React state in time — the next
+  // re-render then snaps the field back to the (stale, empty) state value,
+  // which looks like the password vanishing. Letting the DOM own these
+  // values and only reading them via ref at submit time avoids that fight
+  // entirely, regardless of how the browser filled them in.
+  const pwFieldRefs = useRef<{
+    old_password: HTMLInputElement | null;
+    new_password: HTMLInputElement | null;
+    confirm_password: HTMLInputElement | null;
+  }>({ old_password: null, new_password: null, confirm_password: null });
   const [showPasswords, setShowPasswords] = useState<ShowPasswordsState>({
     old: false, new: false, confirm: false,
   });
@@ -149,15 +152,19 @@ const ProfileSettingsPage: React.FC = () => {
 
   const validatePasswordForm = (): boolean => {
     const newErrors: FormErrors = {};
-    if (!passwordForm.old_password) newErrors.old_password = 'Current password is required';
-    if (!passwordForm.new_password) {
+    const oldPw     = pwFieldRefs.current.old_password?.value ?? '';
+    const newPw     = pwFieldRefs.current.new_password?.value ?? '';
+    const confirmPw = pwFieldRefs.current.confirm_password?.value ?? '';
+
+    if (!oldPw) newErrors.old_password = 'Current password is required';
+    if (!newPw) {
       newErrors.new_password = 'New password is required';
-    } else if (passwordForm.new_password.length < 8) {
+    } else if (newPw.length < 8) {
       newErrors.new_password = 'Password must be at least 8 characters long';
     }
-    if (passwordForm.new_password !== passwordForm.confirm_password)
+    if (newPw !== confirmPw)
       newErrors.confirm_password = 'Passwords do not match';
-    if (passwordForm.old_password === passwordForm.new_password)
+    if (oldPw && newPw && oldPw === newPw)
       newErrors.new_password = 'New password must be different from current password';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -193,10 +200,11 @@ const ProfileSettingsPage: React.FC = () => {
     setSuccessMessage('');
     try {
       await changeUserPassword({
-        old_password: passwordForm.old_password,
-        new_password: passwordForm.new_password,
+        old_password: pwFieldRefs.current.old_password?.value ?? '',
+        new_password: pwFieldRefs.current.new_password?.value ?? '',
       } as UserPasswordChange);
-      setPasswordForm({ old_password: '', new_password: '', confirm_password: '' });
+      // Uncontrolled fields — clear them directly via ref rather than state.
+      Object.values(pwFieldRefs.current).forEach(el => { if (el) el.value = ''; });
       setSuccessMessage('Password changed successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
@@ -459,9 +467,11 @@ const ProfileSettingsPage: React.FC = () => {
                               name="email"
                               autoComplete="username"
                               value={profileForm.email}
-                              disabled
                               readOnly
-                              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                              tabIndex={-1}
+                              aria-readonly="true"
+                              onFocus={e => e.currentTarget.blur()}
+                              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-default select-none"
                             />
                           </div>
                         </div>
@@ -483,8 +493,9 @@ const ProfileSettingsPage: React.FC = () => {
                                   type={showPasswords[showKey] ? 'text' : 'password'}
                                   name={fieldName}
                                   autoComplete={autoComplete}
-                                  value={passwordForm[field]}
-                                  onChange={e => { setPasswordForm({ ...passwordForm, [field]: e.target.value }); setErrors({ ...errors, [field]: undefined }); }}
+                                  defaultValue=""
+                                  ref={el => { pwFieldRefs.current[field] = el; }}
+                                  onChange={() => { if (errors[field]) setErrors(prev => ({ ...prev, [field]: undefined })); }}
                                   className={`w-full pl-12 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 ${errors[field] ? 'border-red-500' : 'border-gray-300'}`}
                                   placeholder={field === 'old_password' ? 'Enter current password' : field === 'new_password' ? 'Enter new password' : 'Confirm new password'}
                                 />

@@ -1,4 +1,4 @@
-// src/organizer/components/BookingsTable.tsx
+// src/organizer/components/modals/bookings/BookingsTable.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Eye, Mail, MoreVertical } from 'lucide-react';
@@ -64,6 +64,7 @@ const RowActionsMenu: React.FC<{
   const [open, setOpen] = useState(false);
   const [style, setStyle] = useState<React.CSSProperties>({});
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   // Menu height varies: one item (bulk mode, View only) vs two (View + Email).
   const menuHeight = onEmail ? 88 : 48;
@@ -86,7 +87,14 @@ const RowActionsMenu: React.FC<{
   useEffect(() => {
     if (!open) return;
     const onOutside = (e: MouseEvent) => {
-      if (triggerRef.current && !triggerRef.current.contains(e.target as Node)) close();
+      const target = e.target as Node;
+      // Ignore clicks on the trigger OR the menu itself. Without checking
+      // menuRef too, a mousedown on "View Details"/"Send Email" closed the
+      // menu (unmounting the button) BEFORE its click event could fire —
+      // so the action silently never ran. This was the actual bug.
+      const insideTrigger = triggerRef.current?.contains(target);
+      const insideMenu = menuRef.current?.contains(target);
+      if (!insideTrigger && !insideMenu) close();
     };
     window.addEventListener('mousedown', onOutside);
     window.addEventListener('scroll', close, true);
@@ -113,16 +121,16 @@ const RowActionsMenu: React.FC<{
       {open && createPortal(
         <>
           <div className="fixed inset-0 z-[9998]" onClick={close} />
-          <div style={{ ...style, zIndex: 9999 }} className="w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+          <div ref={menuRef} style={{ ...style, zIndex: 9999 }} className="w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
             <button
-              onClick={() => { close(); onView(); }}
+              onClick={() => { onView(); close(); }}
               className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
             >
               <Eye className="w-4 h-4" /> View Details
             </button>
             {onEmail && (
               <button
-                onClick={() => { close(); onEmail(); }}
+                onClick={() => { onEmail(); close(); }}
                 className="w-full flex items-center gap-2 px-4 py-2 text-sm text-green-600 hover:bg-green-50 transition-colors"
               >
                 <Mail className="w-4 h-4" /> Send Email
