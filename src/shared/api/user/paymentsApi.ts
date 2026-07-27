@@ -28,6 +28,9 @@ export interface PaymentOut {
   mpesa_checkout_request_id: string | null;
   mpesa_ref: string | null;  // MpesaReceiptNumber — only present after success callback
   callback_payload: string | null;
+  manual_review_status: string;        // none | pending | approved | rejected
+  user_reported_mpesa_code: string | null;
+  user_reported_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -43,20 +46,35 @@ export interface MpesaStkPushResponse {
   message: string;
 }
 
-// ── User ──────────────────────────────────────────────────────────────────────
+export interface PaymentStatusCheckResponse {
+  payment_id: number;
+  resolved: boolean;          // true = frontend can stop and show a final state
+  status: string;             // pending | completed | failed
+  order_status: string | null;
+  message: string;
+}
+ 
+export interface ReportManualPaymentRequest {
+  payment_id: number;
+  mpesa_code: string;
+  phone_number?: string;
+  note?: string;
+}
 
+// ── User ──────────────────────────────────────────────────────────────────────
+ 
 export const initiateMpesaPayment = async (
   data: MpesaStkPushRequest,
 ): Promise<MpesaStkPushResponse> => {
   return (await api.post('/payments/mpesa/stk-push', data)).data;
 };
-
+ 
 export const getPaymentById = async (
   paymentId: number,
 ): Promise<PaymentOut> => {
   return (await api.get(`/users/me/payments/${paymentId}`)).data;
 };
-
+ 
 export const getPaymentsByOrder = async (
   orderId: number,
 ): Promise<PaymentOut[]> => {
@@ -64,7 +82,28 @@ export const getPaymentsByOrder = async (
     await api.get(`/users/me/orders/${orderId}/payments`)
   ).data;
 };
-
+ 
+/**
+ * Layer 1 — call this once when pollPaymentStatus's onTimeout fires, BEFORE
+ * showing the manual-code-entry form. Queries Daraja directly using the
+ * stored CheckoutRequestID, no user input needed.
+ */
+export const checkPaymentStatus = async (
+  paymentId: number,
+): Promise<PaymentStatusCheckResponse> => {
+  return (await api.get(`/users/me/payments/${paymentId}/check-status`)).data;
+};
+ 
+/**
+ * Layer 2 — last-resort fallback when Layer 1 is inconclusive. Queues the
+ * payment for admin review; does NOT confirm the order by itself.
+ */
+export const reportManualPayment = async (
+  data: ReportManualPaymentRequest,
+): Promise<PaymentOut> => {
+  return (await api.post('/users/me/payments/report-manual', data)).data;
+};
+ 
 /**
  * Poll payment status after STK push.
  * Call this on an interval (e.g. every 3s) until status !== 'pending'.
@@ -96,14 +135,14 @@ export const pollPaymentStatus = (
     intervalMs = 3000,
     maxAttempts = 10,
   } = callbacks;
-
+ 
   let attempts = 0;
-
+ 
   const interval = setInterval(async () => {
     attempts++;
     try {
       const payment = await getPaymentById(paymentId);
-
+ 
       if (payment.status === 'pending') {
         onPending?.();
       } else if (payment.status === 'completed') {
@@ -117,33 +156,38 @@ export const pollPaymentStatus = (
     } catch {
       // Network error — keep trying until maxAttempts
     }
-
+ 
     if (attempts >= maxAttempts) {
       clearInterval(interval);
       onTimeout?.();
     }
   }, intervalMs);
-
+ 
   // Return a cancel function so callers can stop polling on unmount
   return () => clearInterval(interval);
 };
-
+ 
 // ── Admin ─────────────────────────────────────────────────────────────────────
-
+// Kept here since payment_admin.py still exposes these plain CRUD routes —
+// remove if nothing besides the old Payments.tsx page (now replaced by
+// Orders.tsx) was calling them. Manual-review / reconciliation actions live
+// in @admin/services/ordersApi.ts instead, alongside the Orders page that
+// surfaces them.
+ 
 export const admin_listAllPayments = async (): Promise<PaymentOut[]> => {
   return (await api.get('/admin/payments')).data;
 };
-
+ 
 export const admin_countPayments = async (): Promise<number> => {
   return (await api.get('/admin/payments/count')).data;
 };
-
+ 
 export const admin_getLatestPayments = async (
   limit = 10,
 ): Promise<PaymentOut[]> => {
   return (await api.get(`/admin/payments/latest?latest=${limit}`)).data;
 };
-
+ 
 export const admin_updatePaymentStatus = async (
   paymentId: number,
   status: string,
@@ -154,13 +198,13 @@ export const admin_updatePaymentStatus = async (
     })
   ).data;
 };
-
+ 
 export const admin_deletePayment = async (
   paymentId: number,
 ): Promise<void> => {
   await api.delete(`/admin/payments/${paymentId}`);
 };
-
+ 
 export const admin_getPaymentsCreatedAfter = async (
   dateTime: string,
 ): Promise<PaymentOut[]> => {
@@ -168,7 +212,7 @@ export const admin_getPaymentsCreatedAfter = async (
     await api.get(`/admin/payments/created_after/${dateTime}`)
   ).data;
 };
-
+ 
 export const admin_getPaymentsUpdatedAfter = async (
   dateTime: string,
 ): Promise<PaymentOut[]> => {

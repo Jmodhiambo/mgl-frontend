@@ -48,12 +48,6 @@ const RowMenu: React.FC<{ onRemove: () => void }> = ({ onRemove }) => {
   const [open, setOpen]         = useState(false);
   const [style, setStyle]       = useState<React.CSSProperties>({});
   const triggerRef              = useRef<HTMLButtonElement>(null);
-  // Ref to the portal-rendered dropdown content itself. The dropdown lives
-  // in document.body via createPortal, so it is NOT a DOM descendant of
-  // triggerRef — the outside-click check below must test both refs, or a
-  // mousedown on a menu item (like "Remove") gets treated as an "outside"
-  // click and closes the menu before the click event ever fires on the
-  // button, silently swallowing the action.
   const menuRef                 = useRef<HTMLDivElement>(null);
 
   const handleOpen = () => {
@@ -75,8 +69,12 @@ const RowMenu: React.FC<{ onRemove: () => void }> = ({ onRemove }) => {
     if (!open) return;
     const onOutside = (e: MouseEvent) => {
       const target = e.target as Node;
+      // Ignore clicks on the trigger OR the menu itself. Without checking
+      // menuRef too, a mousedown on "Remove" closed the menu (unmounting
+      // the button) BEFORE its click event could fire — so Remove silently
+      // never ran. Same bug and fix as BookingsTable.tsx's RowActionsMenu.
       const insideTrigger = triggerRef.current?.contains(target);
-      const insideMenu     = menuRef.current?.contains(target);
+      const insideMenu = menuRef.current?.contains(target);
       if (!insideTrigger && !insideMenu) close();
     };
     window.addEventListener('mousedown', onOutside);
@@ -104,13 +102,9 @@ const RowMenu: React.FC<{ onRemove: () => void }> = ({ onRemove }) => {
       {open && createPortal(
         <>
           <div className="fixed inset-0 z-[9998]" onClick={close} />
-          <div
-            ref={menuRef}
-            style={{ ...style, zIndex: 9999 }}
-            className="w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
-          >
+          <div ref={menuRef} style={{ ...style, zIndex: 9999 }} className="w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
             <button
-              onClick={() => { close(); onRemove(); }}
+              onClick={() => { onRemove(); close(); }}
               className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
             >
               <Trash2 className="w-4 h-4" /> Remove

@@ -3,8 +3,13 @@
 // Checkout page — visual states:
 //   'form'         — main checkout form (default)
 //   'awaiting_pin' — STK push sent, waiting for M-Pesa PIN (paid events only)
+//   'stuck'        — polling timed out AND the on-demand STK status check
+//                    (checkPaymentStatus) couldn't resolve it either. Lets the
+//                    user check again or report their M-Pesa code for manual
+//                    admin review — never auto-confirms.
+//   'reported'     — user submitted an M-Pesa code; queued for admin review.
 //   'complete'     — booking confirmed (free events skip straight here)
-//   'failed'       — payment failed / timed out
+//   'failed'       — payment genuinely failed / was cancelled
 //
 // Free-event behaviour:
 //   - Payment method selector and phone input are hidden
@@ -12,6 +17,18 @@
 //   - CTA reads "Confirm Free Booking" instead of "Pay KES …"
 //   - After createOrder, if checkout_request_id === null the page jumps
 //     directly to 'complete' — no STK push, no polling
+//
+// Stuck-payment resolution (closes the "polling gave up before the Daraja
+// callback arrived" gap):
+//   1. pollPaymentStatus's onTimeout no longer dead-ends at 'failed'. It
+//      calls checkPaymentStatus() [Layer 1] once — queries Daraja directly
+//      by CheckoutRequestID (no user input, no fraud surface) and resolves
+//      the vast majority of delayed-callback cases automatically. The
+//      backend also runs this proactively via a reconciliation sweep.
+//   2. Only if that's still inconclusive does the user see the 'stuck'
+//      screen, where they can manually re-check or report their M-Pesa
+//      code [Layer 2]. Reporting queues the payment for admin review on
+//      the Orders page — it does NOT confirm the order by itself.
 //
 // Layout: header → two-col body (left: details, right: sticky summary + CTA).
 // Terms checkbox lives in the right card, directly above the CTA.
@@ -22,13 +39,18 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Calendar, MapPin, Clock, ShieldCheck, Ticket, Phone,
   CheckCircle, AlertCircle, ChevronLeft, X, FileText,
-  RefreshCw, Loader2, Lock, Smartphone, CreditCard,
+  RefreshCw, Loader2, Lock, Smartphone, CreditCard, MessageSquareWarning, XCircle,
 } from 'lucide-react';
 import { CheckoutSEO, BookingSEO } from '@shared/components/SEO';
 import { TermsContent, RefundContent } from '@shared/pages';
 import { useAuth } from '@shared/contexts/AuthContext';
 import { createOrder } from '@shared/api/user/bookingsApi';
-import { initiateMpesaPayment, pollPaymentStatus } from '@shared/api/user/paymentsApi';
+import {
+  initiateMpesaPayment,
+  pollPaymentStatus,
+  checkPaymentStatus,
+  reportManualPayment,
+} from '@shared/api/user/paymentsApi';
 import { formatDate, formatTime } from '@shared/utils/format';
 import { parseApiError } from '@shared/utils/parseApiError';
 
@@ -60,9 +82,10 @@ interface FormErrors {
   phoneNumber?: string;
   terms?: string;
   general?: string;
+  mpesaCode?: string;
 }
 
-type PaymentStep = 'form' | 'awaiting_pin' | 'complete' | 'failed';
+type PaymentStep = 'form' | 'awaiting_pin' | 'stuck' | 'reported' | 'complete' | 'failed';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -83,6 +106,13 @@ const CheckoutBookingPage: React.FC = () => {
   const [statusMessage, setStatusMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'card'>('mpesa');
+
+  // ── Stuck-payment resolution state ────────────────────────────────────────
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [showReportForm, setShowReportForm]     = useState(false);
+  const [mpesaCode, setMpesaCode]               = useState('');
+  const [isReporting, setIsReporting]           = useState(false);
+  const [stuckMessage, setStuckMessage]         = useState('');
 
   const cancelPollRef = useRef<(() => void) | null>(null);
   useEffect(() => () => { cancelPollRef.current?.(); }, []);
@@ -119,6 +149,20 @@ const CheckoutBookingPage: React.FC = () => {
     if (!agreedToTerms) errs.terms = 'Please agree to the terms and conditions';
     setErrors(errs);
     return Object.keys(errs).length === 0;
+  };
+
+  const validateMpesaCode = (): boolean => {
+    const code = mpesaCode.trim();
+    if (!code) {
+      setErrors(p => ({ ...p, mpesaCode: 'Enter the M-Pesa code from your confirmation SMS' }));
+      return false;
+    }
+    if (code.length < 6 || code.length > 20) {
+      setErrors(p => ({ ...p, mpesaCode: 'That doesn\'t look like a valid M-Pesa code' }));
+      return false;
+    }
+    setErrors(p => ({ ...p, mpesaCode: undefined }));
+    return true;
   };
 
   // ── Checkout handler ──────────────────────────────────────────────────────
@@ -163,12 +207,9 @@ const CheckoutBookingPage: React.FC = () => {
           setPaymentStep('failed');
           setErrors({ general: 'Payment failed or was cancelled. Please try again.' });
         },
-        onTimeout: () => {
-          setPaymentStep('failed');
-          setErrors({ general: 'Payment confirmation timed out. Check your M-Pesa messages and contact support if charged.' });
-        },
+        onTimeout: () => { handlePollTimeout(stkResponse.payment_id); },
         intervalMs:  3000,
-        maxAttempts: 30,
+        maxAttempts: 5,
       });
 
       cancelPollRef.current = cancelPoll;
@@ -178,6 +219,73 @@ const CheckoutBookingPage: React.FC = () => {
       setPaymentStep('form');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // ── Stuck-payment resolution ───────────────────────────────────────────────
+
+  // Frontend polling gave up before the Daraja callback arrived. Before ever
+  // telling the user to contact support, ask Daraja directly whether this
+  // CheckoutRequestID actually succeeded, failed, or is still processing.
+  const handlePollTimeout = async (id: number) => {
+    setStatusMessage('Confirming with M-Pesa…');
+    try {
+      const result = await checkPaymentStatus(id);
+      if (result.resolved && result.status === 'completed') {
+        setPaymentStep('complete');
+        return;
+      }
+      if (result.resolved && result.status === 'failed') {
+        setPaymentStep('failed');
+        setErrors({ general: result.message || 'Payment failed or was cancelled. Please try again.' });
+        return;
+      }
+      // Inconclusive — hand off to the user-facing stuck screen.
+      setStuckMessage(result.message || "We haven't heard back from M-Pesa yet.");
+      setPaymentStep('stuck');
+    } catch {
+      setStuckMessage("We couldn't reach M-Pesa to confirm your payment.");
+      setPaymentStep('stuck');
+    }
+  };
+
+  const handleCheckStatusAgain = async () => {
+    if (!paymentId) return;
+    setIsCheckingStatus(true);
+    try {
+      const result = await checkPaymentStatus(paymentId);
+      if (result.resolved && result.status === 'completed') {
+        setPaymentStep('complete');
+        return;
+      }
+      if (result.resolved && result.status === 'failed') {
+        setPaymentStep('failed');
+        setErrors({ general: result.message || 'Payment failed or was cancelled. Please try again.' });
+        return;
+      }
+      setStuckMessage(result.message || 'Still waiting on M-Pesa — try again in a moment, or report your code below.');
+    } catch {
+      setStuckMessage("We couldn't reach M-Pesa just now. Try again shortly.");
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
+
+  const handleSubmitManualReport = async () => {
+    if (!validateMpesaCode() || !paymentId) return;
+    setIsReporting(true);
+    setErrors(p => ({ ...p, general: undefined }));
+    try {
+      await reportManualPayment({
+        payment_id: paymentId,
+        mpesa_code: mpesaCode.trim().toUpperCase(),
+        phone_number: phoneNumber.trim() || undefined,
+      });
+      setPaymentStep('reported');
+    } catch (err: any) {
+      setErrors({ general: parseApiError(err, 'Could not submit your M-Pesa code. Please try again.') });
+    } finally {
+      setIsReporting(false);
     }
   };
 
@@ -330,7 +438,199 @@ const CheckoutBookingPage: React.FC = () => {
     );
   }
 
-  // ── Failed screen (inline on form via errors.general, but also shown standalone) ──
+  // ── Stuck screen — timed out AND the STK status check was inconclusive ───
+
+  if (paymentStep === 'stuck') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 max-w-sm w-full p-8 text-center">
+
+          <div className="w-20 h-20 rounded-full bg-amber-50 border-4 border-amber-100 flex items-center justify-center mx-auto mb-6">
+            <MessageSquareWarning className="w-9 h-9 text-amber-500" />
+          </div>
+
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Still confirming…</h2>
+          <p className="text-gray-500 text-sm mb-6">{stuckMessage}</p>
+
+          {errors.general && (
+            <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5 text-left">
+              <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-700">{errors.general}</p>
+            </div>
+          )}
+
+          {!showReportForm ? (
+            <div className="space-y-3">
+              <button
+                onClick={handleCheckStatusAgain}
+                disabled={isCheckingStatus}
+                className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-200 disabled:text-gray-400 text-white py-3 rounded-xl font-semibold transition-colors text-sm flex items-center justify-center gap-2"
+              >
+                {isCheckingStatus ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Checking…
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" /> Check again
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setShowReportForm(true)}
+                className="w-full border border-gray-200 text-gray-600 hover:bg-gray-50 py-3 rounded-xl font-medium transition-colors text-sm"
+              >
+                I was charged — report my M-Pesa code
+              </button>
+              <button
+                onClick={() => { setPaymentStep('form'); setErrors({}); }}
+                className="text-sm text-gray-400 hover:text-gray-600 underline underline-offset-2"
+              >
+                Cancel and start over
+              </button>
+            </div>
+          ) : (
+            <div className="text-left space-y-4">
+              <p className="text-xs text-gray-500">
+                Check the M-Pesa confirmation SMS on your phone and enter the code below
+                (e.g. <span className="font-mono">QGH7XXXXXX</span>). Our team will verify it
+                against M-Pesa's records and confirm your order — this isn't instant.
+              </p>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  M-Pesa Confirmation Code
+                </label>
+                <input
+                  type="text"
+                  value={mpesaCode}
+                  onChange={e => {
+                    setMpesaCode(e.target.value);
+                    setErrors(p => ({ ...p, mpesaCode: undefined }));
+                  }}
+                  placeholder="QGH7XXXXXX"
+                  className={`w-full px-4 py-3 rounded-xl border-2 text-sm uppercase tracking-wide transition-colors focus:outline-none focus:ring-0 ${
+                    errors.mpesaCode
+                      ? 'border-red-400 bg-red-50 focus:border-red-500'
+                      : 'border-gray-200 focus:border-orange-400'
+                  }`}
+                />
+                {errors.mpesaCode && (
+                  <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {errors.mpesaCode}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={handleSubmitManualReport}
+                disabled={isReporting}
+                className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-200 disabled:text-gray-400 text-white py-3 rounded-xl font-semibold transition-colors text-sm flex items-center justify-center gap-2"
+              >
+                {isReporting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Submitting…
+                  </>
+                ) : (
+                  'Submit for review'
+                )}
+              </button>
+              <button
+                onClick={() => { setShowReportForm(false); setErrors(p => ({ ...p, mpesaCode: undefined })); }}
+                className="w-full text-sm text-gray-400 hover:text-gray-600 underline underline-offset-2"
+              >
+                Back
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Reported screen — code submitted, awaiting admin review ───────────────
+
+  if (paymentStep === 'reported') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 max-w-sm w-full p-8 text-center">
+
+          <div className="w-20 h-20 rounded-full bg-blue-50 border-4 border-blue-100 flex items-center justify-center mx-auto mb-6">
+            <ShieldCheck className="w-9 h-9 text-blue-500" />
+          </div>
+
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Code submitted</h2>
+          <p className="text-gray-500 text-sm mb-6">
+            We've received your M-Pesa code and it's with our team for verification.
+            You'll get an email as soon as your order is confirmed — this is usually
+            quick, but can take a little longer outside business hours.
+          </p>
+
+          <div className="space-y-3">
+            <button
+              onClick={handleCheckStatusAgain}
+              disabled={isCheckingStatus}
+              className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-200 disabled:text-gray-400 text-white py-3 rounded-xl font-semibold transition-colors text-sm flex items-center justify-center gap-2"
+            >
+              {isCheckingStatus ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> Checking…
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4" /> Check status
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => navigate('/my-tickets')}
+              className="w-full border border-gray-200 text-gray-600 hover:bg-gray-50 py-3 rounded-xl font-medium transition-colors text-sm"
+            >
+              View My Tickets
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Failed screen — payment genuinely failed or was cancelled ─────────────
+
+  if (paymentStep === 'failed') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 max-w-sm w-full overflow-hidden">
+
+          {/* Red top bar — matches the green one on the complete screen */}
+          <div className="h-2 bg-gradient-to-r from-red-400 to-red-500" />
+
+          <div className="p-8 text-center">
+            <div className="w-20 h-20 rounded-full bg-red-50 border-4 border-red-100 flex items-center justify-center mx-auto mb-5">
+              <XCircle className="w-10 h-10 text-red-500" />
+            </div>
+
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Payment didn't go through</h2>
+            <p className="text-gray-500 text-sm mb-6">
+              {errors.general || 'Your payment failed or was cancelled. No charge was made.'}
+            </p>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => { setPaymentStep('form'); setErrors({}); }}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-semibold transition-colors text-sm flex items-center justify-center gap-2"
+              >
+                <RefreshCw className="w-4 h-4" /> Try Again
+              </button>
+              <button
+                onClick={() => navigate('/my-tickets')}
+                className="w-full border border-gray-200 text-gray-600 hover:bg-gray-50 py-3 rounded-xl font-medium transition-colors text-sm"
+              >
+                Go to My Tickets
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ── Main checkout form ────────────────────────────────────────────────────
 

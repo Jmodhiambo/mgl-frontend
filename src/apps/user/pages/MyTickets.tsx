@@ -87,7 +87,9 @@ const MyTicketsPage: React.FC = () => {
       // Encode the signed qr_payload (not the bare code) — this is the
       // same payload the gate scanner expects, so a downloaded ticket
       // scans identically to the in-app "Show QR" view.
-      await downloadQrCode(ticket.qr_payload, ticket.code);
+      // downloadQrCode now takes the FULL filename base (no more implicit
+      // "ticket-" prefix, since the util is shared with event/site QRs too).
+      await downloadQrCode(ticket.qr_payload, `ticket-${ticket.code}`);
     } catch {
       setError('Failed to generate ticket download. Please try again.');
     } finally {

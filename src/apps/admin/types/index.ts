@@ -309,6 +309,11 @@ export interface AdminOrder {
   payment_status: string | null;   // 'pending' | 'completed' | 'failed' | null
   mpesa_ref: string | null;
   mpesa_phone: string | null;
+
+  // Manual review mpesa payment fields — merged in (Order:Payment is 1:1)
+  manual_review_status: string;              // 'none' | 'pending' | 'approved' | 'rejected'
+  user_reported_mpesa_code: string | null;
+  user_reported_at: string | null;
  
   created_at: string;
   updated_at: string;

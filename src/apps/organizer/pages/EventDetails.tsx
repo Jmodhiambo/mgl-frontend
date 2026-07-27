@@ -3,15 +3,18 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Calendar, MapPin, Clock, Edit, Trash2, Users, DollarSign,
-  Ticket, ArrowLeft, Plus, Eye, XCircle, TrendingUp,
+  Ticket, ArrowLeft, Plus, Eye, XCircle, TrendingUp, Share2, Link2, QrCode,
   CheckCircle, AlertCircle, Loader2,
 } from 'lucide-react';
 import { getEventDetailsBySlug, updateEventStatus } from '@organizer/services/eventService';
 import { organizer_updateTicketType } from '@shared/api/user/ticketTypesApi';
 import { formatKES, formatDate, formatTime } from '@shared/utils/format';
 import { parseApiError } from '@shared/utils/parseApiError';
+import ShareEventModal from '@shared/components/modals/ShareEventModal';
 import type { OrganizerEventOut, TicketTypeOrganizerOut, EventStats } from '@shared/types/Event';
 import type { Booking as BookingOut } from '@shared/types/Booking';
+
+const baseUrl = import.meta.env.VITE_BASE_URL ?? 'https://mgltickets.com';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -66,6 +69,9 @@ const EventDetails: React.FC = () => {
   const [loading,        setLoading]        = useState(true);
   const [error,          setError]          = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [linkCopied,     setLinkCopied]     = useState(false);
+  const [shareCopied,    setShareCopied]    = useState(false);
   const [actionLoading,  setActionLoading]  = useState(false);
   const [actionError,    setActionError]    = useState<string | null>(null);
 
@@ -164,6 +170,30 @@ const EventDetails: React.FC = () => {
 
   const canCancel = !['cancelled', 'completed', 'deleted', 'pending_deletion'].includes(event.status);
 
+  // Canonical, shareable URL — the public /events/:slug page, so anyone who
+  // scans the QR or opens the link (logged in or not) can see the event.
+  const shareUrl = `${baseUrl}/events/${event.slug}`;
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
+  };
+
+  // Native share sheet where supported (mobile), clipboard-copy fallback
+  // otherwise — distinct from the QR modal, which is opened separately.
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({ title: event.title, url: shareUrl }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 2000);
+      });
+    }
+  };
+
   return (
     <div className="space-y-8">
 
@@ -187,12 +217,48 @@ const EventDetails: React.FC = () => {
             <img src={event.flyer_url} alt={event.title} className="w-full h-64 md:h-full object-cover" />
           </div>
           <div className="p-6 md:w-2/3">
-            <div className="flex items-start justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
               <div className="flex-1 min-w-0">
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2 leading-tight">{event.title}</h1>
                 <StatusBadge event={event} />
               </div>
-              <div className="flex gap-2 ml-4 flex-shrink-0">
+              <div className="flex flex-wrap gap-2 sm:ml-4 sm:flex-shrink-0">
+                {/* Copy Link — quick one-click copy, independent of the QR modal.
+                    Icon swaps to a checkmark briefly since this row has no
+                    text labels to show a "Copied!" state in-line. */}
+                <button
+                  onClick={handleCopyLink}
+                  className={`p-2 border-2 rounded-lg transition-colors ${
+                    linkCopied
+                      ? 'border-green-500 text-green-600 bg-green-50'
+                      : 'border-blue-500 text-blue-600 hover:bg-blue-50'
+                  }`}
+                  title={linkCopied ? 'Copied!' : 'Copy event link'}
+                >
+                  {linkCopied ? <CheckCircle className="w-5 h-5" /> : <Link2 className="w-5 h-5" />}
+                </button>
+                {/* QR Code — opens the QR modal (also has Download + Copy Link inside) */}
+                <button
+                  onClick={() => setShowShareModal(true)}
+                  className="p-2 border-2 border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                  title="Get a QR code for this event"
+                >
+                  <QrCode className="w-5 h-5" />
+                </button>
+                {/* Share — native share sheet where supported, clipboard-copy
+                    fallback otherwise. Icon swaps to a checkmark briefly on
+                    the fallback path since this row has no text labels. */}
+                <button
+                  onClick={handleShare}
+                  className={`p-2 border-2 rounded-lg transition-colors ${
+                    shareCopied
+                      ? 'border-green-500 text-green-600 bg-green-50'
+                      : 'border-blue-500 text-blue-600 hover:bg-blue-50'
+                  }`}
+                  title={shareCopied ? 'Copied!' : 'Share Event'}
+                >
+                  {shareCopied ? <CheckCircle className="w-5 h-5" /> : <Share2 className="w-5 h-5" />}
+                </button>
                 {/* Edit navigates using slug */}
                 <button
                   onClick={() => navigate(`/events/${event.slug}/edit`)}
@@ -480,6 +546,17 @@ const EventDetails: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Share / QR modal */}
+      <ShareEventModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        title={event.title}
+        subtitle="Scan or share this QR code to let attendees book"
+        shareUrl={shareUrl}
+        downloadFilename={`event-${event.slug}`}
+        accent="blue"
+      />
     </div>
   );
 };

@@ -74,13 +74,10 @@ const ProfileSettingsPage: React.FC = () => {
     name: '', email: '', phone_number: '',
   });
 
+  // The email field in the password form below is deliberately a normal,
+  // editable <input> — not disabled/readOnly — because Chrome's password
+  // manager only considers genuinely editable fields when picking a
   // Password fields are uncontrolled (ref-based) rather than React state.
-  // Chrome's "suggest strong password" doesn't always dispatch the events a
-  // controlled input relies on to update React state in time — the next
-  // re-render then snaps the field back to the (stale, empty) state value,
-  // which looks like the password vanishing. Letting the DOM own these
-  // values and only reading them via ref at submit time avoids that fight
-  // entirely, regardless of how the browser filled them in.
   const pwFieldRefs = useRef<{
     old_password: HTMLInputElement | null;
     new_password: HTMLInputElement | null;
@@ -194,15 +191,32 @@ const ProfileSettingsPage: React.FC = () => {
     }
   };
 
+  // Explicitly offers the updated credential to the browser's password
+  const offerCredentialToBrowser = async (email: string, password: string) => {
+    try {
+      const w = window as any;
+      if (!('credentials' in navigator) || !w.PasswordCredential) return;
+      const credential = new w.PasswordCredential({ id: email, password, name: email });
+      await (navigator.credentials as any).store(credential);
+    } catch {
+      // Non-critical — unsupported browser, or the user has this disabled.
+    }
+  };
+
   const handlePasswordChange = async (): Promise<void> => {
     if (!validatePasswordForm()) return;
     setIsSaving(true);
     setSuccessMessage('');
+    const newPasswordValue = pwFieldRefs.current.new_password?.value ?? '';
     try {
       await changeUserPassword({
         old_password: pwFieldRefs.current.old_password?.value ?? '',
-        new_password: pwFieldRefs.current.new_password?.value ?? '',
+        new_password: newPasswordValue,
       } as UserPasswordChange);
+      // Offer the new credential to the browser's password manager before
+      // clearing the fields — this is what triggers Chrome's native
+      // "Save/Update password?" prompt for this in-page form.
+      void offerCredentialToBrowser(profileForm.email, newPasswordValue);
       // Uncontrolled fields — clear them directly via ref rather than state.
       Object.values(pwFieldRefs.current).forEach(el => { if (el) el.value = ''; });
       setSuccessMessage('Password changed successfully!');
@@ -437,24 +451,8 @@ const ProfileSettingsPage: React.FC = () => {
                   <div className="bg-white rounded-xl shadow-md p-8">
                     <h3 className="text-2xl font-bold text-gray-800 mb-1">Change Password</h3>
                     <p className="text-sm text-gray-500 mb-6">
-                      This updates the password for your whole MGLTickets account —
-                      it applies to the organizer and admin apps too.
+                      This updates the password for your whole MGLTickets account.
                     </p>
-
-                    {/*
-                      Real <form> with an explicit onSubmit — the update now
-                      only fires on a click (or Enter within a field), never
-                      as a side-effect of typing or of the browser's
-                      "suggest strong password" autofill.
-
-                      The disabled email field is deliberate: without a
-                      username-type field to anchor to, the browser's
-                      password manager can behave unpredictably around
-                      password-only forms (including firing saves without a
-                      click). autoComplete="username" is the standard fix,
-                      and it also tells the password manager which account
-                      the new password belongs to.
-                    */}
                     <form onSubmit={e => { e.preventDefault(); handlePasswordChange(); }} autoComplete="off">
                       <div className="space-y-6">
 
@@ -464,16 +462,14 @@ const ProfileSettingsPage: React.FC = () => {
                             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                             <input
                               type="email"
-                              name="email"
-                              autoComplete="username"
                               value={profileForm.email}
-                              readOnly
-                              tabIndex={-1}
-                              aria-readonly="true"
-                              onFocus={e => e.currentTarget.blur()}
-                              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-default select-none"
+                              disabled
+                              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
                             />
                           </div>
+                          <p className="mt-1.5 text-xs text-gray-400">
+                            Shown for reference. This is the account whose password you're changing.
+                          </p>
                         </div>
 
                         {(['old_password', 'new_password', 'confirm_password'] as const).map(field => {
@@ -483,7 +479,11 @@ const ProfileSettingsPage: React.FC = () => {
                             field === 'old_password' ? 'current-password'
                             : field === 'new_password' ? 'new-password'
                             : 'confirm-new-password';
-                          const autoComplete = field === 'old_password' ? 'current-password' : 'new-password';
+                          // "new-password" is what triggers Chrome's "suggest strong
+                          // password" chip/bubble — turning it off for the new/confirm
+                          // fields disables that suggestion; current-password is left
+                          // alone since it's just normal saved-password autofill.
+                          const autoComplete = field === 'old_password' ? 'current-password' : 'off';
                           return (
                             <div key={field}>
                               <label className="block text-sm font-medium text-gray-700 mb-2">{labels[field]}</label>

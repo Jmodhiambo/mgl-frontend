@@ -4,12 +4,15 @@ import { useNavigate } from 'react-router-dom';
 import {
   Calendar, MapPin, Clock, Search,
   TrendingUp, ArrowRight, Ticket, Users, Star,
-  ChevronRight, Zap, Shield,
+  ChevronRight, Zap, Shield, QrCode,
 } from 'lucide-react';
 import { HomeSEO } from '@shared/components/SEO';
 import { useAuth } from '@shared/contexts/AuthContext';
 import { getLatestEvents } from '@user/services/eventService';
+import ShareEventModal from '@shared/components/modals/ShareEventModal';
 import type { EventOut } from '@shared/types/Event';
+
+const baseUrl = import.meta.env.VITE_BASE_URL ?? 'https://mgltickets.com';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -41,6 +44,7 @@ const HomePage: React.FC = () => {
   const [filtered, setFiltered]       = useState<EventOut[]>([]);
   const [loading, setLoading]         = useState(true);
   const [searchTerm, setSearchTerm]   = useState('');
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -102,6 +106,16 @@ const HomePage: React.FC = () => {
           {/* Decorative blobs */}
           <div className="absolute -top-24 -right-24 w-96 h-96 bg-white opacity-5 rounded-full" />
           <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-white opacity-5 rounded-full" />
+
+          {/* Share this site — QR code, top-right of hero */}
+          <button
+            onClick={() => setShowShareModal(true)}
+            className="absolute top-4 right-4 sm:top-6 sm:right-8 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors backdrop-blur-sm z-10"
+            title="Get a QR code for MGLTickets"
+          >
+            <QrCode className="w-4 h-4" />
+            Share
+          </button>
 
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-3xl mx-auto">
@@ -358,6 +372,16 @@ const HomePage: React.FC = () => {
           </section>
         )}
       </div>
+
+      <ShareEventModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        title="MGLTickets"
+        subtitle="Scan or share this QR code to spread the word"
+        shareUrl={baseUrl}
+        downloadFilename="mgltickets"
+        accent="orange"
+      />
     </>
   );
 };

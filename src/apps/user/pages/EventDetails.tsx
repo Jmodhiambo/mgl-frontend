@@ -1,125 +1,31 @@
 // src/apps/user/pages/EventDetails.tsx
 // ─────────────────────────────────────────────────────────────────────────────
 // Public event detail page — shown to unauthenticated users.
-// Authenticated users see BrowseEventDetails.tsx instead.
-//
-// Route: /events/:slug
+// Authenticated users are redirected to BrowseEventDetails.tsx (see effect
+// below) — this route (/events/:slug) is the CANONICAL, shareable URL: it's
+// what goes into QR codes, posters, and shared links, since it must resolve
+// for a scanner who isn't logged in yet. Authenticated users get bounced to
+// the richer /browse-events/:slug experience without ever seeing this page.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Calendar, MapPin, Clock, Users, Share2,
-  ChevronLeft, Ticket, AlertCircle, RefreshCw, Tag, ShieldCheck,
+  Calendar, MapPin, Clock, Share2, QrCode, Link2,
+  ChevronLeft, Ticket, AlertCircle, RefreshCw, Tag,
 } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
 import AuthModal from '@shared/components/modals/AuthModal';
+import ShareEventModal from '@shared/components/modals/ShareEventModal';
 import SEO from '@shared/components/SEO';
+import { BASE_URL } from '@shared/components/ENV';
+import TicketRow from '@user/components/modals/events/TicketRow';
 import {
   getEventBySlug,
   getTicketTypesByEvent,
 } from '@user/services/eventService';
 import { formatDate, formatTime, getDurationHours } from '@shared/utils/format';
 import type { EventOut, TicketTypeOut, SelectedTickets } from '@shared/types/Event';
-
-const baseUrl = import.meta.env.VITE_BASE_URL ?? 'https://mgltickets.com';
-
-// ─── Ticket selector row ──────────────────────────────────────────────────────
-
-const TicketRow: React.FC<{
-  ticket: TicketTypeOut;
-  selectedQty: number;
-  onChange: (id: number, qty: number) => void;
-}> = ({ ticket, selectedQty, onChange }) => {
-  const available  = ticket.quantity_available;
-  const isLowStock = available <= 10 && available > 0;
-  const isSoldOut  = available <= 0;
-  // The buyer can never take more than what's in stock, and never more
-  // than this ticket type's per-booking cap — whichever is smaller wins.
-  const effectiveMax = Math.min(available, ticket.max_per_booking);
-  const capIsBindingConstraint = ticket.max_per_booking < available;
-
-  return (
-    <div
-      className={`rounded-xl border-2 p-5 transition-all ${
-        selectedQty > 0
-          ? 'border-orange-400 bg-orange-50'
-          : isSoldOut
-          ? 'border-gray-200 bg-gray-50 opacity-60'
-          : 'border-gray-200 hover:border-orange-300 bg-white'
-      }`}
-    >
-      <div className="flex items-start justify-between gap-4">
-        {/* Left: name + description + stock */}
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-2 mb-1">
-            <h3 className="font-bold text-gray-900 text-base">{ticket.name}</h3>
-            {isLowStock && (
-              <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-semibold rounded-full">
-                Only {available} left!
-              </span>
-            )}
-            {isSoldOut && (
-              <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded-full">
-                Sold Out
-              </span>
-            )}
-          </div>
-          {ticket.description && (
-            <p className="text-gray-500 text-sm leading-relaxed mb-2">{ticket.description}</p>
-          )}
-          {!isSoldOut && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <p className="text-xs text-gray-400 flex items-center gap-1">
-                <Users className="w-3 h-3" />
-                {available} tickets remaining
-              </p>
-              <p className="text-xs text-gray-400 flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3" />
-                Max {ticket.max_per_booking} per booking
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Right: price + stepper */}
-        <div className="flex flex-col items-end gap-3 flex-shrink-0">
-          {ticket.price === 0 ? (
-            <span className="text-xl font-bold text-green-600">Free</span>
-          ) : (
-            <span className="text-xl font-bold text-orange-600">
-              KES {ticket.price.toLocaleString()}
-            </span>
-          )}
-          {!isSoldOut && (
-            <div className="flex flex-col items-end gap-1">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => onChange(ticket.id, Math.max(0, selectedQty - 1))}
-                  disabled={selectedQty === 0}
-                  className="w-8 h-8 rounded-lg border-2 border-orange-400 text-orange-600 font-bold text-sm hover:bg-orange-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center justify-center"
-                >
-                  −
-                </button>
-                <span className="w-8 text-center font-bold text-gray-800">{selectedQty}</span>
-                <button
-                  onClick={() => onChange(ticket.id, Math.min(effectiveMax, selectedQty + 1))}
-                  disabled={selectedQty >= effectiveMax}
-                  className="w-8 h-8 rounded-lg border-2 border-orange-500 bg-orange-500 text-white font-bold text-sm hover:bg-orange-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center justify-center"
-                >
-                  +
-                </button>
-              </div>
-              {capIsBindingConstraint && selectedQty >= effectiveMax && (
-                <span className="text-[11px] text-orange-500 font-medium">Booking limit reached</span>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // ─── Page component ───────────────────────────────────────────────────────────
 
@@ -134,7 +40,21 @@ const EventDetailsPage: React.FC = () => {
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [copied, setCopied]             = useState(false);
+  const [linkCopied, setLinkCopied]     = useState(false);
+
+  // ── Canonical-URL redirect ─────────────────────────────────────────────────
+  // This route is the public, shareable canonical URL (what goes into QR
+  // codes and shared links). Authenticated users get the richer
+  // /browse-events/:slug experience instead — bounce them there immediately,
+  // before firing off the event/ticket fetch below, so there's no wasted
+  // request or flash of the public page.
+  useEffect(() => {
+    if (isAuthenticated && slug) {
+      navigate(`/browse-events/${slug}`, { replace: true });
+    }
+  }, [isAuthenticated, slug, navigate]);
 
   const load = useCallback(async () => {
     if (!slug) return;
@@ -152,7 +72,11 @@ const EventDetailsPage: React.FC = () => {
     }
   }, [slug]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (isAuthenticated) return; // redirect effect above will navigate away
+    load();
+  }, [load, isAuthenticated]);
+
   useEffect(() => {
     if (event) document.title = `${event.title} - MGLTickets`;
   }, [event]);
@@ -192,9 +116,9 @@ const EventDetailsPage: React.FC = () => {
     });
   };
 
-  // ── Share ──────────────────────────────────────────────────────────────────
+  // ── Share (native share sheet / copy fallback) ─────────────────────────────
   const handleShare = () => {
-    const url = `${baseUrl}/events/${event?.slug}`;
+    const url = `${BASE_URL}/events/${event?.slug}`;
     if (navigator.share) {
       navigator.share({ title: event?.title, url }).catch(() => {});
     } else {
@@ -203,6 +127,16 @@ const EventDetailsPage: React.FC = () => {
         setTimeout(() => setCopied(false), 2000);
       });
     }
+  };
+
+  // ── Copy Link — explicit one-click copy, independent of the native share
+  // sheet (which some browsers open instead of copying) and the QR modal.
+  const handleCopyLink = () => {
+    if (!event) return;
+    navigator.clipboard.writeText(`${BASE_URL}/events/${event.slug}`).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
   };
 
   // ── Loading ────────────────────────────────────────────────────────────────
@@ -250,6 +184,8 @@ const EventDetailsPage: React.FC = () => {
     ? Math.min(...ticketTypes.filter(t => t.quantity_available > 0).map(t => t.price))
     : null;
 
+  const shareUrl = `${BASE_URL}/events/${event.slug}`;
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
@@ -259,7 +195,7 @@ const EventDetailsPage: React.FC = () => {
         keywords={`${event.title}, ${event.venue}, Kenya events, tickets`}
         ogImage={event.flyer_url}
         ogType="article"
-        canonicalUrl={`${baseUrl}/events/${event.slug}`}
+        canonicalUrl={shareUrl}
       />
 
       <div className="min-h-screen bg-gray-50">
@@ -280,15 +216,35 @@ const EventDetailsPage: React.FC = () => {
               onClick={() => navigate('/events')}
               className="flex items-center gap-1.5 text-white/90 hover:text-white transition-colors text-sm font-medium"
             >
-              <ChevronLeft className="w-5 h-5" /> Back to Events
+              <ChevronLeft className="w-5 h-5" />
+              <span className="hidden sm:inline">Back to Events</span>
             </button>
-            <button
-              onClick={handleShare}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors backdrop-blur-sm"
-            >
-              <Share2 className="w-4 h-4" />
-              {copied ? 'Copied!' : 'Share'}
-            </button>
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+              <button
+                onClick={handleCopyLink}
+                className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors backdrop-blur-sm"
+                title="Copy event link"
+              >
+                <Link2 className="w-4 h-4" />
+                <span className="hidden sm:inline">{linkCopied ? 'Copied!' : 'Copy Link'}</span>
+              </button>
+              <button
+                onClick={() => setShowShareModal(true)}
+                className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors backdrop-blur-sm"
+                title="Get a QR code for this event"
+              >
+                <QrCode className="w-4 h-4" />
+                <span className="hidden sm:inline">QR Code</span>
+              </button>
+              <button
+                onClick={handleShare}
+                className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors backdrop-blur-sm"
+                title="Share this event"
+              >
+                <Share2 className="w-4 h-4" />
+                <span className="hidden sm:inline">{copied ? 'Copied!' : 'Share'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Event title + meta — bottom of hero */}
@@ -521,6 +477,16 @@ const EventDetailsPage: React.FC = () => {
         onClose={() => setShowAuthModal(false)}
         onSuccess={handleAuthSuccess}
         initialMode="login"
+      />
+
+      <ShareEventModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        title={event.title}
+        subtitle="Scan or share this QR code to let others book"
+        shareUrl={shareUrl}
+        downloadFilename={`event-${event.slug}`}
+        accent="orange"
       />
     </>
   );

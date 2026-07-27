@@ -35,11 +35,15 @@ export async function renderQrToCanvas(
 
 /**
  * Generate a high-resolution QR PNG for the given value and trigger a
- * browser download. The file is named ticket-{filenameBase}.png so the
- * user gets a recognisable filename (e.g. ticket-TKT-101-A3F9B2C1.png).
+ * browser download. The file is named {filenameBase}.png — callers supply
+ * the FULL filename base, including any prefix they want (e.g.
+ * "ticket-TKT-101-A3F9B2C1" for a ticket, "event-summer-fest-2026" for an
+ * event share, or "mgltickets" for the site itself). This util is shared
+ * across tickets, event shares, and the site QR, so it no longer assumes
+ * "ticket-" is always the right prefix.
  *
- * @param value        - The string to encode (ticket.qr_payload)
- * @param filenameBase - Used as the suffix in the downloaded filename (ticket.code)
+ * @param value        - The string to encode (a ticket's qr_payload, or a plain URL)
+ * @param filenameBase - The full desired filename, without extension
  */
 export async function downloadQrCode(
   value: string,
@@ -56,7 +60,7 @@ export async function downloadQrCode(
 
   const link = document.createElement('a');
   link.href = dataUrl;
-  link.download = `ticket-${filenameBase}.png`;
+  link.download = `${filenameBase}.png`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
