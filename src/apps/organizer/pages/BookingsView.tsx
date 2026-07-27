@@ -214,7 +214,7 @@ const bookingReplacements = (ref: Booking | null, orgName: string): Record<strin
   order_id:       ref?.order_id?.toString() ?? ref?.id?.toString() ?? '',
   total_price:    ref?.total_price?.toLocaleString() ?? '',
   venue:          ref?.venue                ?? '',
-  event_date:     ref?.event_date           ?? '',
+  event_date:     ref?.event_date ? formatDate(ref.event_date) : '',
   organizer_name: orgName,
 });
  

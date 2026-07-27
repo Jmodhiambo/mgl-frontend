@@ -209,7 +209,7 @@ const CheckoutBookingPage: React.FC = () => {
         },
         onTimeout: () => { handlePollTimeout(stkResponse.payment_id); },
         intervalMs:  3000,
-        maxAttempts: 5,
+        maxAttempts: 20,
       });
 
       cancelPollRef.current = cancelPoll;
