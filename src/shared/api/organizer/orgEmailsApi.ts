@@ -8,8 +8,8 @@ import api from '@shared/api/axiosConfig';
 export interface SendEmailRequest {
   booking_ids: number[];
   template_used: string;
-  subject?: string;
-  custom_message?: string;
+  subject: string;
+  body: string;
   extra_variables?: Record<string, string>;
 }
 
@@ -19,6 +19,19 @@ export interface SendEmailResponse {
   failed: number;
   email_id?: number;
   message: string;
+}
+
+export interface PreviewEmailRequest {
+  booking_id: number;
+  template_used: string;
+  subject: string;
+  body: string;
+  extra_variables?: Record<string, string>;
+}
+
+export interface PreviewEmailResponse {
+  subject: string;
+  html: string;
 }
 
 export interface OrganizerEmailRecipientOut {
@@ -75,6 +88,19 @@ export interface EmailStatsResponse {
   by_template: Record<string, number>;
   by_status: Record<string, number>;
 }
+
+// ── Preview ───────────────────────────────────────────────────────────────────
+
+/**
+ * Renders exactly what sendOrganizerEmail would dispatch for one
+ * representative booking — same branded wrapper, same {{token}}
+ * substitution. Doesn't send anything or write any log/recipient rows.
+ */
+export const previewOrganizerEmail = async (
+  data: PreviewEmailRequest,
+): Promise<PreviewEmailResponse> => {
+  return (await api.post('/organizers/me/emails/preview', data)).data;
+};
 
 // ── Send ──────────────────────────────────────────────────────────────────────
 

@@ -1,7 +1,8 @@
 // src/apps/organizer/components/BookingViewPage/EmailModal.tsx
-import React from 'react';
-import { XCircle, Send, Info } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { XCircle, Send, Info, Eye } from 'lucide-react';
 import type { EmailTemplate, EmailTemplateExtraField } from '@organizer/pages/BookingsView';
+import { previewOrganizerEmail } from '@shared/api/organizer/orgEmailsApi';
 
 interface Booking {
   id: number;
@@ -31,12 +32,12 @@ interface EmailModalProps {
 
 /** User-friendly hints — no backend references */
 const TEMPLATE_HINTS: Record<string, string> = {
-  'organizer.reminder':     'Sends attendees a pre-event reminder with venue and time details.',
-  'organizer.update':       'Broadcasts a general update to attendees. Fill in the update details below.',
-  'organizer.thank_you':    'Sends a post-event thank you message to attendees.',
-  'organizer.cancellation': 'Notifies attendees the event has been cancelled. Fill in the reason below.',
-  'organizer.venue_change': 'Notifies attendees the venue has changed. Fill in the old and new venue below.',
-  'organizer.time_change':  'Notifies attendees the event time has changed. Fill in the old and new date/time below.',
+  'organizer.reminder':     'Starts you off with a pre-event reminder — edit freely before sending.',
+  'organizer.update':       'Starts you off with a general update. Fill in the update details below, then edit as you like.',
+  'organizer.thank_you':    'Starts you off with a post-event thank you — edit freely before sending.',
+  'organizer.cancellation': 'Starts you off with a cancellation notice. Fill in the reason below, then edit as you like.',
+  'organizer.venue_change': 'Starts you off with a venue-change notice. Fill in the old and new venue below, then edit as you like.',
+  'organizer.time_change':  'Starts you off with a time-change notice. Fill in the old and new date/time below, then edit as you like.',
 };
 
 const EmailModal: React.FC<EmailModalProps> = ({
@@ -54,6 +55,10 @@ const EmailModal: React.FC<EmailModalProps> = ({
   const extraFields: EmailTemplateExtraField[] = activeTpl?.extraFields ?? [];
   const hint       = TEMPLATE_HINTS[emailData.template];
 
+  // Backend expects 'reminder' not 'organizer.reminder'
+  const templateUsed = emailData.template.replace('organizer.', '') || 'custom';
+  const referenceBooking = selectedBookings[0];
+
   const handleExtraChange = (key: string, value: string) => {
     onEmailDataChange({ extraValues: { ...emailData.extraValues, [key]: value } });
   };
@@ -64,9 +69,57 @@ const EmailModal: React.FC<EmailModalProps> = ({
     !!emailData.message &&
     extraFields.every(f => !!emailData.extraValues[f.key]);
 
+  // ── Live preview ──────────────────────────────────────────────────────────
+  // Renders through the exact same branded-wrapper + token-substitution path
+  // the real send uses, so this is never a lookalike — it's what will
+  // actually reach the reference recipient, word for word.
+
+  const [previewHtml,    setPreviewHtml]    = useState('');
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError,   setPreviewError]   = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!referenceBooking || !emailData.subject || !emailData.message) {
+      setPreviewHtml('');
+      setPreviewError(null);
+      return;
+    }
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      setPreviewLoading(true);
+      setPreviewError(null);
+      try {
+        const result = await previewOrganizerEmail({
+          booking_id: referenceBooking.id,
+          template_used: templateUsed,
+          subject: emailData.subject,
+          body: emailData.message,
+          extra_variables: Object.keys(emailData.extraValues).length
+            ? emailData.extraValues
+            : undefined,
+        });
+        setPreviewHtml(result.html);
+      } catch {
+        setPreviewError('Preview unavailable right now — your message is unaffected.');
+      } finally {
+        setPreviewLoading(false);
+      }
+    }, 500);
+
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [
+    referenceBooking?.id,
+    templateUsed,
+    emailData.subject,
+    emailData.message,
+    emailData.extraValues,
+  ]);
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl max-w-6xl w-full p-6 max-h-[90vh] overflow-y-auto">
 
         {/* Header */}
         <div className="flex items-start justify-between mb-6 pb-4 border-b border-gray-200">
@@ -85,87 +138,124 @@ const EmailModal: React.FC<EmailModalProps> = ({
           </button>
         </div>
 
-        <div className="space-y-4 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
-          {/* Template selector */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email Template</label>
-            <select
-              value={emailData.template}
-              onChange={e => onTemplateChange(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
-            >
-              {emailTemplates.map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-            {hint && (
-              <p className="mt-1.5 flex items-start gap-1.5 text-xs text-gray-500">
-                <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-blue-400" />
-                {hint}
+          {/* ── Left: editable form ── */}
+          <div className="space-y-4">
+
+            {/* Template selector */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Start From Template</label>
+              <select
+                value={emailData.template}
+                onChange={e => onTemplateChange(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                {emailTemplates.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+              {hint && (
+                <p className="mt-1.5 flex items-start gap-1.5 text-xs text-gray-500">
+                  <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-blue-400" />
+                  {hint}
+                </p>
+              )}
+            </div>
+
+            {/* Extra fields (template-specific) */}
+            {extraFields.length > 0 && (
+              <div className="space-y-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
+                  Fill in before sending
+                </p>
+                {extraFields.map(field => (
+                  <div key={field.key}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {field.label} <span className="text-red-500">*</span>
+                    </label>
+                    {field.type === 'textarea' ? (
+                      <textarea
+                        value={emailData.extraValues[field.key] ?? ''}
+                        onChange={e => handleExtraChange(field.key, e.target.value)}
+                        rows={3}
+                        placeholder={field.placeholder}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none text-sm"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={emailData.extraValues[field.key] ?? ''}
+                        onChange={e => handleExtraChange(field.key, e.target.value)}
+                        placeholder={field.placeholder}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Subject — freely editable for every template */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Subject *</label>
+              <input
+                type="text"
+                value={emailData.subject}
+                onChange={e => onEmailDataChange({ subject: e.target.value })}
+                placeholder="Enter email subject"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Message body — freely editable for every template */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">Message *</label>
+                <span className="text-xs text-gray-400">{emailData.message.length} characters</span>
+              </div>
+              <textarea
+                value={emailData.message}
+                onChange={e => onEmailDataChange({ message: e.target.value })}
+                rows={12}
+                placeholder="Enter your message here..."
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none font-mono text-sm"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                {'{{customer_name}}, {{order_id}}, {{ticket_type}}'} and similar tokens are
+                replaced with each recipient's own details when sent.
+              </p>
+            </div>
+          </div>
+
+          {/* ── Right: live preview ── */}
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1.5 mb-2 text-sm font-medium text-gray-700">
+              <Eye className="w-4 h-4" /> Live Preview
+              {previewLoading && <span className="text-xs text-gray-400 ml-2">Updating…</span>}
+            </div>
+            <div className="flex-1 border border-gray-200 rounded-lg overflow-hidden bg-gray-50 min-h-[420px]">
+              {previewError ? (
+                <div className="p-4 text-sm text-red-600">{previewError}</div>
+              ) : previewHtml ? (
+                <iframe
+                  title="Email preview"
+                  srcDoc={previewHtml}
+                  sandbox=""
+                  className="w-full h-full min-h-[420px] bg-white"
+                />
+              ) : (
+                <div className="p-4 text-sm text-gray-400">
+                  Fill in the subject and message to see exactly what attendees will receive.
+                </div>
+              )}
+            </div>
+            {referenceBooking && (
+              <p className="text-xs text-gray-400 mt-2">
+                Shown with {referenceBooking.customer_name ?? 'the first recipient'}'s details
+                {isBulk ? ' — each attendee receives their own name, order number, and ticket info.' : '.'}
               </p>
             )}
-          </div>
-
-          {/* Extra fields (template-specific) */}
-          {extraFields.length > 0 && (
-            <div className="space-y-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
-                Fill in before sending
-              </p>
-              {extraFields.map(field => (
-                <div key={field.key}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {field.label} <span className="text-red-500">*</span>
-                  </label>
-                  {field.type === 'textarea' ? (
-                    <textarea
-                      value={emailData.extraValues[field.key] ?? ''}
-                      onChange={e => handleExtraChange(field.key, e.target.value)}
-                      rows={3}
-                      placeholder={field.placeholder}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none text-sm"
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      value={emailData.extraValues[field.key] ?? ''}
-                      onChange={e => handleExtraChange(field.key, e.target.value)}
-                      placeholder={field.placeholder}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Subject */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Subject *</label>
-            <input
-              type="text"
-              value={emailData.subject}
-              onChange={e => onEmailDataChange({ subject: e.target.value })}
-              placeholder="Enter email subject"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          {/* Message body */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700">Message *</label>
-              <span className="text-xs text-gray-400">{emailData.message.length} characters</span>
-            </div>
-            <textarea
-              value={emailData.message}
-              onChange={e => onEmailDataChange({ message: e.target.value })}
-              rows={12}
-              placeholder="Enter your message here..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none font-mono text-sm"
-            />
-            <p className="text-xs text-gray-400 mt-1">{emailData.message.length} characters</p>
           </div>
         </div>
 

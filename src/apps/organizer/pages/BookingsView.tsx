@@ -64,7 +64,15 @@ type ViewTab = 'orders' | 'bookings';
 const BOOKINGS_PAGE_SIZE = 20;
 const ORDERS_PAGE_SIZE = 20;
  
-// ── Email templates (unchanged) ───────────────────────────────────────────────
+// ── Email templates ────────────────────────────────────────────────────────────
+// These subject/body strings are STARTING DRAFTS ONLY — purely client-side
+// prefill text to save organizers from a blank textbox. They are not
+// authoritative and are not rendered by the backend. Once a template is
+// selected, subject and message are fully editable, and whatever the
+// organizer ends up with is exactly what gets sent (see handleSendEmail
+// below) — the backend renders it through the same branded wrapper the
+// live preview in EmailModal uses, so there's no separate "real" copy
+// living on the server that could drift from what's shown here.
  
 const EMAIL_TEMPLATES: EmailTemplate[] = [
   {
@@ -300,6 +308,13 @@ const BookingsView: React.FC = () => {
     template: 'custom', rawBody: '', subject: '', message: '', extraValues: {} as Record<string, string>,
   });
   const [sendingEmail, setSendingEmail] = useState(false);
+
+  // Once the organizer has typed into the message box themselves, extra-
+  // field edits (e.g. filling in cancellation_reason afterwards) must stop
+  // silently overwriting it — see the token-substitution effect below.
+  // Reset alongside emailData itself: handleTemplateChange and
+  // resetEmailData both clear this back to false.
+  const [messageTouched, setMessageTouched] = useState(false);
  
   // ── Load orders ──────────────────────────────────────────────────────────
  
@@ -390,10 +405,12 @@ const BookingsView: React.FC = () => {
   // ── Email token substitution ─────────────────────────────────────────────
  
   useEffect(() => {
-    if (!emailData.rawBody) return;
+    // Once the organizer has manually edited the message, extra-field
+    // changes stop touching it — their words are theirs to keep.
+    if (!emailData.rawBody || messageTouched) return;
     const merged = { ...bookingReplacements(selectedBooking, organizerName), ...emailData.extraValues };
     setEmailData(p => ({ ...p, message: fillTokens(p.rawBody, merged) }));
-  }, [emailData.extraValues]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [emailData.extraValues, messageTouched]); // eslint-disable-line react-hooks/exhaustive-deps
  
   // ── Stats ────────────────────────────────────────────────────────────────
  
@@ -443,8 +460,20 @@ const BookingsView: React.FC = () => {
   const handleViewBooking   = (b: Booking) => { setSelectedBooking(b); setShowBookingDetails(true); };
   const closeBookingDetails = () => { setShowBookingDetails(false); setSelectedBooking(null); };
  
-  const resetEmailData = () =>
+  const resetEmailData = () => {
     setEmailData({ template: 'custom', rawBody: '', subject: '', message: '', extraValues: {} });
+    setMessageTouched(false);
+  };
+
+  // EmailModal's Message textarea calls this with { message } on every
+  // keystroke — that's the one signal that distinguishes "the organizer
+  // typed this" from the programmatic sets in handleTemplateChange and the
+  // extraValues effect above, which update emailData.message directly via
+  // setEmailData and never go through this wrapper.
+  const handleEmailDataChange = (data: Partial<typeof emailData>) => {
+    if ('message' in data) setMessageTouched(true);
+    setEmailData(p => ({ ...p, ...data }));
+  };
  
   const openEmailModal = (b: Booking) => {
     setSelectedBookings([b.id]);
@@ -471,6 +500,7 @@ const BookingsView: React.FC = () => {
       message:  fillTokens(tpl.body, base),
       extraValues: {},
     });
+    setMessageTouched(false);
   };
  
   const handleSendEmail = async () => {
@@ -484,11 +514,15 @@ const BookingsView: React.FC = () => {
         ? emailData.extraValues
         : undefined;
 
+      // subject/body are always the organizer's own (possibly edited) text
+      // for every template now — the backend renders them through the same
+      // branded wrapper the live preview used, so this is exactly what
+      // recipients receive, personalised per booking on the backend.
       const result = await sendOrganizerEmail({
         booking_ids: selectedBookings,
         template_used,
         subject: emailData.subject,
-        custom_message: template_used === 'custom' ? emailData.message : undefined,
+        body: emailData.message,
         extra_variables,
       });
 
@@ -947,7 +981,7 @@ const BookingsView: React.FC = () => {
           sendingEmail={sendingEmail}
           onClose={() => { setShowEmailModal(false); resetEmailData(); }}
           onTemplateChange={handleTemplateChange}
-          onEmailDataChange={data => setEmailData(p => ({ ...p, ...data }))}
+          onEmailDataChange={handleEmailDataChange}
           onSend={handleSendEmail}
         />
       )}
