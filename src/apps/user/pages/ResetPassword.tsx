@@ -1,10 +1,12 @@
+// src/apps/user/pages/ResetPassword.tsx
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import { ResetPasswordSEO } from '@shared/components/SEO';
 import type { ResetPasswordResponse } from '@shared/types/Auth';
 import { resetPassword } from '@shared/api/auth/authApi';
 
-export default function ResetPassword() {
+const ResetPassword: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -14,6 +16,8 @@ export default function ResetPassword() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [token, setToken] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     const tokenParam = searchParams.get('token');
@@ -85,17 +89,29 @@ export default function ResetPassword() {
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
                 New Password
               </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                required
-                disabled={isLoading || !token}
-                minLength={8}
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 pr-10 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  required
+                  disabled={isLoading || !token}
+                  minLength={8}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  disabled={isLoading || !token}
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
               <p className="text-xs text-gray-600 mt-1">At least 8 characters</p>
             </div>
 
@@ -103,16 +119,28 @@ export default function ResetPassword() {
               <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="confirmPassword">
                 Confirm New Password
               </label>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                required
-                disabled={isLoading || !token}
-              />
+              <div className="relative">
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 pr-10 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  required
+                  disabled={isLoading || !token}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(prev => !prev)}
+                  disabled={isLoading || !token}
+                  tabIndex={-1}
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
 
             <div className="mb-4">
@@ -136,3 +164,5 @@ export default function ResetPassword() {
     </>
   );
 }
+
+export default ResetPassword;

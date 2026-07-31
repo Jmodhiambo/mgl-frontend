@@ -4,13 +4,15 @@ import { useNavigate } from 'react-router-dom';
 import {
   Calendar, Ticket, Download, QrCode,
   MapPin, Clock, Search, CheckCircle, XCircle, AlertCircle,
+  ChevronDown, ChevronUp, Pencil, Check, X, Loader2,
 } from 'lucide-react';
 import { MyTicketsSEO } from '@shared/components/SEO';
-import { getUserTicketInstances } from '@shared/api/user/ticketInstancesApi';
+import { getUserTicketInstances, updateTicketHolderName } from '@shared/api/user/ticketInstancesApi';
 import type { TicketInstanceEnriched } from '@shared/api/user/ticketInstancesApi';
 import { renderQrToCanvas, downloadQrCode } from '@shared/utils/qrCode';
 
 const PAGE_SIZE = 10;
+const HOLDER_NAME_MAX_LENGTH = 150;
 
 const MyTicketsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -22,6 +24,18 @@ const MyTicketsPage: React.FC = () => {
   const [page, setPage]                 = useState(1);
   const [selectedTicket, setSelectedTicket] = useState<TicketInstanceEnriched | null>(null);
   const [downloading, setDownloading]   = useState(false);
+
+  // Which ticket cards are expanded — collapsed by default so long lists
+  // stay scannable. Independent per card so a couple can be compared
+  // side by side without losing state.
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+
+  // Holder-name inline edit state — only one card can be in edit mode
+  // at a time, which keeps the save/cancel affordances unambiguous.
+  const [editingId, setEditingId]   = useState<number | null>(null);
+  const [editValue, setEditValue]   = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError]   = useState<string | null>(null);
 
   useEffect(() => {
     document.title = 'My Tickets - MGLTickets';
@@ -65,6 +79,11 @@ const MyTicketsPage: React.FC = () => {
       weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
     });
 
+  const formatDateShort = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+    });
+
   const formatTime = (iso: string) =>
     new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
@@ -81,6 +100,18 @@ const MyTicketsPage: React.FC = () => {
     return null;
   };
 
+  const toggleExpanded = (ticketId: number) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(ticketId)) {
+        next.delete(ticketId);
+      } else {
+        next.add(ticketId);
+      }
+      return next;
+    });
+  };
+
   const handleDownloadTicket = async (ticket: TicketInstanceEnriched) => {
     setDownloading(true);
     try {
@@ -94,6 +125,46 @@ const MyTicketsPage: React.FC = () => {
       setError('Failed to generate ticket download. Please try again.');
     } finally {
       setDownloading(false);
+    }
+  };
+
+  // ── Holder name editing ─────────────────────────────────────────────────
+
+  const startEditingHolderName = (ticket: TicketInstanceEnriched) => {
+    setEditingId(ticket.id);
+    setEditValue(ticket.issued_to ?? '');
+    setEditError(null);
+  };
+
+  const cancelEditingHolderName = () => {
+    setEditingId(null);
+    setEditValue('');
+    setEditError(null);
+  };
+
+  const saveHolderName = async (ticket: TicketInstanceEnriched) => {
+    const trimmed = editValue.trim();
+    if (!trimmed) {
+      setEditError('Name cannot be empty.');
+      return;
+    }
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      const updated = await updateTicketHolderName(ticket.id, trimmed);
+      setTickets(prev => prev.map(t => (
+        t.id === ticket.id ? { ...t, issued_to: updated.issued_to } : t
+      )));
+      setEditingId(null);
+      setEditValue('');
+    } catch (err: any) {
+      if (err?.response?.status === 409) {
+        setEditError('This ticket was checked in or cancelled, so the name can no longer be changed.');
+      } else {
+        setEditError('Failed to save. Please try again.');
+      }
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -158,93 +229,181 @@ const MyTicketsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Tickets list — one card per ticket instance, each with its own
-              QR code and code, since each instance is independently
-              scannable at the gate. Paginated so large ticket counts don't
-              turn this into one long scroll. */}
-          <div className="space-y-4">
-            {paginatedTickets.map(ticket => (
-              <div key={ticket.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all">
-                <div className="p-6">
-                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h3 className="text-xl font-bold text-gray-800 mb-1">{ticket.event_title}</h3>
-                          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium border ${statusColor(ticket.status)}`}>
-                            {statusIcon(ticket.status)}
-                            {ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1)}
-                          </div>
+          {/* Tickets list — one collapsible card per ticket instance. Each
+              card's header (event, status, date) is always visible and
+              toggles the expanded detail section, which holds the QR code,
+              actions, and holder-name editing. Keeping cards collapsed by
+              default is what makes long ticket lists scannable. */}
+          <div className="space-y-3">
+            {paginatedTickets.map(ticket => {
+              const isExpanded = expandedIds.has(ticket.id);
+              const isEditing = editingId === ticket.id;
+
+              return (
+                <div key={ticket.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all">
+                  {/* Collapsed header — always visible, click to expand/collapse */}
+                  <button
+                    onClick={() => toggleExpanded(ticket.id)}
+                    className="w-full flex items-center justify-between gap-4 p-4 sm:p-5 text-left"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h3 className="text-lg font-bold text-gray-800 truncate">{ticket.event_title}</h3>
+                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusColor(ticket.status)}`}>
+                          {statusIcon(ticket.status)}
+                          {ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1)}
                         </div>
                       </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
                         {ticket.event_date && (
-                          <div className="flex items-center text-gray-600">
-                            <Calendar className="w-4 h-4 mr-2 text-orange-500" />
-                            <span className="text-sm">{formatDate(ticket.event_date)}</span>
-                          </div>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {formatDateShort(ticket.event_date)}
+                          </span>
                         )}
-                        {ticket.event_date && (
-                          <div className="flex items-center text-gray-600">
-                            <Clock className="w-4 h-4 mr-2 text-orange-500" />
-                            <span className="text-sm">{formatTime(ticket.event_date)}</span>
-                          </div>
+                        <span className="font-mono">{ticket.code}</span>
+                        {ticket.issued_to && (
+                          <span className="truncate">For: {ticket.issued_to}</span>
                         )}
-                        <div className="flex items-center text-gray-600">
-                          <MapPin className="w-4 h-4 mr-2 text-orange-500" />
-                          <span className="text-sm">{ticket.venue}</span>
-                        </div>
-                        <div className="flex items-center text-gray-600">
-                          <Ticket className="w-4 h-4 mr-2 text-orange-500" />
-                          <span className="text-sm">{ticket.ticket_type_name}</span>
-                        </div>
                       </div>
+                    </div>
+                    <div className="flex-shrink-0 text-gray-400">
+                      {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                    </div>
+                  </button>
 
-                      <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                        <div>
-                          <div className="text-xs text-gray-500 mb-1">Ticket Code</div>
-                          <div className="font-mono text-sm font-medium text-gray-800">{ticket.code}</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-xs text-gray-500 mb-1">Price</div>
-                          <div className="text-lg font-bold text-orange-600">
-                            KES {ticket.price.toLocaleString()}
+                  {/* Expanded detail section */}
+                  {isExpanded && (
+                    <div className="px-4 sm:px-6 pb-6 border-t border-gray-100">
+                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 pt-4">
+                        <div className="flex-1">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                            {ticket.event_date && (
+                              <div className="flex items-center text-gray-600">
+                                <Calendar className="w-4 h-4 mr-2 text-orange-500" />
+                                <span className="text-sm">{formatDate(ticket.event_date)}</span>
+                              </div>
+                            )}
+                            {ticket.event_date && (
+                              <div className="flex items-center text-gray-600">
+                                <Clock className="w-4 h-4 mr-2 text-orange-500" />
+                                <span className="text-sm">{formatTime(ticket.event_date)}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center text-gray-600">
+                              <MapPin className="w-4 h-4 mr-2 text-orange-500" />
+                              <span className="text-sm">{ticket.venue}</span>
+                            </div>
+                            <div className="flex items-center text-gray-600">
+                              <Ticket className="w-4 h-4 mr-2 text-orange-500" />
+                              <span className="text-sm">{ticket.ticket_type_name}</span>
+                            </div>
                           </div>
+
+                          {/* Ticket holder name — editable only while 'issued'.
+                              This is intentionally not collected at booking
+                              time to keep checkout friction-free; buyers
+                              assign names to individual tickets afterward. */}
+                          <div className="mb-4 pt-4 border-t border-gray-100">
+                            <div className="text-xs text-gray-500 mb-1.5">Ticket Holder Name</div>
+                            {isEditing ? (
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={editValue}
+                                    onChange={e => setEditValue(e.target.value)}
+                                    maxLength={HOLDER_NAME_MAX_LENGTH}
+                                    placeholder="Enter holder's name"
+                                    autoFocus
+                                    disabled={editSaving}
+                                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 disabled:opacity-50"
+                                  />
+                                  <button
+                                    onClick={() => saveHolderName(ticket)}
+                                    disabled={editSaving}
+                                    className="p-2 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors disabled:opacity-50"
+                                    aria-label="Save"
+                                  >
+                                    {editSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                  </button>
+                                  <button
+                                    onClick={cancelEditingHolderName}
+                                    disabled={editSaving}
+                                    className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50"
+                                    aria-label="Cancel"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                                {editError && (
+                                  <p className="text-xs text-red-600 mt-1.5">{editError}</p>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-800">
+                                  {ticket.issued_to || <span className="text-gray-400 font-normal">Not set</span>}
+                                </span>
+                                {ticket.status === 'issued' && (
+                                  <button
+                                    onClick={() => startEditingHolderName(ticket)}
+                                    className="p-1 rounded text-gray-400 hover:text-orange-600 hover:bg-orange-50 transition-colors"
+                                    aria-label="Edit ticket holder name"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                            <div>
+                              <div className="text-xs text-gray-500 mb-1">Ticket Code</div>
+                              <div className="font-mono text-sm font-medium text-gray-800">{ticket.code}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs text-gray-500 mb-1">Price</div>
+                              <div className="text-lg font-bold text-orange-600">
+                                KES {ticket.price.toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex md:flex-col gap-2">
+                          {ticket.status === 'issued' && (
+                            <>
+                              <button
+                                onClick={() => setSelectedTicket(ticket)}
+                                className="flex-1 md:w-auto bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-2 rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all flex items-center justify-center gap-2"
+                              >
+                                <QrCode className="w-4 h-4" /> Show QR
+                              </button>
+                              <button
+                                onClick={() => handleDownloadTicket(ticket)}
+                                disabled={downloading}
+                                className="flex-1 md:w-auto border-2 border-orange-500 text-orange-600 px-4 py-2 rounded-lg font-medium hover:bg-orange-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                              >
+                                <Download className="w-4 h-4" /> Download
+                              </button>
+                            </>
+                          )}
+                          {ticket.status === 'used' && ticket.used_at && (
+                            <div className="text-center p-3 bg-blue-50 rounded-lg">
+                              <div className="text-xs text-blue-600 font-medium">Used on</div>
+                              <div className="text-sm text-blue-800">{formatDate(ticket.used_at)}</div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex md:flex-col gap-2">
-                      {ticket.status === 'issued' && (
-                        <>
-                          <button
-                            onClick={() => setSelectedTicket(ticket)}
-                            className="flex-1 md:w-auto bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-2 rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all flex items-center justify-center gap-2"
-                          >
-                            <QrCode className="w-4 h-4" /> Show QR
-                          </button>
-                          <button
-                            onClick={() => handleDownloadTicket(ticket)}
-                            disabled={downloading}
-                            className="flex-1 md:w-auto border-2 border-orange-500 text-orange-600 px-4 py-2 rounded-lg font-medium hover:bg-orange-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                          >
-                            <Download className="w-4 h-4" /> Download
-                          </button>
-                        </>
-                      )}
-                      {ticket.status === 'used' && ticket.used_at && (
-                        <div className="text-center p-3 bg-blue-50 rounded-lg">
-                          <div className="text-xs text-blue-600 font-medium">Used on</div>
-                          <div className="text-sm text-blue-800">{formatDate(ticket.used_at)}</div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {filteredTickets.length === 0 && !loading && (

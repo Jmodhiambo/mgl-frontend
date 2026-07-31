@@ -5,7 +5,9 @@
 // (see ticket_instances_organizer.py — organizers use bookings instead).
 //
 // Ticket instances are auto-generated server-side after payment confirmation.
-// Users never create them directly — they only read and display them.
+// Users never create them directly — they only read and display them, and
+// (as of the holder-name rename feature) can PATCH the issued_to field on
+// their own tickets while still 'issued'.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import api from '@shared/api/axiosConfig';
@@ -81,6 +83,22 @@ export const getUserTicketInstanceById = async (
 ): Promise<TicketInstanceOut> => {
   return (
     await api.get(`/users/me/ticket-instances/${ticketInstanceId}`)
+  ).data;
+};
+
+// Rename the holder of a ticket the current user owns. Backend only allows
+// this while the ticket is still 'issued' — a 409 means it was checked in
+// or cancelled since the page loaded, and the caller should surface that
+// inline rather than as a generic failure.
+export const updateTicketHolderName = async (
+  ticketInstanceId: number,
+  issuedTo: string,
+): Promise<TicketInstanceOut> => {
+  return (
+    await api.patch(
+      `/users/me/ticket-instances/${ticketInstanceId}/holder-name`,
+      { issued_to: issuedTo },
+    )
   ).data;
 };
 
