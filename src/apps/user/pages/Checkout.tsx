@@ -101,6 +101,7 @@ const CheckoutBookingPage: React.FC = () => {
   const [errors, setErrors]             = useState<FormErrors>({});
   const [paymentStep, setPaymentStep]   = useState<PaymentStep>('form');
   const [paymentId, setPaymentId]       = useState<number | null>(null);
+  const [orderId, setOrderId]           = useState<number | null>(null);
   const [orderTotal, setOrderTotal]     = useState<number | null>(null);
   const [modalContent, setModalContent] = useState<'terms' | 'refund' | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
@@ -187,6 +188,7 @@ const CheckoutBookingPage: React.FC = () => {
       });
 
       setOrderTotal(order.total_price);
+      setOrderId(order.id);
 
       // Free events: backend returns checkout_request_id === null — no STK push
       // needed, booking is already confirmed, skip straight to the success screen.
@@ -488,6 +490,14 @@ const CheckoutBookingPage: React.FC = () => {
               >
                 Cancel and start over
               </button>
+              {orderId && (
+                <button
+                  onClick={() => navigate(`/orders/${orderId}`)}
+                  className="block w-full text-sm text-gray-400 hover:text-gray-600 underline underline-offset-2"
+                >
+                  View Order
+                </button>
+              )}
             </div>
           ) : (
             <div className="text-left space-y-4">
@@ -581,10 +591,10 @@ const CheckoutBookingPage: React.FC = () => {
               )}
             </button>
             <button
-              onClick={() => navigate('/my-tickets')}
+              onClick={() => orderId && navigate(`/orders/${orderId}`)}
               className="w-full border border-gray-200 text-gray-600 hover:bg-gray-50 py-3 rounded-xl font-medium transition-colors text-sm"
             >
-              View My Tickets
+              View Order
             </button>
           </div>
         </div>
@@ -620,10 +630,10 @@ const CheckoutBookingPage: React.FC = () => {
                 <RefreshCw className="w-4 h-4" /> Try Again
               </button>
               <button
-                onClick={() => navigate('/my-tickets')}
+                onClick={() => orderId && navigate(`/orders/${orderId}`)}
                 className="w-full border border-gray-200 text-gray-600 hover:bg-gray-50 py-3 rounded-xl font-medium transition-colors text-sm"
               >
-                Go to My Tickets
+                View Order
               </button>
             </div>
           </div>

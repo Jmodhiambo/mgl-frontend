@@ -5,6 +5,7 @@ import {
   XCircle, AlertCircle, MapPin, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { DashboardSEO } from '@shared/components/SEO';
+import { formatDate } from '@shared/utils/format';
 import {
   fetchCurrentUser,
   fetchUserOrdersEnriched,
@@ -30,12 +31,12 @@ const parseApiError = (err: unknown): string => {
   return 'Something went wrong.';
 };
 
-const formatDate = (dateString: string): string =>
-  new Date(dateString).toLocaleDateString('en-KE', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+// const formatDate = (dateString: string): string =>
+//   new Date(dateString).toLocaleDateString('en-KE', {
+//     month: 'short',
+//     day: 'numeric',
+//     year: 'numeric',
+//   });
 
 const getStatusColor = (status: string): string => {
   switch (status) {
@@ -72,7 +73,9 @@ const UserDashboard: React.FC = () => {
 
   // Inline expand state for the Recent Bookings list — clicking a booking
   // row expands it in place instead of navigating anywhere. The only path
-  // to the My Tickets page is the explicit "View All" link.
+  // off this list is the explicit "View All" link, which goes to the full
+  // Orders list (not My Tickets — an order without issued tickets yet still
+  // needs somewhere to be seen and acted on).
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -211,9 +214,9 @@ const UserDashboard: React.FC = () => {
             <div className="lg:col-span-2">
               <div className="bg-white rounded-xl shadow-md p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-bold text-gray-800">Recent Bookings</h3>
+                  <h3 className="text-xl font-bold text-gray-800">Recent Booking Orders</h3>
                   <Link
-                    to="/my-tickets"
+                    to="/orders"
                     className="text-orange-600 hover:text-orange-700 font-medium text-sm"
                   >
                     View All
@@ -222,18 +225,18 @@ const UserDashboard: React.FC = () => {
 
                 {recentBookings.length > 0 ? (
                   <div className="space-y-3">
-                    {recentBookings.map((booking) => {
-                      const isExpanded = expandedOrderId === booking.id;
-                      const fullOrder = orders.find((o) => o.id === booking.id);
+                    {recentBookings.map((order) => {
+                      const isExpanded = expandedOrderId === order.id;
+                      const fullOrder = orders.find((o) => o.id === order.id);
 
                       return (
                         <div
-                          key={booking.id}
+                          key={order.id}
                           className="border border-gray-200 rounded-xl overflow-hidden hover:border-orange-300 transition-colors"
                         >
                           <button
                             type="button"
-                            onClick={() => toggleExpand(booking.id)}
+                            onClick={() => toggleExpand(order.id)}
                             className="w-full text-left p-4 hover:bg-orange-50/40 transition-colors"
                           >
                             <div className="flex items-start justify-between mb-3">
@@ -243,34 +246,34 @@ const UserDashboard: React.FC = () => {
                                   : <ChevronRight className="w-4 h-4 text-gray-400 mt-1 flex-shrink-0" />}
                                 <div className="min-w-0">
                                   <h4 className="font-semibold text-gray-800 mb-1 truncate">
-                                    {booking.event_title}
+                                    {order.event_title}
                                   </h4>
                                   <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
                                     <span className="flex items-center gap-1">
                                       <Calendar className="w-4 h-4 flex-shrink-0" />
-                                      {formatDate(booking.event_date)}
+                                      {formatDate(order.event_date)}
                                     </span>
                                     <span className="flex items-center gap-1">
                                       <Ticket className="w-4 h-4 flex-shrink-0" />
-                                      {booking.quantity} ticket{booking.quantity !== 1 ? 's' : ''}
+                                      {order.quantity} ticket{order.quantity !== 1 ? 's' : ''}
                                     </span>
                                   </div>
                                 </div>
                               </div>
                               <div className="text-right flex-shrink-0">
                                 <div className="font-bold text-gray-800 mb-2">
-                                  {booking.total_price === 0 ? 'Free' : `KES ${booking.total_price.toLocaleString()}`}
+                                  {order.total_price === 0 ? 'Free' : `KES ${order.total_price.toLocaleString()}`}
                                 </div>
                                 <span
-                                  className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}
+                                  className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}
                                 >
-                                  <StatusIcon status={booking.status} />
-                                  {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                                  <StatusIcon status={order.status} />
+                                  {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                                 </span>
                               </div>
                             </div>
                             <div className="text-xs text-gray-500 pl-6">
-                              Booked on {formatDate(booking.created_at)}
+                              Booked on {formatDate(order.created_at)}
                             </div>
                           </button>
 
@@ -299,6 +302,13 @@ const UserDashboard: React.FC = () => {
                                   M-Pesa Ref: {fullOrder.mpesa_ref}
                                 </div>
                               )}
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); navigate(`/orders/${order.id}`); }}
+                                className="w-full mt-1 text-center text-orange-600 hover:text-orange-700 font-medium text-xs py-2 border-t border-gray-200"
+                              >
+                                View More Details →
+                              </button>
                             </div>
                           )}
                         </div>

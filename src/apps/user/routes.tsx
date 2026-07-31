@@ -14,6 +14,8 @@ import MyTickets from '@user/pages/MyTickets';
 import Profile from '@user/pages/Profile';
 import EventDetails from '@user/pages/EventDetails';
 import BrowseEventDetails from '@user/pages/BrowseEventDetails';
+import Orders from '@user/pages/Orders';
+import OrderDetails from '@user/pages/OrderDetails';
 import MyEvents from '@user/pages/MyEvents';
 import OrganizerProfileSetup from '@user/pages/OrganizerProfileSetup';
 import Login from '@user/pages/Login';
@@ -26,6 +28,7 @@ import AcceptCoOrganizerInvitation from '@user/pages/CoOrganizerInvitation';
 import { TermsOfService, PrivacyPolicy, RefundPolicy, AboutUs, ContactPage, FAQPage, OldHelpCenterPage, CookiePolicy } from '@shared/pages';
 import { PressAndMedia, CareersPage, NotFoundPage } from '@shared/pages';
 import { helpRoutes } from '@shared/routing/HelpRoutes';
+
 
 /**
  * Router configuration for MGLTickets
@@ -182,6 +185,14 @@ export const router = createBrowserRouter([
       {
         path: 'browse-events/:slug',
         element: <BrowseEventDetails />,
+      },
+      {
+        path: 'orders',
+        element: <Orders />,
+      },
+      {
+        path: 'orders/:orderId',
+        element: <OrderDetails />,
       },
       {
         path: 'my-tickets',
