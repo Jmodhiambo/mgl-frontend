@@ -143,7 +143,7 @@ const CheckoutBookingPage: React.FC = () => {
     if (!isFree) {
       if (!phoneNumber.trim()) {
         errs.phoneNumber = 'Phone number is required';
-      } else if (!/^(\+254|0)[17]\d{8}$/.test(phoneNumber.trim())) {
+      } else if (!/^(\+254|254|0)[17]\d{8}$/.test(phoneNumber.trim())) {
         errs.phoneNumber = 'Enter a valid Kenyan number (e.g. +254712345678 or 0712345678)';
       }
     }

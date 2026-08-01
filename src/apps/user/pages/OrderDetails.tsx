@@ -1,5 +1,6 @@
 // src/apps/user/pages/OrderDetail.tsx
 // ─────────────────────────────────────────────────────────────────────────────
+// Route: /orders/:orderId
 //
 // Destination for the retry_url in the payment_failed email, and for the
 // "View Order" links on Checkout's stuck/reported/failed screens. Deliberately
@@ -21,11 +22,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Calendar, MapPin, Clock, CheckCircle, XCircle, AlertCircle, ChevronLeft,
   Loader2, RefreshCw, Smartphone, ShieldCheck, MessageSquareWarning, KeyRound,
+  Trash2, X,
 } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
 import { fetchUserOrdersEnriched } from '@user/services/dashboardService';
 import type { UserOrderEnriched } from '@user/services/dashboardService';
 import { getEventById } from '@user/services/eventService';
+import { deleteMyOrder } from '@shared/api/user/bookingsApi';
 import {
   initiateMpesaPayment, pollPaymentStatus, checkPaymentStatus, reportManualPayment,
   getPaymentsByOrder,
@@ -77,6 +80,10 @@ const OrderDetailPage: React.FC = () => {
   const [mpesaCode, setMpesaCode]         = useState('');
   const [isReporting, setIsReporting]     = useState(false);
   const [errors, setErrors]               = useState<FormErrors>({});
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting]               = useState(false);
+  const [deleteError, setDeleteError]             = useState<string | null>(null);
 
   const cancelPollRef = useRef<(() => void) | null>(null);
   useEffect(() => () => { cancelPollRef.current?.(); }, []);
@@ -130,7 +137,7 @@ const OrderDetailPage: React.FC = () => {
   // ── Payment actions ────────────────────────────────────────────────────────
 
   const validatePhone = (): boolean => {
-    if (!/^(\+254|0)[17]\d{8}$/.test(phoneNumber.trim())) {
+    if (!/^(\+254|254|0)[17]\d{8}$/.test(phoneNumber.trim())) {
       setErrors(p => ({ ...p, phoneNumber: 'Enter a valid Kenyan number (e.g. +254712345678 or 0712345678)' }));
       return false;
     }
@@ -238,6 +245,19 @@ const OrderDetailPage: React.FC = () => {
       setErrors({ general: parseApiError(err, 'Could not submit your M-Pesa code. Please try again.') });
     } finally {
       setIsReporting(false);
+    }
+  };
+
+  const handleDeleteOrder = async () => {
+    if (!order) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteMyOrder(order.id);
+      navigate('/orders');
+    } catch (err: any) {
+      setDeleteError(parseApiError(err, 'Could not delete this order. Please try again.'));
+      setIsDeleting(false);
     }
   };
 
@@ -350,6 +370,17 @@ const OrderDetailPage: React.FC = () => {
             )}
           </div>
         </div>
+
+        {order.status !== 'confirmed' && (
+          <div className="flex justify-end">
+            <button
+              onClick={() => { setShowDeleteConfirm(true); setDeleteError(null); }}
+              className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 font-medium"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Delete Order
+            </button>
+          </div>
+        )}
 
         {/* ── Confirmed ── */}
         {order.status === 'confirmed' && (
@@ -570,6 +601,58 @@ const OrderDetailPage: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* ── Delete confirmation modal ── */}
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={() => !isDeleting && setShowDeleteConfirm(false)}
+        >
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-gray-900">Delete this order?</h2>
+              <button
+                onClick={() => !isDeleting && setShowDeleteConfirm(false)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mb-5">
+              This can't be undone. Order #{order.id} for {order.event_title} will be permanently removed.
+            </p>
+
+            {deleteError && (
+              <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl px-3.5 py-3 mb-4">
+                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-red-700">{deleteError}</p>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteOrder}
+                disabled={isDeleting}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

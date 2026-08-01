@@ -95,6 +95,10 @@ export const getUserOrderById = async (orderId: number): Promise<OrderOut> => {
   return (await api.get(`/users/me/orders/${orderId}`)).data;
 };
 
+export const deleteMyOrder = async (orderId: number): Promise<void> => {
+  await api.delete(`/users/me/orders/${orderId}`);
+};
+
 // ── User ──────────────────────────────────────────────────────────────────────
 
 export const getUserBookings = async (): Promise<BookingOut[]> => {
