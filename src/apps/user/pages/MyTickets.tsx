@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Calendar, Ticket, Download, QrCode,
   MapPin, Clock, Search, CheckCircle, XCircle, AlertCircle,
-  ChevronDown, ChevronUp, Pencil, Check, X, Loader2,
+  ChevronDown, ChevronUp, Pencil, Check, X, Loader2, CalendarCheck,
 } from 'lucide-react';
 import { MyTicketsSEO } from '@shared/components/SEO';
 import { getUserTicketInstances, updateTicketHolderName } from '@shared/api/user/ticketInstancesApi';
@@ -305,7 +305,7 @@ const MyTicketsPage: React.FC = () => {
                               time to keep checkout friction-free; buyers
                               assign names to individual tickets afterward. */}
                           <div className="mb-4 pt-4 border-t border-gray-100">
-                            <div className="text-xs text-gray-500 mb-1.5">Ticket Holder Name</div>
+                            <div className="text-xs text-gray-500 mb-1.5">Ticket Holder</div>
                             {isEditing ? (
                               <div>
                                 <div className="flex items-center gap-2">
@@ -369,6 +369,16 @@ const MyTicketsPage: React.FC = () => {
                                 KES {ticket.price.toLocaleString()}
                               </div>
                             </div>
+                          </div>
+
+                          {/* Issued-at timestamp — created_at doubles as this,
+                              since a ticket instance is only ever created once,
+                              at issuance right after payment confirmation. */}
+                          <div className="flex items-center text-gray-400 mt-3">
+                            <CalendarCheck className="w-3.5 h-3.5 mr-1.5" />
+                            <span className="text-xs">
+                              Issued {formatDateShort(ticket.created_at)} at {formatTime(ticket.created_at)}
+                            </span>
                           </div>
                         </div>
 

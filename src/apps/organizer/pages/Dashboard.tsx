@@ -14,15 +14,9 @@ import {
   type OrganizerOrderOut,
   type TopEvent,
 } from '@shared/api/organizer/orgOrderApi';
-import { formatKES, formatDate } from '@shared/utils/format';
+import { formatKES, formatKESCompact, formatDate } from '@shared/utils/format';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-// const formatDate = (iso: string) =>
-//   new Date(iso).toLocaleDateString('en-US', {
-//     month: 'short', day: 'numeric',
-//     hour: '2-digit', minute: '2-digit',
-//   });
 
 const statusColour: Record<string, string> = {
   confirmed: 'bg-green-100 text-green-700',
@@ -141,7 +135,7 @@ const OrganizerDashboard: React.FC = () => {
           />
           <StatCard
             label="Gross Revenue"
-            value={`KES ${(stats.total_revenue / 1000).toFixed(0)}K`}
+            value={formatKESCompact(stats.total_revenue)}
             icon={<DollarSign className="w-6 h-6 text-green-600" />}
             accent="border-green-500"
           />
@@ -293,11 +287,11 @@ const OrganizerDashboard: React.FC = () => {
                             </div>
                             <div className="flex justify-between">
                               <span>Gross:</span>
-                              <span className="font-semibold">{formatKES(event.revenue)}</span>
+                              <span className="font-semibold">{formatKESCompact(event.revenue)}</span>
                             </div>
                             <div className="flex justify-between">
                               <span>Your net:</span>
-                              <span className="font-semibold text-green-600">{formatKES(event.organizer_net)}</span>
+                              <span className="font-semibold text-green-600">{formatKESCompact(event.organizer_net)}</span>
                             </div>
                           </div>
                         </div>

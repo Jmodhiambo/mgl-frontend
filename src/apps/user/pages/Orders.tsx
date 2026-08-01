@@ -10,9 +10,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  ChevronLeft, ChevronRight, Search, ShoppingBag, Calendar, AlertCircle,
+  ChevronLeft, ChevronRight, Search, ShoppingBag, Calendar, AlertCircle, CheckCircle, X,
 } from 'lucide-react';
 import { fetchUserOrdersEnriched } from '@user/services/dashboardService';
 import type { UserOrderEnriched } from '@user/services/dashboardService';
@@ -30,18 +30,37 @@ const PAGE_SIZE = 10;
 
 const OrdersListPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [orders, setOrders]   = useState<UserOrderEnriched[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
   const [search, setSearch]   = useState('');
   const [status, setStatus]   = useState('all');
   const [page, setPage]       = useState(1);
+  const [deletedMessage, setDeletedMessage] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = 'My Orders – MGLTickets';
     fetchUserOrdersEnriched()
       .then(data => { setOrders(data); setLoading(false); })
       .catch(() => { setError('Failed to load your orders.'); setLoading(false); });
+  }, []);
+
+  // Deletion confirmation, passed via navigate() state from OrderDetail's
+  // delete flow. Read once, then immediately clear it from history state
+  // so refreshing this page (or hitting Back into it) doesn't re-show a
+  // stale "order deleted" banner for an order that's long gone.
+  useEffect(() => {
+    const state = location.state as { deletedOrderId?: number; deletedEventTitle?: string } | null;
+    if (state?.deletedOrderId) {
+      setDeletedMessage(
+        state.deletedEventTitle
+          ? `Order #${state.deletedOrderId} for "${state.deletedEventTitle}" was deleted.`
+          : `Order #${state.deletedOrderId} was deleted.`
+      );
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = useMemo(() => {
@@ -73,6 +92,19 @@ const OrdersListPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">My Orders</h1>
           <p className="text-sm text-gray-500 mt-1">{orders.length} total orders</p>
         </div>
+
+        {deletedMessage && (
+          <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+            <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-emerald-800 flex-1">{deletedMessage}</p>
+            <button
+              onClick={() => setDeletedMessage(null)}
+              className="text-emerald-400 hover:text-emerald-600 flex-shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {error && (
           <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">

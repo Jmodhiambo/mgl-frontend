@@ -1,6 +1,5 @@
 // src/apps/user/pages/OrderDetail.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Route: /orders/:orderId
 //
 // Destination for the retry_url in the payment_failed email, and for the
 // "View Order" links on Checkout's stuck/reported/failed screens. Deliberately
@@ -254,7 +253,9 @@ const OrderDetailPage: React.FC = () => {
     setDeleteError(null);
     try {
       await deleteMyOrder(order.id);
-      navigate('/orders');
+      navigate('/orders', {
+        state: { deletedOrderId: order.id, deletedEventTitle: order.event_title },
+      });
     } catch (err: any) {
       setDeleteError(parseApiError(err, 'Could not delete this order. Please try again.'));
       setIsDeleting(false);
@@ -425,7 +426,7 @@ const OrderDetailPage: React.FC = () => {
               <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-5">
                 <ShieldCheck className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-blue-800">
-                  Your M-Pesa code is with our team for verification — you'll get an email once it's confirmed.
+                  Your M-Pesa code is with our team for verification, you'll get an email once it's confirmed.
                 </p>
               </div>
             )}
@@ -564,7 +565,7 @@ const OrderDetailPage: React.FC = () => {
                 </div>
                 <h2 className="font-bold text-gray-900 mb-1">Code submitted</h2>
                 <p className="text-sm text-gray-500">
-                  We've received your M-Pesa code — you'll get an email once it's confirmed.
+                  We've received your M-Pesa code, you'll get an email once it's confirmed.
                 </p>
               </div>
             )}
