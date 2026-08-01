@@ -5,7 +5,7 @@ import { ArrowLeft, Clock, Mail, MessageCircle } from 'lucide-react';
 import ArticleLayout from '@shared/components/layouts/ArticleLayout';
 import ArticleFeedback from '@shared/components/articles/ArticleFeedback';
 import RelatedArticles from '@shared/components/articles/RelatedArticles';
-import { getArticleBySlug } from '@shared/data/helpArticles';
+import { getArticleBySlug } from '@shared/articles/help/helpArticles';
 import { articleComponents } from '@shared/articles/help';
 import api from '@shared/api/axiosConfig'; // Your configured axios instance
 

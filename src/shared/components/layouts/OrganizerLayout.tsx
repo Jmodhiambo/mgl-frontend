@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link, Outlet, useLocation } from 'react-router-dom';
+import { useNavigate, Link, Outlet, useLocation, ScrollRestoration } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
 import { Calendar, LayoutDashboard, Ticket, Users, User, LogOut, Menu, X, ChevronRight, ScanLine } from 'lucide-react';
 
@@ -156,6 +156,10 @@ const OrganizerLayout: React.FC = () => {
           <Outlet />
         </div>
       </main>
+
+      {/* Resets scroll to top on navigation between these routes, restores
+          scroll position on browser back/forward */}
+      <ScrollRestoration />
     </div>
   );
 };

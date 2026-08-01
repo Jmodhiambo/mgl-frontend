@@ -1,6 +1,6 @@
 // src/shared/layouts/ImprovedLegalLayout.tsx
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, ScrollRestoration } from 'react-router-dom';
 import Navbar from '@shared/components/navigation/Navbar';
 import Footer from '@shared/components/navigation/Footer';
 
@@ -17,6 +17,8 @@ const ImprovedLegalLayout: React.FC = () => {
 
       {/* Footer */}
       <Footer />
+      {/* Scroll Restoration */}
+      <ScrollRestoration />
     </div>
   );
 };

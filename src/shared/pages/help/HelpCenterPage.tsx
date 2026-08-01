@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BookOpen, Search, Ticket, CreditCard, User, Calendar, Shield, Settings, ChevronRight, Mail, MessageCircle, Phone } from 'lucide-react';
-import { articleRegistry, getAllCategories, searchArticles } from '@shared/data/helpArticles';
+import { articleRegistry, getAllCategories, searchArticles } from '@shared/articles/help/helpArticles';
 import api from '@shared/api/axiosConfig';
 
 const HelpCenterPage: React.FC = () => {
@@ -27,6 +27,18 @@ const HelpCenterPage: React.FC = () => {
     'refunds': Settings,
     'organizers': Calendar,
     'security': Shield,
+  };
+
+  // Category description mapping
+  const categoryDescriptions: Record<string, string> = {
+    'getting-started': 'Learn the basics of using MGLTickets',
+    'buying-tickets': 'Everything about purchasing tickets',
+    'payments': 'Payment methods and billing information',
+    'account': 'Manage your account settings and profile',
+    'events': 'Information about attending events',
+    'refunds': 'Learn about our refund policies',
+    'organizers': 'Guides for hosting events on MGLTickets',
+    'security': 'Keep your account safe and secure',
   };
 
   const handleSearch = async (query: string) => {
@@ -171,48 +183,31 @@ const HelpCenterPage: React.FC = () => {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
               {categories.map((category) => {
                 const Icon = categoryIcons[category.id] || BookOpen;
-                const categoryArticles = articleRegistry.filter(
-                  (article) => article.categoryId === category.id
-                );
 
                 return (
-                  <div
+                  <Link
                     key={category.id}
-                    className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-all"
+                    to={`/help/categories/${category.id}`}
+                    className="block bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition-all group"
                   >
                     <div className="flex items-start justify-between mb-4">
-                      <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                        <Icon className="w-6 h-6 text-orange-600" />
+                      <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center group-hover:bg-orange-500 transition-colors">
+                        <Icon className="w-6 h-6 text-orange-600 group-hover:text-white transition-colors" />
                       </div>
-                      <span className="text-sm font-medium text-gray-500">
-                        {category.count} article{category.count !== 1 ? 's' : ''}
-                      </span>
+                      <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-orange-600 transition-colors" />
                     </div>
-                    
-                    <h3 className="text-xl font-bold text-gray-900 mb-3">
+
+                    <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-orange-600 transition-colors">
                       {category.name}
                     </h3>
+                    <p className="text-gray-600 text-sm mb-4">
+                      {categoryDescriptions[category.id] || ''}
+                    </p>
 
-                    <div className="space-y-2">
-                      {categoryArticles.slice(0, 3).map((article) => (
-                        <Link
-                          key={article.slug}
-                          to={`/help/articles/${article.slug}`}
-                          className="block text-sm text-gray-600 hover:text-orange-600 transition-colors"
-                        >
-                          → {article.title}
-                        </Link>
-                      ))}
-                      {categoryArticles.length > 3 && (
-                        <button
-                          onClick={() => handleSearch(category.name)}
-                          className="text-sm text-orange-600 hover:text-orange-700 font-medium"
-                        >
-                          View all {categoryArticles.length} articles →
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                    <p className="text-sm text-orange-600 font-medium">
+                      {category.count} article{category.count !== 1 ? 's' : ''}
+                    </p>
+                  </Link>
                 );
               })}
             </div>

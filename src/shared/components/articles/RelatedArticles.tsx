@@ -1,7 +1,7 @@
 // src/components/articles/RelatedArticles.tsx
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { getArticlesByCategory, ArticleMetadata } from '@shared/data/helpArticles';
+import { getArticlesByCategory, ArticleMetadata } from '@shared/articles/help/helpArticles';
 
 interface RelatedArticlesProps {
   currentSlug: string;

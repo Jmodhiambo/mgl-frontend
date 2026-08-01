@@ -1,5 +1,5 @@
 // src/shared/layouts/ProtectedLayout.tsx
-import { Outlet } from 'react-router-dom';
+import { Outlet, ScrollRestoration } from 'react-router-dom';
 import Navbar from '@shared/components/navigation/Navbar';
 import Footer from '@shared/components/navigation/Footer';
 
@@ -32,6 +32,10 @@ const ProtectedLayout: React.FC = () => {
 
       {/* Footer */}
       <Footer />
+
+      {/* Resets scroll to top on navigation between these routes, restores
+          scroll position on browser back/forward */}
+      <ScrollRestoration />
     </div>
   );
 }

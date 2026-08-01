@@ -1,6 +1,6 @@
 // src/shared/layouts/PublicLayout.tsx
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, ScrollRestoration } from 'react-router-dom';
 import Navbar from '@shared/components/navigation/Navbar';
 import Footer from '@shared/components/navigation/Footer';
 
@@ -12,6 +12,7 @@ import Footer from '@shared/components/navigation/Footer';
  * - Legal pages (Terms, Privacy, Refund Policy)
  * - Static pages (About, Contact, FAQ, Press, Careers)
  * - Public event listing/details pages
+ * - Help center pages
  * 
  * Features:
  * - Unified navbar that shows login/signup for guests
@@ -31,6 +32,10 @@ const PublicLayout: React.FC = () => {
 
       {/* Footer */}
       <Footer />
+
+      {/* Resets scroll to top on navigation between these routes, restores
+          scroll position on browser back/forward */}
+      <ScrollRestoration />
     </div>
   );
 };
