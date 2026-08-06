@@ -34,6 +34,10 @@ export const getBookingStatuses = async (): Promise<{ label: string; value: numb
   return (await api.get('/admin/analytics/booking-statuses')).data;
 };
 
+// getActivityFeed() below powers the Dashboard's recent-activity widget only.
+// It hits a distinct, curated endpoint (/admin/analytics/activity-feed) and
+// is NOT the same data source as listAuditLogs()/getMyActivity() — those
+// back the dedicated Audit Logs page. Keep these separate; do not merge.
 export interface ActivityFeedItem {
   id: number;
   message: string;
@@ -383,8 +387,18 @@ export const clearReadNotifications = async (): Promise<{ deleted: number; messa
   return (await api.delete('/admin/notifications/clear-read')).data;
 };
 
-// ─── Audit Logs (full list — AuditLogs.tsx page) ─────────────────────────────
- 
+// ─── Audit Logs ───────────────────────────────────────────────────────────────
+// Backs the Audit Logs page's two tabs:
+//   - listAuditLogs()  -> "All Activity" tab (system-wide, server-paginated,
+//                         server-filtered by action/target/date range)
+//   - getMyActivity()  -> "My Activity" tab (current admin only,
+//                         server-paginated) AND the My Profile page's
+//                         "My Activity" panel (small fixed limit)
+//
+// NOTE: this is a completely separate data source from getActivityFeed()
+// above (which powers the Dashboard's lightweight recent-activity widget
+// via /admin/analytics/activity-feed) — do not conflate the two.
+
 export const listAuditLogs = async (params?: {
   admin_id?: number;
   action?: string;
@@ -409,8 +423,9 @@ export const getAuditLogById = async (logId: number): Promise<AuditLog> => {
   return (await api.get(`/admin/audit-logs/${logId}`)).data;
 };
  
-// ─── My Activity (MyProfile.tsx — 'My Activity' tab) ─────────────────────────
- 
-export const getMyActivity = async (limit = 15): Promise<AuditLogWithTotalCount> => {
-  return (await api.get(`/admin/audit-logs/my?limit=${limit}`)).data;
+export const getMyActivity = async (
+  limit = 15,
+  offset = 0,
+): Promise<AuditLogWithTotalCount> => {
+  return (await api.get(`/admin/audit-logs/my?limit=${limit}&offset=${offset}`)).data;
 };

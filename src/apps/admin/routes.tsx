@@ -21,7 +21,6 @@ import AuditLogs   from '@admin/pages/AuditLogs';
 import Settings    from '@admin/pages/Settings';
 import Notifications from '@admin/pages/Notifications';
 import MyProfile from '@admin/pages/MyProfile';
-import ActivityFeed from '@admin/pages/ActivityFeed';
 
 export const router = createBrowserRouter([
   // Root redirect
@@ -58,7 +57,6 @@ export const router = createBrowserRouter([
       { path: 'settings',         element: <Settings /> },
       { path: 'notifications',    element: <Notifications /> },
       { path: 'profile',       element: <MyProfile /> },
-      { path: 'activity-feed',   element: <ActivityFeed /> },
     ],
   },
 

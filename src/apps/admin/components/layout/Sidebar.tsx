@@ -61,7 +61,6 @@ const navSections: NavSection[] = [
       { path: '/analytics',     label: 'Analytics',      icon: BarChart3  },
       { path: '/reports',       label: 'Reports',        icon: FileText   },
       { path: '/article-analytics', label: 'Article Analytics',   icon: BookOpen   },
-      { path: '/activity-feed', label: 'Activity Feed',  icon: Activity   },
     ],
   },
   {
