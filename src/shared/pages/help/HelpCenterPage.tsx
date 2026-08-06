@@ -1,9 +1,10 @@
-// src/pages/help/HelpCenterPage.tsx (Fixed with proper analytics tracking)
+// src/pages/help/HelpCenterPage.tsx
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BookOpen, Search, Ticket, CreditCard, User, Calendar, Shield, Settings, ChevronRight, Mail, MessageCircle, Phone } from 'lucide-react';
 import { articleRegistry, getAllCategories, searchArticles } from '@shared/articles/help/helpArticles';
-import api from '@shared/api/axiosConfig';
+import { trackArticleSearch, trackArticleSearchClick } from '@shared/api/user/articleAnalyticsApi';
+import { WHATSAPP_URL, SUPPORT_PHONE_NUMBER, SUPPORT_EMAIL } from '@shared/components/ENV';
 
 const HelpCenterPage: React.FC = () => {
 
@@ -43,27 +44,19 @@ const HelpCenterPage: React.FC = () => {
 
   const handleSearch = async (query: string) => {
     setSearchTerm(query);
-    
+
     if (query.trim().length > 0) {
       setIsSearching(true);
       setSearchStartTime(Date.now());
-      
+
       const results = searchArticles(query);
       setSearchResults(results);
-      
+
       // Track the search query
       try {
-        const response = await api.post('/analytics/article-search', {
-          query: query.trim(),
-          results_count: results.length,
-          // Optional: include session_id for anonymous users
-          session_id: sessionStorage.getItem('session_id') || null
-        });
-        
-        // Store the search ID for click tracking
-        if (response.data?.search_query_id) {
-          setLastSearchId(response.data.search_query_id);
-        }
+        const searchQuery = await trackArticleSearch(query.trim(), results.length);
+        // Store the search id for click tracking
+        setLastSearchId(searchQuery.id);
       } catch (error) {
         console.error('Failed to track search:', error);
         // Don't block UI if analytics fails
@@ -85,13 +78,13 @@ const HelpCenterPage: React.FC = () => {
     // Track which article was clicked from search results
     if (lastSearchId && isSearching) {
       try {
-        await api.post('/analytics/article-search-click', {
-          search_query_id: lastSearchId,
-          clicked_article_slug: articleSlug,
-          clicked_article_title: articleTitle,
-          result_position: position + 1,  // Convert to 1-indexed
-          time_to_click_seconds: timeToClick
-        });
+        await trackArticleSearchClick(
+          lastSearchId,
+          articleSlug,
+          articleTitle,
+          position + 1, // Convert to 1-indexed
+          timeToClick,
+        );
       } catch (error) {
         console.error('Failed to track search click:', error);
         // Don't block navigation if analytics fails
@@ -260,7 +253,7 @@ const HelpCenterPage: React.FC = () => {
               Contact Support
             </Link>
             <a
-              href="https://wa.me/254799602055"
+              href={WHATSAPP_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="bg-transparent border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-orange-600 transition-colors flex items-center justify-center gap-2"
@@ -269,7 +262,7 @@ const HelpCenterPage: React.FC = () => {
               WhatsApp Us
             </a>
             <a
-              href="tel:+254700000000"
+              href={`tel:${SUPPORT_PHONE_NUMBER}`}
               className="bg-transparent border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-orange-600 transition-colors flex items-center justify-center gap-2"
             >
               <Phone className="w-5 h-5" />

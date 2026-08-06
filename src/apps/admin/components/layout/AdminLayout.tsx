@@ -1,6 +1,6 @@
 // src/apps/admin/components/layout/AdminLayout.tsx
 import { useState, useEffect, useCallback } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, ScrollRestoration } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
 import Sidebar from './Sidebar';
 import Header from './Header';
@@ -21,11 +21,14 @@ const pageTitles: Record<string, string> = {
   '/dashboard':    'Dashboard',
   '/users':        'User Management',
   '/events':       'Event Management',
+  '/orders':       'Order Management',
   '/bookings':     'Bookings',
   '/payments':     'Payments',
   '/ticket-types': 'Ticket Types',
+  '/check-in':     'Check-In',
   '/messages':     'Contact Messages',
   '/analytics':    'Analytics',
+  '/article-analytics': 'Article Analytics',
   '/reports':      'Reports',
   '/audit-logs':   'Audit Logs',
   '/settings':     'Settings',
@@ -85,6 +88,11 @@ const AdminLayout: React.FC = () => {
     fetchBadges();
   }, [location.pathname, fetchBadges]);
 
+  // Close the mobile sidebar automatically after navigating
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
   // ── Derived ─────────────────────────────────────────────────────────────────
   const pageTitle = Object.entries(pageTitles).find(([path]) =>
     location.pathname === path || location.pathname.startsWith(path + '/')
@@ -93,55 +101,46 @@ const AdminLayout: React.FC = () => {
   const adminName = user?.name ?? 'Admin';
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
 
-      {/* ── Sidebar — desktop ── */}
-      <div className="hidden lg:flex flex-shrink-0">
-        <Sidebar
-          pendingApprovals={pendingApprovals}
-          openMessages={openMessages}
-          unreadNotifications={unreadNotifications}
-          onLogout={logout}
-        />
-      </div>
+      {/* ── Header — fixed top, offset past the sidebar on desktop ── */}
+      <Header
+        title={pageTitle}
+        onMenuToggle={() => setSidebarOpen(prev => !prev)}
+        menuOpen={sidebarOpen}
+        adminName={adminName}
+        unreadNotifications={unreadNotifications}
+        onNotificationsRead={() => setUnreadNotifications(0)}
+      />
 
-      {/* ── Sidebar — mobile overlay ── */}
+      {/* ── Sidebar — fixed left; slides in/out on mobile, always visible on desktop ── */}
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        pendingApprovals={pendingApprovals}
+        openMessages={openMessages}
+        unreadNotifications={unreadNotifications}
+        onLogout={logout}
+      />
+
+      {/* ── Mobile backdrop, shown only while the sidebar is open ── */}
       {sidebarOpen && (
         <div
-          className="lg:hidden fixed inset-0 z-40 flex"
+          className="lg:hidden fixed inset-0 z-20 bg-black/60"
           onClick={() => setSidebarOpen(false)}
-        >
-          <div className="absolute inset-0 bg-black/60" />
-          <div className="relative z-50" onClick={e => e.stopPropagation()}>
-            <Sidebar
-              pendingApprovals={pendingApprovals}
-              openMessages={openMessages}
-              unreadNotifications={unreadNotifications}
-              onLogout={logout}
-              onClose={() => setSidebarOpen(false)}
-            />
-          </div>
-        </div>
+        />
       )}
 
-      {/* ── Main content ── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header
-          title={pageTitle}
-          onMenuToggle={() => setSidebarOpen(prev => !prev)}
-          menuOpen={sidebarOpen}
-          adminName={adminName}
-          unreadNotifications={unreadNotifications}
-          onNotificationsRead={() => setUnreadNotifications(0)}
-        />
+      {/* ── Main content — padded past the fixed header/sidebar ── */}
+      <main className="pt-[var(--header-height)] lg:pl-[var(--sidebar-width)] min-h-screen">
+        <div className="page-container animate-fade-in">
+          <Outlet />
+        </div>
+      </main>
 
-        <main className="flex-1 overflow-y-auto">
-          <div className="page-container animate-fade-in">
-            <Outlet />
-          </div>
-        </main>
-      </div>
-
+      {/* Resets scroll to top on navigation between these routes, restores
+          scroll position on browser back/forward */}
+      <ScrollRestoration />
     </div>
   );
 };

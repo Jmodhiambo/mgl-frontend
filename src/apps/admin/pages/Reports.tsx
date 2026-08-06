@@ -81,7 +81,7 @@ const Reports: React.FC = () => {
             Email:    u.email,
             Role:     u.role,
             Active:   u.is_active,
-            Verified: u.is_verified,
+            Verified: u.email_verified,
             Joined:   formatDate(u.created_at),
           }));
       }

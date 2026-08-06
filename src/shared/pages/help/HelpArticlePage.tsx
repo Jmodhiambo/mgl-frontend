@@ -7,12 +7,12 @@ import ArticleFeedback from '@shared/components/articles/ArticleFeedback';
 import RelatedArticles from '@shared/components/articles/RelatedArticles';
 import { getArticleBySlug } from '@shared/articles/help/helpArticles';
 import { articleComponents } from '@shared/articles/help';
-import api from '@shared/api/axiosConfig'; // Your configured axios instance
+import { trackArticleView, trackArticleEngagement } from '@shared/api/user/articleAnalyticsApi';
 
 const HelpArticlePage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const startTimeRef = useRef<number>(Date.now());
-  const [maxScrollDepth, setMaxScrollDepth] = useState<number>(0);
+  const maxScrollDepthRef = useRef<number>(0);
   const hasTrackedInitialView = useRef<boolean>(false);
   
   // Get article metadata
@@ -25,6 +25,13 @@ const HelpArticlePage: React.FC = () => {
 
   // Get the article component
   const ArticleComponent = articleComponents[articleMeta.componentName];
+
+  // Reset tracking state when slug changes
+  useEffect(() => {
+    startTimeRef.current = Date.now();
+    maxScrollDepthRef.current = 0;
+    hasTrackedInitialView.current = false;
+  }, [slug]);
 
   // Track scroll depth
   useEffect(() => {
@@ -41,7 +48,7 @@ const HelpArticlePage: React.FC = () => {
       );
       
       // Update max scroll depth
-      setMaxScrollDepth(prev => Math.max(prev, Math.min(scrollDepth, 100)));
+      maxScrollDepthRef.current = Math.max(maxScrollDepthRef.current, Math.min(scrollDepth, 100));
     };
 
     // Add scroll listener
@@ -57,39 +64,15 @@ const HelpArticlePage: React.FC = () => {
   useEffect(() => {
     if (!slug || hasTrackedInitialView.current) return;
 
-    const trackArticleView = async () => {
+    const timeoutId = setTimeout(async () => {
       try {
-        // Get or create session ID
-        let sessionId = sessionStorage.getItem('session_id');
-        if (!sessionId) {
-          sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          sessionStorage.setItem('session_id', sessionId);
-        }
-
-        // Determine device type
-        const deviceType = window.innerWidth < 768 ? 'mobile' : 
-                          window.innerWidth < 1024 ? 'tablet' : 'desktop';
-
-        // Track the initial view
-        await api.post('/analytics/article-view', {
-          article_slug: slug,
-          session_id: sessionId,
-          referrer: document.referrer || 'direct',
-          device_type: deviceType,
-          user_agent: navigator.userAgent,
-          screen_width: window.innerWidth,
-          screen_height: window.innerHeight
-        });
-
+        await trackArticleView(slug);
         hasTrackedInitialView.current = true;
       } catch (error) {
         // Silent fail - don't disrupt user experience
         console.error('Failed to track article view:', error);
       }
-    };
-
-    // Track view after a short delay to ensure legitimate view
-    const timeoutId = setTimeout(trackArticleView, 1000);
+    }, 1000); // short delay to filter out drive-by/bounce loads
 
     return () => clearTimeout(timeoutId);
   }, [slug]);
@@ -102,21 +85,11 @@ const HelpArticlePage: React.FC = () => {
       try {
         // Calculate time spent in seconds
         const timeSpent = Math.round((Date.now() - startTimeRef.current) / 1000);
-        
+
         // Only track if user spent at least 3 seconds
         if (timeSpent < 3) return;
 
-        // Get session ID
-        const sessionId = sessionStorage.getItem('session_id');
-        if (!sessionId) return;
-
-        // Send engagement data
-        await api.post('/analytics/article-engagement', {
-          article_slug: slug,
-          session_id: sessionId,
-          time_spent_seconds: timeSpent,
-          scroll_depth_percent: maxScrollDepth
-        });
+        await trackArticleEngagement(slug, timeSpent, maxScrollDepthRef.current);
       } catch (error) {
         // Silent fail
         console.error('Failed to track engagement:', error);
@@ -148,7 +121,7 @@ const HelpArticlePage: React.FC = () => {
       // Final tracking on unmount
       trackEngagement();
     };
-  }, [slug, maxScrollDepth]);
+  }, [slug]);
 
   // Set page title
   useEffect(() => {
@@ -160,7 +133,7 @@ const HelpArticlePage: React.FC = () => {
   // If component doesn't exist, show coming soon
   if (!ArticleComponent) {
     return (
-      <ArticleLayout>
+      <ArticleLayout key={slug}>
         <Link 
           to="/help" 
           className="inline-flex items-center gap-2 text-orange-600 hover:text-orange-700 mb-6 font-medium"
@@ -188,7 +161,7 @@ const HelpArticlePage: React.FC = () => {
   }
 
   return (
-    <ArticleLayout>
+    <ArticleLayout key={slug}>
       {/* Breadcrumb */}
       <Link 
         to="/help" 
@@ -252,6 +225,7 @@ const HelpArticlePage: React.FC = () => {
       <RelatedArticles 
         currentSlug={slug!}
         category={articleMeta.categoryId}
+        limit={4}
       />
     </ArticleLayout>
   );

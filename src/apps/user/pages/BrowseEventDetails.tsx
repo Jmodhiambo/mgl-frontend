@@ -12,13 +12,23 @@
 // public URL (/events/:slug), never this page's own /browse-events/:slug
 // URL — a shared link or QR code needs to resolve correctly for anyone,
 // logged in or not.
+//
+// LAYOUT (Aug 2026 revamp): reference sites (mookh, madfun, ticketyetu,
+// mtickets) all put ticket selection in view on load with no scroll —
+// none of them run a full-bleed hero above it. This page now does the
+// same: a compact identity strip (thumbnail + title/meta, no big flyer
+// banner, no back link — the top nav already covers that) followed by a
+// two-column body where the booking panel — ticket rows, totals, and the
+// checkout CTA in one card — is what a mobile visitor sees first. About
+// and Event Details are still here for people who want them, just no
+// longer standing between the visitor and the buy button.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   Calendar, MapPin, Clock, Share2, Heart, QrCode, Link2,
-  ChevronLeft, Ticket, AlertCircle, RefreshCw, Tag,
+  Ticket, AlertCircle, RefreshCw, Tag,
 } from 'lucide-react';
 import { useAuth } from '@shared/contexts/AuthContext';
 import SEO from '@shared/components/SEO';
@@ -33,7 +43,7 @@ import {
   removeFavorite,
 } from '@user/services/eventService';
 import { parseApiError } from '@shared/utils/parseApiError';
-import { formatDate, formatTime, getDurationHours } from '@shared/utils/format';
+import { formatDate, formatTime } from '@shared/utils/format';
 import type { EventOut, TicketTypeOut, SelectedTickets } from '@shared/types/Event';
 
 // const baseUrl = import.meta.env.VITE_BASE_URL ?? 'https://mgltickets.com';
@@ -242,116 +252,141 @@ const BrowseEventDetailsPage: React.FC = () => {
       />
 
       <div className="min-h-screen bg-gray-50">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-10">
 
-        {/* ── Hero ────────────────────────────────────────────────────────── */}
-        <div className="relative w-full h-[420px] sm:h-[500px] overflow-hidden bg-gray-900">
-          <img
-            src={event.flyer_url}
-            alt={event.title}
-            className="w-full h-full object-cover opacity-50"
-          />
-          {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/60 to-transparent" />
+          {/* ── Identity strip ──────────────────────────────────────────────
+              Replaces the old full-bleed hero. Thumbnail + title/meta on the
+              left, quiet icon actions on the right. No "Back to Events" —
+              the top nav already gets people back to browsing. */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-5 mb-6">
 
-          {/* Back + actions — top bar */}
-          <div className="absolute top-0 left-0 right-0 px-4 sm:px-8 py-4 flex items-center justify-between">
-            <button
-              onClick={() => navigate('/browse-events')}
-              className="flex items-center gap-1.5 text-white/90 hover:text-white transition-colors text-sm font-medium"
-            >
-              <ChevronLeft className="w-5 h-5" />
-              <span className="hidden sm:inline">Back to Events</span>
-            </button>
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
-              {/* Favourite */}
-              {isAuthenticated && (
-                <button
-                  onClick={handleFavoriteToggle}
-                  disabled={favLoading}
-                  className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors backdrop-blur-sm disabled:opacity-60 ${
-                    isFavorite
-                      ? 'bg-orange-500/80 text-white'
-                      : 'bg-white/10 hover:bg-white/20 text-white'
-                  }`}
-                  title={isFavorite ? 'Remove from favourites' : 'Add to favourites'}
-                >
-                  <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
-                  <span className="hidden sm:inline">{isFavorite ? 'Saved' : 'Save'}</span>
-                </button>
-              )}
-              {/* Copy Link */}
-              <button
-                onClick={handleCopyLink}
-                className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors backdrop-blur-sm"
-                title="Copy event link"
-              >
-                <Link2 className="w-4 h-4" />
-                <span className="hidden sm:inline">{linkCopied ? 'Copied!' : 'Copy Link'}</span>
-              </button>
-              {/* QR / Share */}
-              <button
-                onClick={() => setShowShareModal(true)}
-                className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors backdrop-blur-sm"
-                title="Get a QR code for this event"
-              >
-                <QrCode className="w-4 h-4" />
-                <span className="hidden sm:inline">QR Code</span>
-              </button>
-              {/* Share */}
-              <button
-                onClick={handleShare}
-                className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors backdrop-blur-sm"
-                title="Share this event"
-              >
-                <Share2 className="w-4 h-4" />
-                <span className="hidden sm:inline">{copied ? 'Copied!' : 'Share'}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Event title + meta — bottom of hero */}
-          <div className="absolute bottom-0 left-0 right-0 px-4 sm:px-8 pb-8 max-w-[1400px] mx-auto">
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <span className="px-3 py-1 bg-orange-500 text-white text-xs font-bold rounded-full uppercase tracking-wide">
-                {event.category}
-              </span>
-              <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                event.status === 'upcoming'  ? 'bg-blue-500/30 text-blue-200 border border-blue-400/40' :
-                event.status === 'ongoing'   ? 'bg-green-500/30 text-green-200 border border-green-400/40' :
-                event.status === 'completed' ? 'bg-gray-500/30 text-gray-300 border border-gray-400/40' :
-                                               'bg-red-500/30 text-red-200 border border-red-400/40'
-              }`}>
-                {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
-              </span>
-              {lowestPrice !== null && (
-                <span className="px-3 py-1 bg-white/10 text-white text-xs font-semibold rounded-full border border-white/20">
-                  {lowestPrice === 0 ? 'Free' : `From KES ${lowestPrice.toLocaleString()}`}
+            {/* Mobile-only row: badges + icon actions get the full width to
+                themselves here, instead of squeezing in next to the thumbnail
+                and title below — that squeeze was cutting the title down to
+                a couple of characters on phone widths. */}
+            <div className="flex sm:hidden items-center justify-between mb-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2.5 py-0.5 bg-orange-500 text-white text-[11px] font-bold rounded-full uppercase tracking-wide">
+                  {event.category}
                 </span>
-              )}
+                {lowestPrice !== null && (
+                  <span className="px-2.5 py-0.5 bg-orange-50 text-orange-600 text-[11px] font-semibold rounded-full border border-orange-100">
+                    {lowestPrice === 0 ? 'Free' : `From KES ${lowestPrice.toLocaleString()}`}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-0.5 flex-shrink-0 -mr-1.5">
+                {isAuthenticated && (
+                  <button
+                    onClick={handleFavoriteToggle}
+                    disabled={favLoading}
+                    className={`p-2 rounded-lg transition-colors disabled:opacity-60 ${
+                      isFavorite ? 'bg-orange-50 text-orange-600' : 'text-gray-400 hover:bg-gray-50 hover:text-orange-500'
+                    }`}
+                    title={isFavorite ? 'Remove from favourites' : 'Add to favourites'}
+                  >
+                    <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+                  </button>
+                )}
+                <button
+                  onClick={handleCopyLink}
+                  className="p-2 rounded-lg text-gray-400 hover:bg-gray-50 hover:text-orange-500 transition-colors"
+                  title={linkCopied ? 'Copied!' : 'Copy event link'}
+                >
+                  <Link2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setShowShareModal(true)}
+                  className="p-2 rounded-lg text-gray-400 hover:bg-gray-50 hover:text-orange-500 transition-colors"
+                  title="Get a QR code for this event"
+                >
+                  <QrCode className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleShare}
+                  className="p-2 rounded-lg text-gray-400 hover:bg-gray-50 hover:text-orange-500 transition-colors"
+                  title={copied ? 'Copied!' : 'Share this event'}
+                >
+                  <Share2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight mb-4 drop-shadow-sm">
-              {event.title}
-            </h1>
-            <div className="flex flex-wrap gap-x-6 gap-y-2 text-white/80 text-sm">
-              <span className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-orange-400" />
-                {formatDate(event.start_time)}
-              </span>
-              <span className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-orange-400" />
-                {formatTime(event.start_time)} – {formatTime(event.end_time)}
-                <span className="text-white/50">({getDurationHours(event.start_time, event.end_time)})</span>
-              </span>
-              <span className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-orange-400" />
-                {event.venue}
-              </span>
+
+            <div className="flex items-start gap-3 sm:gap-4">
+              <img
+                src={event.flyer_url}
+                alt={event.title}
+                className="w-20 h-20 sm:w-28 sm:h-28 rounded-xl object-cover flex-shrink-0 bg-gray-100"
+              />
+              <div className="flex-1 min-w-0">
+                {/* Desktop-only badges — mobile shows these in the row above */}
+                <div className="hidden sm:flex flex-wrap items-center gap-2 mb-1.5">
+                  <span className="px-2.5 py-0.5 bg-orange-500 text-white text-[11px] font-bold rounded-full uppercase tracking-wide">
+                    {event.category}
+                  </span>
+                  {lowestPrice !== null && (
+                    <span className="px-2.5 py-0.5 bg-orange-50 text-orange-600 text-[11px] font-semibold rounded-full border border-orange-100">
+                      {lowestPrice === 0 ? 'Free' : `From KES ${lowestPrice.toLocaleString()}`}
+                    </span>
+                  )}
+                </div>
+                <h1 className="text-base sm:text-2xl font-bold text-gray-900 leading-snug sm:leading-tight mb-1.5">
+                  {event.title}
+                </h1>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 sm:gap-x-4 text-gray-500 text-xs sm:text-sm">
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-orange-400" />
+                    {formatDate(event.start_time)}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-orange-400" />
+                    {formatTime(event.start_time)} – {formatTime(event.end_time)}
+                  </span>
+                  <span className="flex items-center gap-1.5 truncate">
+                    <MapPin className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
+                    {event.venue}
+                  </span>
+                </div>
+              </div>
+
+              {/* Desktop-only icon actions — mobile shows these in the row above */}
+              <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
+                {isAuthenticated && (
+                  <button
+                    onClick={handleFavoriteToggle}
+                    disabled={favLoading}
+                    className={`p-2 rounded-lg transition-colors disabled:opacity-60 ${
+                      isFavorite ? 'bg-orange-50 text-orange-600' : 'text-gray-400 hover:bg-gray-50 hover:text-orange-500'
+                    }`}
+                    title={isFavorite ? 'Remove from favourites' : 'Add to favourites'}
+                  >
+                    <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+                  </button>
+                )}
+                <button
+                  onClick={handleCopyLink}
+                  className="p-2 rounded-lg text-gray-400 hover:bg-gray-50 hover:text-orange-500 transition-colors"
+                  title={linkCopied ? 'Copied!' : 'Copy event link'}
+                >
+                  <Link2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setShowShareModal(true)}
+                  className="p-2 rounded-lg text-gray-400 hover:bg-gray-50 hover:text-orange-500 transition-colors"
+                  title="Get a QR code for this event"
+                >
+                  <QrCode className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleShare}
+                  className="p-2 rounded-lg text-gray-400 hover:bg-gray-50 hover:text-orange-500 transition-colors"
+                  title={copied ? 'Copied!' : 'Share this event'}
+                >
+                  <Share2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-
-        {/* ── Body ────────────────────────────────────────────────────────── */}
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
           {/* Favourite error banner */}
           {favError && (
@@ -361,12 +396,87 @@ const BrowseEventDetailsPage: React.FC = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          {/* ── Body ───────────────────────────────────────────────────────
+              Booking panel comes FIRST in markup so mobile sees it before
+              anything else. On desktop it's pinned to the right column via
+              col-start; About/Details sit in the wider left column. */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
-            {/* ── Left: About + Details + Tickets ───────────────────────── */}
-            <div className="lg:col-span-2 space-y-6">
+            {/* ── Booking panel (tickets + totals + checkout, sticky) ────── */}
+            <div className="lg:col-start-3 lg:col-span-1 lg:row-start-1">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sticky top-6 space-y-4">
 
-              {/* About */}
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-bold text-gray-900">Tickets</h2>
+                  {ticketTypes.length > 0 && (
+                    <span className="text-xs text-gray-400">
+                      {ticketTypes.length} type{ticketTypes.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+
+                {ticketTypes.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <Ticket className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">No ticket types available yet.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {ticketTypes.map(ticket => (
+                      <TicketRow
+                        key={ticket.id}
+                        ticket={ticket}
+                        selectedQty={selectedTickets[ticket.id] ?? 0}
+                        onChange={handleTicketChange}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Totals */}
+                {totalTickets > 0 && (
+                  <div className="space-y-2 border-t border-gray-100 pt-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-semibold text-gray-700">
+                        Total ({totalTickets} ticket{totalTickets !== 1 ? 's' : ''})
+                      </span>
+                      {totalPrice === 0 ? (
+                        <span className="text-lg font-bold text-green-600">Free</span>
+                      ) : (
+                        <span className="text-lg font-bold text-orange-600">
+                          KES {totalPrice.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* CTA */}
+                <button
+                  onClick={handleCheckout}
+                  disabled={totalTickets === 0}
+                  className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3.5 rounded-xl transition-all shadow-sm text-sm"
+                >
+                  {totalTickets === 0 ? 'Select tickets to continue' : 'Proceed to Checkout'}
+                </button>
+
+                {/* Trust signals */}
+                <div className="border-t border-gray-100 pt-3 space-y-1.5 text-xs text-gray-400">
+                  <p className="flex items-center gap-2">
+                    <Ticket className="w-3.5 h-3.5 text-orange-400" />
+                    Instant booking confirmation
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <MapPin className="w-3.5 h-3.5 text-orange-400" />
+                    {event.venue}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* ── About + Event Details (secondary content) ───────────────── */}
+            <div className="lg:col-start-1 lg:col-span-2 lg:row-start-1 space-y-6">
+
               {event.description && (
                 <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
                   <h2 className="text-xl font-bold text-gray-900 mb-4">About This Event</h2>
@@ -376,7 +486,6 @@ const BrowseEventDetailsPage: React.FC = () => {
                 </section>
               )}
 
-              {/* Event Info strip */}
               <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-5">Event Details</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -413,121 +522,17 @@ const BrowseEventDetailsPage: React.FC = () => {
                 </div>
               </section>
 
-              {/* Ticket types */}
-              <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
-                <div className="flex items-center justify-between mb-5">
-                  <h2 className="text-xl font-bold text-gray-900">Select Tickets</h2>
-                  {ticketTypes.length > 0 && (
-                    <span className="text-xs text-gray-400">{ticketTypes.length} type{ticketTypes.length !== 1 ? 's' : ''} available</span>
-                  )}
-                </div>
-
-                {ticketTypes.length === 0 ? (
-                  <div className="text-center py-10 text-gray-400">
-                    <Ticket className="w-10 h-10 mx-auto mb-3 opacity-40" />
-                    <p className="text-sm">No ticket types available for this event yet.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {ticketTypes.map(ticket => (
-                      <TicketRow
-                        key={ticket.id}
-                        ticket={ticket}
-                        selectedQty={selectedTickets[ticket.id] ?? 0}
-                        onChange={handleTicketChange}
-                      />
-                    ))}
-                  </div>
-                )}
-              </section>
-            </div>
-
-            {/* ── Right: Booking card (sticky) ───────────────────────────── */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-6 space-y-5">
-
-                {/* Price summary header */}
-                <div>
-                  <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold mb-1">Your Order</p>
-                  {totalTickets === 0 ? (
-                    <p className="text-sm text-gray-400">No tickets selected yet.</p>
-                  ) : totalPrice === 0 ? (
-                    <p className="text-2xl font-bold text-green-600">Free</p>
-                  ) : (
-                    <p className="text-2xl font-bold text-gray-900">
-                      KES {totalPrice.toLocaleString()}
-                    </p>
-                  )}
-                </div>
-
-                {/* Line items */}
-                {totalTickets > 0 && (
-                  <div className="space-y-2 border-t border-gray-100 pt-4">
-                    {Object.entries(selectedTickets).map(([id, qty]) => {
-                      const t = ticketTypes.find(t => t.id === Number(id));
-                      if (!t) return null;
-                      return (
-                        <div key={id} className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">
-                            {qty}× <span className="font-medium text-gray-800">{t.name}</span>
-                          </span>
-                          {t.price === 0 ? (
-                            <span className="font-semibold text-green-600">Free</span>
-                          ) : (
-                            <span className="font-semibold text-gray-800">
-                              KES {(t.price * qty).toLocaleString()}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                    <div className="flex justify-between items-center pt-3 border-t border-gray-100 mt-2">
-                      <span className="text-sm font-semibold text-gray-700">
-                        Total ({totalTickets} ticket{totalTickets !== 1 ? 's' : ''})
-                      </span>
-                      {totalPrice === 0 ? (
-                        <span className="text-lg font-bold text-green-600">Free</span>
-                      ) : (
-                        <span className="text-lg font-bold text-orange-600">
-                          KES {totalPrice.toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* CTA */}
+              {/* Support — kept here rather than in the booking panel so the
+                  panel stays focused purely on buying. */}
+              <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <p className="text-sm text-gray-500 mb-3">Questions about this event?</p>
                 <button
-                  onClick={handleCheckout}
-                  disabled={totalTickets === 0}
-                  className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3.5 rounded-xl transition-all shadow-sm text-sm"
+                  onClick={() => navigate('/contact')}
+                  className="border border-gray-200 text-gray-600 hover:border-orange-400 hover:text-orange-600 px-5 py-2.5 rounded-xl text-sm font-medium transition-colors"
                 >
-                  {totalTickets === 0 ? 'Select tickets to continue' : 'Proceed to Checkout'}
+                  Contact Support
                 </button>
-
-                {/* Divider + trust signals */}
-                <div className="border-t border-gray-100 pt-4 space-y-2 text-xs text-gray-400">
-                  <p className="flex items-center gap-2">
-                    <Ticket className="w-3.5 h-3.5 text-orange-400" />
-                    Instant booking confirmation
-                  </p>
-                  <p className="flex items-center gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-orange-400" />
-                    {event.venue}
-                  </p>
-                </div>
-
-                {/* Support */}
-                <div className="border-t border-gray-100 pt-4">
-                  <p className="text-xs text-gray-500 mb-3">Questions about this event?</p>
-                  <button
-                    onClick={() => navigate('/contact')}
-                    className="w-full border border-gray-200 text-gray-600 hover:border-orange-400 hover:text-orange-600 py-2.5 rounded-xl text-sm font-medium transition-colors"
-                  >
-                    Contact Support
-                  </button>
-                </div>
-              </div>
+              </section>
             </div>
           </div>
         </div>

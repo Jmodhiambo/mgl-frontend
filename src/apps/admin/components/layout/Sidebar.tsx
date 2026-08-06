@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, Calendar, Ticket, CreditCard,
   MessageSquare, BarChart3, FileText, Settings, Shield,
   ClipboardList, ChevronRight, Zap, UserCog, LogOut,
-  Bell, Tag, X, Activity, ScanLine,
+  Bell, Tag, X, Activity, ScanLine, BookOpen,
 } from 'lucide-react';
 
 interface NavSection {
@@ -20,6 +20,9 @@ interface NavItem {
 }
 
 interface SidebarProps {
+  /** Controls the mobile slide-in/out state. Ignored above the lg breakpoint,
+   *  where the sidebar is always visible. */
+  isOpen?: boolean;
   onLogout?: () => void;
   onClose?: () => void;
   pendingApprovals?: number;
@@ -57,6 +60,7 @@ const navSections: NavSection[] = [
     items: [
       { path: '/analytics',     label: 'Analytics',      icon: BarChart3  },
       { path: '/reports',       label: 'Reports',        icon: FileText   },
+      { path: '/article-analytics', label: 'Article Analytics',   icon: BookOpen   },
       { path: '/activity-feed', label: 'Activity Feed',  icon: Activity   },
     ],
   },
@@ -70,6 +74,7 @@ const navSections: NavSection[] = [
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({
+  isOpen = false,
   onLogout,
   onClose,
   pendingApprovals = 0,
@@ -99,7 +104,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <aside className="sidebar flex flex-col h-screen sticky top-0 overflow-y-auto">
+    <aside
+      className={`sidebar flex flex-col h-screen overflow-y-auto fixed left-0 top-0 z-30
+        transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+    >
       {/* ── Logo ── */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-white/8">
         <div className="w-9 h-9 rounded-xl purple-gradient flex items-center justify-center flex-shrink-0 shadow-lg">

@@ -12,7 +12,7 @@ interface RelatedArticlesProps {
 const RelatedArticles: React.FC<RelatedArticlesProps> = ({ 
   currentSlug, 
   category,
-  limit = 3 
+  limit = 4 
 }) => {
   const relatedArticles = getArticlesByCategory(category)
     .filter((article: ArticleMetadata) => article.slug !== currentSlug)

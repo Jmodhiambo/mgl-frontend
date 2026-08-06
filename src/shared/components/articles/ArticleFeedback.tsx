@@ -1,7 +1,7 @@
 // src/components/articles/ArticleFeedback.tsx
 import React, { useState } from 'react';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
-import api from '@shared/api/axiosConfig';
+import { submitArticleFeedback } from '@shared/api/user/articleAnalyticsApi';
 
 interface ArticleFeedbackProps {
   articleSlug: string;
@@ -12,13 +12,10 @@ const ArticleFeedback: React.FC<ArticleFeedbackProps> = ({ articleSlug }) => {
 
   const handleFeedback = async (type: 'helpful' | 'not-helpful') => {
     setFeedback(type);
-    
+
     // Send to backend
     try {
-      await api.post('/analytics/article-feedback', {
-        articleSlug,
-        feedback: type
-      });
+      await submitArticleFeedback(articleSlug, type);
     } catch (error) {
       console.error('Failed to submit feedback:', error);
     }

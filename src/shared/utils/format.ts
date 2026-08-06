@@ -34,6 +34,19 @@ export const formatDateTime = (iso: string): string =>
 export const formatTime = (iso: string): string =>
   new Date(iso).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', hour12: false });
 
+export const formatSeconds = (seconds: number | null): string => {
+  if (seconds === null || Number.isNaN(seconds)) return '—';
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.round(seconds % 60);
+  return `${mins}m ${secs}s`;
+};
+
+export const formatPercent = (value: number | null): string => {
+  if (value === null || Number.isNaN(value)) return '—';
+  return `${Math.round(value * 100)}%`;
+};
+
 export const getDurationHours = (start: string, end: string): string => {
   const diff = (new Date(end).getTime() - new Date(start).getTime()) / 1000 / 60 / 60;
   if (diff < 1)  return `${Math.round(diff * 60)} min`;

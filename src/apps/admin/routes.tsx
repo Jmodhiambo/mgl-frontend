@@ -16,6 +16,7 @@ import CheckIn     from '@admin/pages/CheckIn';
 import Messages    from '@admin/pages/Messages';
 import Analytics   from '@admin/pages/Analytics';
 import Reports     from '@admin/pages/Reports';
+import ArticleAnalytics from '@admin/pages/ArticleAnalytics';
 import AuditLogs   from '@admin/pages/AuditLogs';
 import Settings    from '@admin/pages/Settings';
 import Notifications from '@admin/pages/Notifications';
@@ -52,6 +53,7 @@ export const router = createBrowserRouter([
       { path: 'messages',         element: <Messages /> },
       { path: 'analytics',        element: <Analytics /> },
       { path: 'reports',          element: <Reports /> },
+      { path: 'article-analytics', element: <ArticleAnalytics /> },
       { path: 'audit-logs',       element: <AuditLogs /> },
       { path: 'settings',         element: <Settings /> },
       { path: 'notifications',    element: <Notifications /> },

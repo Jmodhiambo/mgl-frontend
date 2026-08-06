@@ -148,7 +148,7 @@ const Header: React.FC<HeaderProps> = ({
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <header className="h-16 bg-white border-b border-gray-100 flex items-center px-6 gap-4 sticky top-0 z-30">
+    <header className="h-[var(--header-height)] bg-white border-b border-gray-100 flex items-center px-6 gap-4 fixed top-0 right-0 left-0 lg:left-[var(--sidebar-width)] z-40">
 
       {/* Mobile menu toggle */}
       <button onClick={onMenuToggle} className="lg:hidden btn-icon">

@@ -14,6 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import api from '@shared/api/axiosConfig';
+import type { AdminPayment } from '@admin/types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -174,7 +175,7 @@ export const pollPaymentStatus = (
 // in @admin/services/ordersApi.ts instead, alongside the Orders page that
 // surfaces them.
  
-export const admin_listAllPayments = async (): Promise<PaymentOut[]> => {
+export const admin_listAllPayments = async (): Promise<AdminPayment[]> => {
   return (await api.get('/admin/payments')).data;
 };
  
@@ -184,14 +185,14 @@ export const admin_countPayments = async (): Promise<number> => {
  
 export const admin_getLatestPayments = async (
   limit = 10,
-): Promise<PaymentOut[]> => {
+): Promise<AdminPayment[]> => {
   return (await api.get(`/admin/payments/latest?latest=${limit}`)).data;
 };
  
 export const admin_updatePaymentStatus = async (
   paymentId: number,
   status: string,
-): Promise<PaymentOut> => {
+): Promise<AdminPayment> => {
   return (
     await api.patch(`/admin/payments/${paymentId}/status`, null, {
       params: { status },
