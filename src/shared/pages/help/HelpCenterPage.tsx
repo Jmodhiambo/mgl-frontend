@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { BookOpen, Search, Ticket, CreditCard, User, Calendar, Shield, Settings, ChevronRight, Mail, MessageCircle, Phone } from 'lucide-react';
 import { articleRegistry, getAllCategories, searchArticles } from '@shared/articles/help/helpArticles';
 import { trackArticleSearch, trackArticleSearchClick } from '@shared/api/user/articleAnalyticsApi';
-import { WHATSAPP_URL, SUPPORT_PHONE_NUMBER, SUPPORT_EMAIL } from '@shared/components/ENV';
+import { WHATSAPP_URL, SUPPORT_PHONE_NUMBER } from '@shared/components/ENV';
 
 const HelpCenterPage: React.FC = () => {
 

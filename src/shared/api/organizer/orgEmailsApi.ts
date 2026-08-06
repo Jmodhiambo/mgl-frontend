@@ -5,8 +5,18 @@ import api from '@shared/api/axiosConfig';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+export interface BulkEmailFilterScope {
+  event_id?: number;
+  search?: string;
+  status?: string;
+  start_date?: string;
+  end_date?: string;
+  exclude_ids?: number[];
+}
+
 export interface SendEmailRequest {
-  booking_ids: number[];
+  booking_ids?: number[];
+  filters?: BulkEmailFilterScope;
   template_used: string;
   subject: string;
   body: string;
@@ -14,10 +24,9 @@ export interface SendEmailRequest {
 }
 
 export interface SendEmailResponse {
+  email_id: number;
   total_recipients: number;
-  queued: number;
-  failed: number;
-  email_id?: number;
+  status: string;
   message: string;
 }
 

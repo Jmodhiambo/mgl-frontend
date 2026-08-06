@@ -1,7 +1,7 @@
 // src/apps/organizer/components/BookingViewPage/EmailModal.tsx
 import React, { useEffect, useRef, useState } from 'react';
 import { XCircle, Send, Info, Eye } from 'lucide-react';
-import type { EmailTemplate, EmailTemplateExtraField } from '@organizer/pages/BookingsView';
+import type { EmailTemplate, EmailTemplateExtraField } from '@organizer/utils/emailTemplates';
 import { previewOrganizerEmail } from '@shared/api/organizer/orgEmailsApi';
 
 interface Booking {
@@ -16,6 +16,7 @@ interface Booking {
 
 interface EmailModalProps {
   selectedBookings: Booking[];
+  recipientCount: number;
   emailData: {
     template: string;
     subject: string;
@@ -42,6 +43,7 @@ const TEMPLATE_HINTS: Record<string, string> = {
 
 const EmailModal: React.FC<EmailModalProps> = ({
   selectedBookings,
+  recipientCount,
   emailData,
   emailTemplates,
   sendingEmail,
@@ -50,7 +52,7 @@ const EmailModal: React.FC<EmailModalProps> = ({
   onEmailDataChange,
   onSend,
 }) => {
-  const isBulk     = selectedBookings.length > 1;
+  const isBulk     = recipientCount > 1;
   const activeTpl  = emailTemplates.find(t => t.id === emailData.template);
   const extraFields: EmailTemplateExtraField[] = activeTpl?.extraFields ?? [];
   const hint       = TEMPLATE_HINTS[emailData.template];
@@ -129,7 +131,7 @@ const EmailModal: React.FC<EmailModalProps> = ({
             </h3>
             <p className="text-sm text-gray-500 mt-1">
               {isBulk
-                ? `Sending to ${selectedBookings.length} recipients`
+                ? `Sending to ${recipientCount} recipients`
                 : `To: ${selectedBookings[0]?.customer_name} (${selectedBookings[0]?.customer_email})`}
             </p>
           </div>
@@ -280,7 +282,7 @@ const EmailModal: React.FC<EmailModalProps> = ({
             ) : (
               <>
                 <Send className="w-4 h-4 mr-2" />
-                Send Email{isBulk ? ` to ${selectedBookings.length}` : ''}
+                Send Email{isBulk ? ` to ${recipientCount}` : ''}
               </>
             )}
           </button>

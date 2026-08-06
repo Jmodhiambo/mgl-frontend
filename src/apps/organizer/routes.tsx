@@ -12,6 +12,7 @@ import EventForm from '@organizer/pages/EventForm';
 import EventDetails from '@organizer/pages/EventDetails';
 import TicketTypes from '@organizer/pages/TicketTypes';
 import BookingsView from '@organizer/pages/BookingsView';
+import BulkEmailPage from '@organizer/pages/BulkEmailPage';
 import Profile from '@organizer/pages/Profile';
 import CheckInPage from '@organizer/pages/CheckIn';
 import CoOrganizers from '@organizer/pages/CoOrganizers';
@@ -87,6 +88,10 @@ export const router = createBrowserRouter([
         path: 'bookings',
         // All bookings across all events (no eventId needed)
         element: <BookingsView />,
+      },
+      {
+        path: 'bulk-emails',
+        element: <BulkEmailPage />,
       },
       {
         path: 'check-in',

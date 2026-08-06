@@ -1,15 +1,14 @@
 // src/apps/organizer/pages/BookingsView.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@shared/contexts/AuthContext';
 import {
   Search, Ticket, User, DollarSign, Download,
   CheckCircle, Clock, XCircle, AlertCircle,
-  ChevronRight, ChevronLeft, Package,
+  ChevronRight, ChevronLeft, Package, Mail,
 } from 'lucide-react';
 import BookingDetailsModal from '@organizer/components/modals/bookings/BookingDetailsModal';
 import EmailModal from '@organizer/components/modals/bookings/EmailModal';
-import BulkActionBar from '@organizer/components/modals/bookings/BulkActionBar';
 import BookingsTable from '@organizer/components/modals/bookings/BookingsTable';
 import OrdersTable from '@organizer/components/modals/bookings/OrdersTable';
 import {
@@ -20,220 +19,17 @@ import {
   getOrganizerOrders,
   type OrganizerOrderOut,
 } from '@shared/api/organizer/orgOrderApi';
-import { formatKES } from '@shared/utils/format';
+import { formatKES, formatDate } from '@shared/utils/format';
 import { sendOrganizerEmail } from '@shared/api/organizer/orgEmailsApi';
+import type { Booking } from '@shared/types/Booking';
+import { EMAIL_TEMPLATES, bookingReplacements, fillTokens } from '@organizer/utils/emailTemplates';
  
-// ── Types ─────────────────────────────────────────────────────────────────────
- 
-interface Booking {
-  id: number;
-  order_id?: number;       // parent order — customer-facing reference
-  user_id: number;
-  event_id?: number;
-  ticket_type_id: number;
-  quantity: number;
-  status: string;
-  total_price: number;
-  created_at: string;
-  updated_at: string;
-  customer_name?: string;
-  customer_email?: string;
-  event_title?: string;
-  ticket_type_name?: string;
-  venue?: string;
-  event_date?: string;
-}
- 
-export interface EmailTemplateExtraField {
-  key: string;
-  label: string;
-  placeholder: string;
-  type: 'text' | 'textarea';
-}
- 
-export interface EmailTemplate {
-  id: string;
-  name: string;
-  subject: string;
-  body: string;
-  extraFields?: EmailTemplateExtraField[];
-}
- 
-type ViewTab = 'orders' | 'bookings';
+// ── Helpers ─────────────────────────────────────────────────────────────────────
 
+type ViewTab = 'orders' | 'bookings';
+ 
 const BOOKINGS_PAGE_SIZE = 20;
 const ORDERS_PAGE_SIZE = 20;
- 
-// ── Email templates ────────────────────────────────────────────────────────────
-// These subject/body strings are STARTING DRAFTS ONLY — purely client-side
-// prefill text to save organizers from a blank textbox. They are not
-// authoritative and are not rendered by the backend. Once a template is
-// selected, subject and message are fully editable, and whatever the
-// organizer ends up with is exactly what gets sent (see handleSendEmail
-// below) — the backend renders it through the same branded wrapper the
-// live preview in EmailModal uses, so there's no separate "real" copy
-// living on the server that could drift from what's shown here.
- 
-const EMAIL_TEMPLATES: EmailTemplate[] = [
-  {
-    id: 'organizer.reminder',
-    name: 'Event Reminder',
-    subject: 'Reminder: {{event_title}} is Coming Up!',
-    body: `Dear {{customer_name}},
- 
-This is a friendly reminder that {{event_title}} is coming up soon!
- 
-Event Details:
-- Venue: {{venue}}
-- Date & Time: {{event_date}}
-- Ticket Type: {{ticket_type}}
-- Quantity: {{quantity}} ticket(s)
-- Order: #{{order_id}}
- 
-Please arrive 30 minutes before the event starts and bring a valid ID.
- 
-We look forward to seeing you!
- 
-Best regards,
-{{organizer_name}}`,
-  },
-  {
-    id: 'organizer.update',
-    name: 'Event Update',
-    subject: 'Important Update: {{event_title}}',
-    body: `Dear {{customer_name}},
- 
-We have an important update regarding {{event_title}}.
- 
-{{update_message}}
- 
-Your Booking:
-- Ticket Type: {{ticket_type}}
-- Quantity: {{quantity}} ticket(s)
-- Order: #{{order_id}}
- 
-If you have any questions, please contact us immediately.
- 
-Best regards,
-{{organizer_name}}`,
-    extraFields: [
-      { key: 'update_message', label: 'Update Details', placeholder: 'Describe what has changed...', type: 'textarea' },
-    ],
-  },
-  {
-    id: 'organizer.thank_you',
-    name: 'Thank You',
-    subject: 'Thank You for Attending {{event_title}}!',
-    body: `Dear {{customer_name}},
- 
-Thank you so much for attending {{event_title}}! We hope you had a wonderful experience.
- 
-We'd love to hear your feedback — what did you enjoy most, and what could we improve?
- 
-We look forward to seeing you at our future events!
- 
-Warm regards,
-{{organizer_name}}`,
-  },
-  {
-    id: 'organizer.cancellation',
-    name: 'Event Cancellation',
-    subject: 'Important: {{event_title}} Has Been Cancelled',
-    body: `Dear {{customer_name}},
- 
-We regret to inform you that {{event_title}} has been cancelled.
- 
-Reason: {{cancellation_reason}}
- 
-Your Booking:
-- Ticket Type: {{ticket_type}}
-- Quantity: {{quantity}} ticket(s)
-- Amount Paid: KES {{total_price}}
-- Order: #{{order_id}}
- 
-A full refund will be processed within 5–7 business days to your original payment method.
- 
-We sincerely apologise for any inconvenience caused.
- 
-Best regards,
-{{organizer_name}}`,
-    extraFields: [
-      { key: 'cancellation_reason', label: 'Reason for Cancellation', placeholder: 'Explain why the event is being cancelled...', type: 'textarea' },
-    ],
-  },
-  {
-    id: 'organizer.venue_change',
-    name: 'Venue Change',
-    subject: 'Venue Change: {{event_title}}',
-    body: `Dear {{customer_name}},
- 
-Important notice: The venue for {{event_title}} has been changed.
- 
-Previous Venue: {{old_venue}}
-New Venue: {{new_venue}}
- 
-Date & Time: {{event_date}} (UNCHANGED)
-Ticket Type: {{ticket_type}}
-Quantity: {{quantity}} ticket(s)
-Order: #{{order_id}}
- 
-Your booking is still valid for the new venue.
- 
-Best regards,
-{{organizer_name}}`,
-    extraFields: [
-      { key: 'old_venue', label: 'Previous Venue', placeholder: 'e.g. Uhuru Gardens', type: 'text' },
-      { key: 'new_venue', label: 'New Venue',      placeholder: 'e.g. KICC Grounds',  type: 'text' },
-    ],
-  },
-  {
-    id: 'organizer.time_change',
-    name: 'Time Change',
-    subject: 'Time Change: {{event_title}}',
-    body: `Dear {{customer_name}},
- 
-Important notice: The date/time for {{event_title}} has been changed.
- 
-Previous Date/Time: {{old_date_time}}
-New Date/Time: {{new_date_time}}
- 
-Venue: {{venue}} (UNCHANGED)
-Ticket Type: {{ticket_type}}
-Quantity: {{quantity}} ticket(s)
-Order: #{{order_id}}
- 
-Best regards,
-{{organizer_name}}`,
-    extraFields: [
-      { key: 'old_date_time', label: 'Previous Date & Time', placeholder: 'e.g. July 15, 2025 at 7:00 PM', type: 'text' },
-      { key: 'new_date_time', label: 'New Date & Time',      placeholder: 'e.g. July 22, 2025 at 7:00 PM', type: 'text' },
-    ],
-  },
-  { id: 'custom', name: 'Custom Message', subject: '', body: '' },
-];
- 
-// ── Helpers ───────────────────────────────────────────────────────────────────
- 
-const bookingReplacements = (ref: Booking | null, orgName: string): Record<string, string> => ({
-  customer_name:  ref?.customer_name        ?? '',
-  event_title:    ref?.event_title          ?? '',
-  ticket_type:    ref?.ticket_type_name     ?? '',
-  quantity:       ref?.quantity?.toString() ?? '',
-  order_id:       ref?.order_id?.toString() ?? ref?.id?.toString() ?? '',
-  total_price:    ref?.total_price?.toLocaleString() ?? '',
-  venue:          ref?.venue                ?? '',
-  event_date:     ref?.event_date ? formatDate(ref.event_date) : '',
-  organizer_name: orgName,
-});
- 
-const fillTokens = (text: string, rep: Record<string, string>): string =>
-  text.replace(/\{\{(\w+)\}\}/g, (m, k) => k in rep ? rep[k] : m);
- 
-const formatDate = (s: string) =>
-  new Date(s).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
  
 const statusStyle: Record<string, string> = {
   confirmed: 'bg-green-100 text-green-700',
@@ -251,6 +47,7 @@ const statusIcon: Record<string, React.ReactNode> = {
  
 const BookingsView: React.FC = () => {
   const { eventId } = useParams<{ eventId?: string }>();
+  const navigate    = useNavigate();
   const { user }    = useAuth();
   const organizerName = user?.name.split(' ')[0] ?? 'Organizer';
  
@@ -297,10 +94,11 @@ const BookingsView: React.FC = () => {
     return () => clearTimeout(t);
   }, [searchQuery]);
 
-  // Bulk + modal state (bookings tab)
-  const [isBulkMode,        setIsBulkMode]        = useState(false);
-  const [selectedBookings,  setSelectedBookings]  = useState<number[]>([]);
-  const [selectAll,         setSelectAll]         = useState(false);
+  // Modal state (bookings tab). Bulk selection lives on the dedicated
+  // /emails page now — BookingsView only ever emails the single row a
+  // person clicks "Email" on, since a bulk selection made here (especially
+  // on the all-events "Bookings" tab) could otherwise span multiple
+  // events without that being obvious. See openEmailModal below.
   const [showBookingDetails, setShowBookingDetails] = useState(false);
   const [selectedBooking,   setSelectedBooking]   = useState<Booking | null>(null);
   const [showEmailModal,    setShowEmailModal]    = useState(false);
@@ -395,13 +193,6 @@ const BookingsView: React.FC = () => {
     if (activeTab === 'bookings') loadBookings(0);
   }, [activeTab, loadBookings]);
  
-  // ── Select all sync ──────────────────────────────────────────────────────
- 
-  useEffect(() => {
-    if (filteredBookings.length > 0)
-      setSelectAll(filteredBookings.every(b => selectedBookings.includes(b.id)));
-  }, [selectedBookings, filteredBookings]);
- 
   // ── Email token substitution ─────────────────────────────────────────────
  
   useEffect(() => {
@@ -446,17 +237,6 @@ const BookingsView: React.FC = () => {
     </span>
   );
  
-  const toggleBookingSelection = (id: number) =>
-    setSelectedBookings(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
- 
-  const toggleSelectAll = () => {
-    setSelectedBookings(selectAll ? [] : filteredBookings.map(b => b.id));
-    setSelectAll(!selectAll);
-  };
- 
-  const clearSelection = () => { setSelectedBookings([]); setSelectAll(false); setIsBulkMode(false); };
-  const enterBulkMode  = () => { setIsBulkMode(true); setSelectedBookings([]); };
- 
   const handleViewBooking   = (b: Booking) => { setSelectedBooking(b); setShowBookingDetails(true); };
   const closeBookingDetails = () => { setShowBookingDetails(false); setSelectedBooking(null); };
  
@@ -476,17 +256,19 @@ const BookingsView: React.FC = () => {
   };
  
   const openEmailModal = (b: Booking) => {
-    setSelectedBookings([b.id]);
     setSelectedBooking(b);
     setShowEmailModal(true);
     resetEmailData();
   };
- 
-  const openBulkEmailModal = () => {
-    if (!selectedBookings.length) { alert('Please select at least one booking'); return; }
-    setSelectedBooking(bookings.find(b => selectedBookings.includes(b.id)) ?? null);
-    setShowEmailModal(true);
-    resetEmailData();
+
+  // Bulk sending lives on its own page now (see routes.tsx: /emails) —
+  // this just hands off, carrying the current event scope along so the
+  // organizer doesn't have to re-pick it. eventId is only set when this
+  // view is already scoped to one event (/events/:eventId/bookings); on
+  // the all-events "Bookings" tab there's nothing to pre-select, and
+  // BulkEmailPage requires an explicit choice before showing anything.
+  const navigateToBulkEmail = () => {
+    navigate(eventId ? `/bulk-emails?event=${eventId}` : '/bulk-emails');
   };
  
   const handleTemplateChange = (templateId: string) => {
@@ -504,6 +286,7 @@ const BookingsView: React.FC = () => {
   };
  
   const handleSendEmail = async () => {
+    if (!selectedBooking) return; // shouldn't happen — modal only opens with a booking set
     if (!emailData.subject || !emailData.message) { alert('Please fill in subject and message'); return; }
     setSendingEmail(true);
     try {
@@ -516,24 +299,21 @@ const BookingsView: React.FC = () => {
 
       // subject/body are always the organizer's own (possibly edited) text
       // for every template now — the backend renders them through the same
-      // branded wrapper the live preview used, so this is exactly what
-      // recipients receive, personalised per booking on the backend.
+      // branded wrapper the live preview used, so this is exactly what the
+      // recipient receives.
       const result = await sendOrganizerEmail({
-        booking_ids: selectedBookings,
+        booking_ids: [selectedBooking.id],
         template_used,
         subject: emailData.subject,
         body: emailData.message,
         extra_variables,
       });
 
-      const msg = result.failed > 0
-        ? `${result.queued} email(s) queued. ${result.failed} failed.`
-        : `${result.queued} email(s) queued successfully.`;
-      alert(msg);
+      alert(`Sending to ${result.total_recipients} recipient(s). Check Email History for delivery status.`);
 
       setShowEmailModal(false);
       resetEmailData();
-      clearSelection();
+      setSelectedBooking(null);
     } catch (err: any) {
       const detail = err?.response?.data?.detail ?? 'Failed to send email. Please try again.';
       alert(detail);
@@ -812,14 +592,16 @@ const BookingsView: React.FC = () => {
               </div>
             )}
  
-            <BulkActionBar
-              selectedCount={selectedBookings.length}
-              isBulkMode={isBulkMode}
-              onEnterBulkMode={enterBulkMode}
-              onClearSelection={clearSelection}
-              onBulkEmail={openBulkEmailModal}
-            />
- 
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={navigateToBulkEmail}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-blue-200 text-blue-600 rounded-lg text-sm font-semibold hover:bg-blue-50 transition-colors"
+              >
+                <Mail className="w-4 h-4" />
+                Send Bulk Email{eventId ? ' for This Event' : ''}
+              </button>
+            </div>
+
             {bookingsLoading ? (
               <div className="flex items-center justify-center py-20">
                 <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent" />
@@ -836,15 +618,17 @@ const BookingsView: React.FC = () => {
               </div>
             ) : (
               <>
-                {/* Desktop table — BookingsTable renders its own bg/shadow container */}
+                {/* Desktop table — BookingsTable renders its own bg/shadow container.
+                    isBulkMode is always false now — bulk selection lives on the
+                    dedicated /emails page — so its checkbox column never renders here. */}
                 <div className="hidden md:block">
                   <BookingsTable
                     bookings={filteredBookings}
-                    selectedBookings={selectedBookings}
-                    selectAll={selectAll}
-                    isBulkMode={isBulkMode}
-                    onToggleSelectAll={toggleSelectAll}
-                    onToggleBooking={toggleBookingSelection}
+                    selectedBookings={[]}
+                    selectAll={false}
+                    isBulkMode={false}
+                    onToggleSelectAll={() => {}}
+                    onToggleBooking={() => {}}
                     onViewBooking={handleViewBooking}
                     onEmailBooking={openEmailModal}
                     getStatusBadge={getStatusBadge}
@@ -856,48 +640,24 @@ const BookingsView: React.FC = () => {
 
                 {/* Mobile cards */}
                 <div className="md:hidden bg-white rounded-xl shadow-md overflow-hidden divide-y divide-gray-200">
-                  {isBulkMode && filteredBookings.length > 0 && (
-                    <label className="flex items-center gap-2 px-4 py-3 bg-gray-50 text-sm font-medium text-gray-600">
-                      <input
-                        type="checkbox"
-                        checked={selectAll}
-                        onChange={toggleSelectAll}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      Select all
-                    </label>
-                  )}
                   {filteredBookings.map((b, index) => (
-                    <div
-                      key={b.id}
-                      className={`p-4 ${isBulkMode && selectedBookings.includes(b.id) ? 'bg-blue-50' : ''}`}
-                    >
+                    <div key={b.id} className="p-4">
                       <div className="flex items-start justify-between mb-2">
-                        <div className={isBulkMode ? 'flex items-start gap-3 flex-1 min-w-0' : 'flex-1 min-w-0'}>
-                          {isBulkMode && (
-                            <input
-                              type="checkbox"
-                              checked={selectedBookings.includes(b.id)}
-                              onChange={() => toggleBookingSelection(b.id)}
-                              className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 flex-shrink-0"
-                            />
+                        <div
+                          className="flex-1 min-w-0 cursor-pointer"
+                          onClick={() => handleViewBooking(b)}
+                        >
+                          <p className="text-xs text-gray-400">#{bookingsOffset + index + 1}</p>
+                          <p className="font-semibold text-gray-800 text-sm truncate">
+                            {b.customer_name ?? 'Unknown customer'}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">{b.customer_email}</p>
+                          <p className="text-xs text-gray-500 truncate mt-0.5">
+                            {b.ticket_type_name} · {b.quantity} ticket{b.quantity !== 1 ? 's' : ''}
+                          </p>
+                          {!eventId && b.event_title && (
+                            <p className="text-xs text-blue-600 truncate mt-0.5">{b.event_title}</p>
                           )}
-                          <div
-                            className={!isBulkMode ? 'cursor-pointer min-w-0' : 'min-w-0'}
-                            onClick={() => !isBulkMode && handleViewBooking(b)}
-                          >
-                            <p className="text-xs text-gray-400">#{bookingsOffset + index + 1}</p>
-                            <p className="font-semibold text-gray-800 text-sm truncate">
-                              {b.customer_name ?? 'Unknown customer'}
-                            </p>
-                            <p className="text-xs text-gray-500 truncate">{b.customer_email}</p>
-                            <p className="text-xs text-gray-500 truncate mt-0.5">
-                              {b.ticket_type_name} · {b.quantity} ticket{b.quantity !== 1 ? 's' : ''}
-                            </p>
-                            {!eventId && b.event_title && (
-                              <p className="text-xs text-blue-600 truncate mt-0.5">{b.event_title}</p>
-                            )}
-                          </div>
                         </div>
                         <div className="text-right flex-shrink-0 ml-2">
                           <p className="font-bold text-gray-800 text-sm">{formatKES(b.total_price)}</p>
@@ -906,22 +666,20 @@ const BookingsView: React.FC = () => {
                       </div>
                       <div className="flex items-center justify-between mt-3">
                         <p className="text-xs text-gray-400">{formatDate(b.created_at)}</p>
-                        {!isBulkMode && (
-                          <div className="flex items-center gap-4">
-                            <button
-                              onClick={() => handleViewBooking(b)}
-                              className="text-xs font-medium text-blue-600 hover:underline"
-                            >
-                              View
-                            </button>
-                            <button
-                              onClick={() => openEmailModal(b)}
-                              className="text-xs font-medium text-green-600 hover:underline"
-                            >
-                              Email
-                            </button>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-4">
+                          <button
+                            onClick={() => handleViewBooking(b)}
+                            className="text-xs font-medium text-blue-600 hover:underline"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => openEmailModal(b)}
+                            className="text-xs font-medium text-green-600 hover:underline"
+                          >
+                            Email
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -973,9 +731,10 @@ const BookingsView: React.FC = () => {
         />
       )}
  
-      {showEmailModal && (
+      {showEmailModal && selectedBooking && (
         <EmailModal
-          selectedBookings={bookings.filter(b => selectedBookings.includes(b.id))}
+          selectedBookings={[selectedBooking]}
+          recipientCount={1}
           emailData={emailData}
           emailTemplates={EMAIL_TEMPLATES}
           sendingEmail={sendingEmail}
